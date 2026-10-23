@@ -132,6 +132,38 @@
     <string name="settings_seconds">%1$d s</string>
     <string name="settings_mindful_hint">Turn these on for an app from its long-press menu.</string>
     <string name="settings_time_reminder">Time reminder</string>
+    <string name="time_up_more">More time</string>
+
+    <!-- Precision mode -->
+    <string name="precision_service_label">STILL Precision mode</string>
+    <string name="precision_service_description">Lets STILL notice which app is in front, so your blocks, schedules, launch delays and time reminders apply however you open an app, and lets you lock the screen by double-tapping home. STILL can\'t read what\'s on screen or what you type, and nothing leaves your phone.</string>
+    <string name="precision_title">Precision mode</string>
+    <string name="precision_intro">Without it, STILL only steps in when you open apps from STILL. Apps opened from Recents, a notification or a link get past your blocks.</string>
+    <string name="precision_what_it_does">What it does</string>
+    <string name="precision_does_everywhere">• Blocks, schedules, launch delays and time reminders apply however you open an app.</string>
+    <string name="precision_does_time_up">• When time\'s up, STILL steps in front of the app instead of only sending a notification.</string>
+    <string name="precision_does_lock">• Double-tap empty space on home to lock the screen.</string>
+    <string name="precision_what_it_sees">What STILL sees</string>
+    <string name="precision_sees">Precision mode uses Android\'s Accessibility service only to notice which app is in front. STILL can\'t read what\'s on screen, what you type or your passwords. Nothing is saved, and nothing leaves your phone.</string>
+    <string name="precision_agree">Agree and turn on</string>
+    <string name="precision_steps">In the Accessibility settings that open next, choose STILL Precision mode and turn it on.</string>
+    <string name="precision_restricted">If Android says the setting is restricted: open App info, tap ⋮ at the top right, choose Allow restricted settings, then try again.</string>
+    <string name="precision_app_info">Open App info</string>
+    <string name="precision_on">Precision mode is on.</string>
+    <string name="precision_turn_off">Turn off</string>
+    <string name="precision_lost_title">Precision mode is off, so blocks only work when you open apps from STILL.</string>
+    <string name="precision_lost_turn_on">Turn on</string>
+    <string name="precision_lost_dismiss">Dismiss</string>
+    <string name="settings_precision">Precision mode</string>
+    <string name="settings_precision_detail">So blocks work however you open an app</string>
+    <string name="settings_section_gestures">Gestures</string>
+    <string name="settings_double_tap_lock">Double-tap to lock</string>
+    <string name="settings_double_tap_lock_detail">Double-tap empty space on home</string>
+    <string name="settings_double_tap_lock_needs_precision">Double-tap empty space on home. Needs Precision mode.</string>
+    <string name="lock_needs_precision_title">Locking needs Precision mode</string>
+    <string name="lock_needs_precision_body">Turn on Precision mode to lock the screen with a double-tap. You can turn this gesture off in Settings.</string>
+    <string name="lock_set_up">Set up</string>
+    <string name="lock_not_now">Not now</string>
 
     <!-- Blocking schedules -->
     <string name="schedules_title">Blocking schedules</string>

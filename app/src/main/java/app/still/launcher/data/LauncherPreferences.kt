@@ -2,6 +2,7 @@ package app.still.launcher.data
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -25,6 +26,10 @@ data class LauncherSettings(
     val launchDelaySeconds: Int = DEFAULT_LAUNCH_DELAY_SECONDS,
     /** When a time reminder runs out: 0 only reminds, otherwise the app is blocked this many minutes. */
     val timeUpBlockMinutes: Int = 0,
+    /** Double-tap empty space on home to lock the screen; needs Precision mode. */
+    val doubleTapToLock: Boolean = true,
+    /** Precision mode was on; if Android turns it off, home offers to turn it back on. */
+    val precisionWanted: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_LAUNCH_DELAY_SECONDS = 15
@@ -46,6 +51,8 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
                 timeReminderPackages = prefs[TIME_REMINDER_PACKAGES] ?: emptySet(),
                 launchDelaySeconds = prefs[LAUNCH_DELAY_SECONDS] ?: LauncherSettings.DEFAULT_LAUNCH_DELAY_SECONDS,
                 timeUpBlockMinutes = prefs[TIME_UP_BLOCK_MINUTES] ?: 0,
+                doubleTapToLock = prefs[DOUBLE_TAP_TO_LOCK] ?: true,
+                precisionWanted = prefs[PRECISION_WANTED] ?: false,
             )
         }
 
@@ -88,6 +95,14 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs -> prefs[TIME_UP_BLOCK_MINUTES] = minutes }
     }
 
+    suspend fun setDoubleTapToLock(on: Boolean) {
+        dataStore.edit { prefs -> prefs[DOUBLE_TAP_TO_LOCK] = on }
+    }
+
+    suspend fun setPrecisionWanted(wanted: Boolean) {
+        dataStore.edit { prefs -> prefs[PRECISION_WANTED] = wanted }
+    }
+
     private fun Preferences.favorites(): List<String> =
         this[FAVORITES]?.split(SEPARATOR)?.filter { it.isNotEmpty() } ?: emptyList()
 
@@ -100,6 +115,8 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val TIME_REMINDER_PACKAGES = stringSetPreferencesKey("timeReminderPackages")
         val LAUNCH_DELAY_SECONDS = intPreferencesKey("launchDelaySeconds")
         val TIME_UP_BLOCK_MINUTES = intPreferencesKey("timeUpBlockMinutes")
+        val DOUBLE_TAP_TO_LOCK = booleanPreferencesKey("doubleTapToLock")
+        val PRECISION_WANTED = booleanPreferencesKey("precisionWanted")
         const val RENAME_PREFIX = "rename:"
         const val SEPARATOR = "\n"
     }

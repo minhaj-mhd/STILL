@@ -5,11 +5,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,17 +59,33 @@ fun HomePage(
     onLaunch: (LauncherApp) -> Unit,
     onLongPress: (LauncherApp) -> Unit,
     onSwipeUp: () -> Unit,
+    /** Double-tapping empty space; null when the gesture is turned off. */
+    onDoubleTap: (() -> Unit)?,
+    /** Precision mode was on and Android turned it off. */
+    precisionLost: Boolean,
+    onTurnOnPrecision: () -> Unit,
+    onDismissPrecisionLost: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
             .swipeUp(onSwipeUp)
+            .doubleTap(onDoubleTap)
             .systemBarsPadding()
             .padding(horizontal = 32.dp, vertical = 24.dp),
     ) {
         if (!isDefaultLauncher) {
-            NotDefaultLauncherBanner(onSetDefaultLauncher)
+            HomeBanner(stringResource(R.string.home_not_default_title)) {
+                TextButton(onClick = onSetDefaultLauncher) { Text(stringResource(R.string.home_not_default_action)) }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+        if (precisionLost) {
+            HomeBanner(stringResource(R.string.precision_lost_title)) {
+                TextButton(onClick = onDismissPrecisionLost) { Text(stringResource(R.string.precision_lost_dismiss)) }
+                TextButton(onClick = onTurnOnPrecision) { Text(stringResource(R.string.precision_lost_turn_on)) }
+            }
             Spacer(Modifier.height(24.dp))
         }
         Clock(onClick = onClockClick)
@@ -153,6 +172,19 @@ private fun Modifier.swipeUp(onSwipeUp: () -> Unit): Modifier {
 
 private val SWIPE_UP_DISTANCE = 72.dp
 
+/**
+ * Calls [onDoubleTap] for a double-tap on empty space. Apps, the clock and cards handle their
+ * own taps, so a double-tap on them doesn't count. Does nothing when [onDoubleTap] is null.
+ */
+@Composable
+private fun Modifier.doubleTap(onDoubleTap: (() -> Unit)?): Modifier {
+    val currentOnDoubleTap by rememberUpdatedState(onDoubleTap)
+    if (onDoubleTap == null) return this
+    return pointerInput(Unit) {
+        detectTapGestures(onDoubleTap = { currentOnDoubleTap?.invoke() })
+    }
+}
+
 @Composable
 private fun Clock(onClick: () -> Unit) {
     val context = LocalContext.current
@@ -199,8 +231,9 @@ private fun DueTasks(dueTasks: Int, overdueTasks: Int, onClick: () -> Unit) {
     )
 }
 
+/** Something on home that needs fixing, with buttons to fix or dismiss it. */
 @Composable
-private fun NotDefaultLauncherBanner(onSetDefaultLauncher: () -> Unit) {
+private fun HomeBanner(title: String, actions: @Composable RowScope.() -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(16.dp),
@@ -208,13 +241,11 @@ private fun NotDefaultLauncherBanner(onSetDefaultLauncher: () -> Unit) {
     ) {
         Column(Modifier.padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 4.dp)) {
             Text(
-                text = stringResource(R.string.home_not_default_title),
+                text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            TextButton(onClick = onSetDefaultLauncher, modifier = Modifier.align(Alignment.End)) {
-                Text(stringResource(R.string.home_not_default_action))
-            }
+            Row(modifier = Modifier.align(Alignment.End), content = actions)
         }
     }
 }

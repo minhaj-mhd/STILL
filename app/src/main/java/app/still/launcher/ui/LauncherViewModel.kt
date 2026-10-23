@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.still.launcher.StillApplication
+import app.still.launcher.blocking.activeBlock
 import app.still.launcher.blocking.scheduledBlocks
 import app.still.launcher.data.AppRepository
 import app.still.launcher.data.AppScreenTime
@@ -16,14 +17,18 @@ import app.still.launcher.data.BlockingRepository
 import app.still.launcher.data.LauncherPreferences
 import app.still.launcher.data.LauncherSettings
 import app.still.launcher.data.ScreenTimeRepository
+import app.still.launcher.precision.Intervention
+import app.still.launcher.precision.PrecisionMode
 import app.still.launcher.reminders.AppTimeReminders
 import app.still.launcher.util.EssentialApps
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.Collator
@@ -66,6 +71,9 @@ data class LauncherUiState(
     val launchDelaySeconds: Int = LauncherSettings.DEFAULT_LAUNCH_DELAY_SECONDS,
     /** 0 only reminds when time's up; otherwise the app is blocked this many minutes. */
     val timeUpBlockMinutes: Int = 0,
+    val doubleTapToLock: Boolean = true,
+    /** Precision mode was turned on, so home says so if it goes off. */
+    val precisionWanted: Boolean = false,
 )
 
 class LauncherViewModel(
@@ -75,6 +83,7 @@ class LauncherViewModel(
     private val screenTime: ScreenTimeRepository,
     private val essentialApps: EssentialApps,
     private val appTimeReminders: AppTimeReminders,
+    private val precision: PrecisionMode,
 ) : ViewModel() {
 
     /** The current minute, so blocks end on time without anything else changing. */
@@ -95,12 +104,8 @@ class LauncherViewModel(
                 .map { app ->
                     val packageName = app.component.packageName
                     val canBlock = !essentialApps.isEssential(packageName)
-                    // A block set by hand and a schedule can overlap; whichever ends later counts.
                     // Essential apps are never blocked, whatever a schedule lists.
-                    val manualUntil = blocks[packageName]?.takeIf { canBlock && it.isAfter(now) }
-                    val schedule = scheduled[packageName]?.takeIf { canBlock }
-                    val scheduleUntil = schedule?.until?.atZone(zone)?.toInstant()
-                    val bySchedule = scheduleUntil != null && (manualUntil == null || scheduleUntil > manualUntil)
+                    val block = if (canBlock) activeBlock(packageName, blocks, scheduled, now, zone) else null
                     LauncherApp(
                         key = app.key,
                         component = app.component,
@@ -112,8 +117,8 @@ class LauncherViewModel(
                         isFavorite = app.key in settings.favorites,
                         isHidden = app.key in settings.hidden,
                         canBlock = canBlock,
-                        blockedUntil = if (bySchedule) scheduleUntil else manualUntil,
-                        blockedBySchedule = schedule?.scheduleName?.takeIf { bySchedule },
+                        blockedUntil = block?.until,
+                        blockedBySchedule = block?.scheduleName,
                         hasLaunchDelay = canBlock && packageName in settings.launchDelayPackages,
                         hasTimeReminder = canBlock && packageName in settings.timeReminderPackages,
                     )
@@ -125,6 +130,8 @@ class LauncherViewModel(
                 favorites = settings.favorites.mapNotNull { byKey[it] }.filterNot { it.isHidden },
                 launchDelaySeconds = settings.launchDelaySeconds,
                 timeUpBlockMinutes = settings.timeUpBlockMinutes,
+                doubleTapToLock = settings.doubleTapToLock,
+                precisionWanted = settings.precisionWanted,
             )
         }
             .flowOn(Dispatchers.Default)
@@ -136,7 +143,17 @@ class LauncherViewModel(
         clock.value = now
     }
 
-    fun launch(app: LauncherApp): Boolean = appRepository.launch(app.component, app.user)
+    /** Whether Precision mode's service is connected. */
+    val precisionRunning: StateFlow<Boolean> = precision.running
+
+    /** Precision mode caught an app coming to the front, and STILL should step in. */
+    val interventions: Flow<Intervention> = precision.interventions.receiveAsFlow()
+
+    fun launch(app: LauncherApp): Boolean {
+        // STILL has done its checks, so Precision mode lets the app come to the front.
+        precision.gate.allow(app.component.packageName, System.currentTimeMillis() + precision.gate.graceMillis)
+        return appRepository.launch(app.component, app.user)
+    }
 
     fun setFavorite(app: LauncherApp, favorite: Boolean) {
         viewModelScope.launch { preferences.setFavorite(app.key, favorite) }
@@ -187,6 +204,27 @@ class LauncherViewModel(
         appTimeReminders.start(app.component.packageName, app.label, minutes)
     }
 
+    /** Locks the screen; false when Precision mode is off. */
+    fun lockScreen(): Boolean = precision.lockScreen()
+
+    fun setDoubleTapToLock(on: Boolean) {
+        viewModelScope.launch { preferences.setDoubleTapToLock(on) }
+    }
+
+    fun precisionSettingsIntent(): Intent = precision.settingsIntent()
+
+    fun appInfoIntent(): Intent = precision.appInfoIntent()
+
+    fun turnOffPrecision() {
+        forgetPrecision()
+        precision.turnOff()
+    }
+
+    /** Stops home from asking to turn Precision mode back on. */
+    fun forgetPrecision() {
+        viewModelScope.launch { preferences.setPrecisionWanted(false) }
+    }
+
     /** Blocks [app] in every profile for [duration] from now. Essential apps are never blocked. */
     fun block(app: LauncherApp, duration: Duration) {
         if (!app.canBlock) return
@@ -207,6 +245,7 @@ class LauncherViewModel(
                     container.screenTimeRepository,
                     container.essentialApps,
                     container.appTimeReminders,
+                    container.precisionMode,
                 )
             }
         }

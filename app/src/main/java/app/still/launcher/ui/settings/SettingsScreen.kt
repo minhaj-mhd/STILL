@@ -47,9 +47,10 @@ import app.still.launcher.ui.components.FieldLabel
 import app.still.launcher.ui.components.formatDateTime
 import app.still.launcher.ui.editor.EditorScaffold
 import app.still.launcher.ui.editor.EditorTarget
+import app.still.launcher.ui.editor.SwitchRow
 
 /** Settings and the pages it leads to. */
-enum class SettingsPage { MAIN, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES }
+enum class SettingsPage { MAIN, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, PRECISION }
 
 /**
  * Settings, reached from Insights. Shows each permission STILL uses with its state and a way to
@@ -74,6 +75,12 @@ fun SettingsScreen(
     onSetLaunchDelaySeconds: (Int) -> Unit,
     timeUpBlockMinutes: Int,
     onSetTimeUpBlockMinutes: (Int) -> Unit,
+    precisionOn: Boolean,
+    onTurnOnPrecision: () -> Unit,
+    onTurnOffPrecision: () -> Unit,
+    onOpenAppInfo: () -> Unit,
+    doubleTapToLock: Boolean,
+    onSetDoubleTapToLock: (Boolean) -> Unit,
 ) {
     BackHandler { if (page == SettingsPage.MAIN) onClose() else onNavigate(SettingsPage.MAIN) }
     val hidden = apps.filter { it.isHidden }
@@ -98,6 +105,16 @@ fun SettingsScreen(
             onAllowUsageAccess = onAllowUsageAccess,
             canNotify = canNotify,
             canScheduleExactAlarms = canScheduleExactAlarms,
+            precisionOn = precisionOn,
+            doubleTapToLock = doubleTapToLock,
+            onSetDoubleTapToLock = onSetDoubleTapToLock,
+        )
+        SettingsPage.PRECISION -> PrecisionPage(
+            isOn = precisionOn,
+            onTurnOn = onTurnOnPrecision,
+            onTurnOff = onTurnOffPrecision,
+            onOpenAppInfo = onOpenAppInfo,
+            onDone = { onNavigate(SettingsPage.MAIN) },
         )
         SettingsPage.HIDDEN_APPS -> EditorScaffold(
             title = stringResource(R.string.settings_hidden_apps),
@@ -153,6 +170,9 @@ private fun MainSettings(
     onAllowUsageAccess: () -> Unit,
     canNotify: () -> Boolean,
     canScheduleExactAlarms: () -> Boolean,
+    precisionOn: Boolean,
+    doubleTapToLock: Boolean,
+    onSetDoubleTapToLock: (Boolean) -> Unit,
     schedulesViewModel: SchedulesViewModel = viewModel(factory = SchedulesViewModel.Factory),
 ) {
     val context = LocalContext.current
@@ -206,6 +226,14 @@ private fun MainSettings(
                 isOn = hasUsageAccess,
                 onTurnOn = onAllowUsageAccess,
             )
+            // Turning it on goes through the explanation first; so does turning it off.
+            PermissionRow(
+                title = stringResource(R.string.settings_precision),
+                detail = stringResource(R.string.settings_precision_detail),
+                isOn = precisionOn,
+                onTurnOn = { onNavigate(SettingsPage.PRECISION) },
+                onClick = { onNavigate(SettingsPage.PRECISION) },
+            )
         }
 
         Section(stringResource(R.string.settings_section_apps)) {
@@ -250,6 +278,17 @@ private fun MainSettings(
             }
         }
 
+        Section(stringResource(R.string.settings_section_gestures)) {
+            SwitchRow(
+                title = stringResource(R.string.settings_double_tap_lock),
+                detail = stringResource(
+                    if (precisionOn) R.string.settings_double_tap_lock_detail else R.string.settings_double_tap_lock_needs_precision,
+                ),
+                checked = doubleTapToLock,
+                onCheckedChange = onSetDoubleTapToLock,
+            )
+        }
+
         Section(stringResource(R.string.settings_section_about)) {
             Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
             Text(
@@ -269,10 +308,16 @@ private fun Section(title: String, content: @Composable () -> Unit) {
     }
 }
 
-/** A permission's name and purpose, with "On" or a button to turn it on. */
+/** A permission's name and purpose, with "On" or a button to turn it on. [onClick] makes the whole row open more. */
 @Composable
-private fun PermissionRow(title: String, detail: String, isOn: Boolean, onTurnOn: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+private fun PermissionRow(title: String, detail: String, isOn: Boolean, onTurnOn: () -> Unit, onClick: (() -> Unit)? = null) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 4.dp),
+    ) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             Text(detail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

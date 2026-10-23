@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Precision mode only needs to know which app is in front: it listens for window changes and
+    can't read window content. Locking the screen is a global action and needs nothing more.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault"
+    android:canRetrieveWindowContent="false"
+    android:description="@string/precision_service_description"
+    android:isAccessibilityTool="false"
+    android:notificationTimeout="100"
+    tools:targetApi="31" />

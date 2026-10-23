@@ -10,6 +10,7 @@ import app.still.launcher.data.LauncherPreferences
 import app.still.launcher.data.NotesRepository
 import app.still.launcher.data.ProductivityRepository
 import app.still.launcher.data.StillDatabase
+import app.still.launcher.precision.PrecisionMode
 import app.still.launcher.reminders.AppTimeReminders
 import app.still.launcher.reminders.ReminderScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +33,7 @@ class AppContainer(context: Context) {
     val blockingRepository = BlockingRepository(database.appBlockDao(), database.blockingScheduleDao())
     val screenTimeRepository = ScreenTimeRepository(context)
     val essentialApps = EssentialApps(context)
-    val appTimeReminders = AppTimeReminders(context, blockingRepository, screenTimeRepository, preferences)
+    val precisionMode = PrecisionMode(context)
+    val appTimeReminders = AppTimeReminders(context, blockingRepository, screenTimeRepository, preferences, precisionMode)
     val reminderScheduler = ReminderScheduler(context, productivityRepository, applicationScope)
 }

@@ -66,6 +66,24 @@
             android:name=".reminders.AppTimeReminderReceiver"
             android:exported="false" />
 
+        <!--
+            Precision mode: notices which app is in front so blocks apply however it was opened,
+            and locks the screen on a double-tap. Only Android can bind it, and only after the
+            user turns it on in Accessibility settings.
+        -->
+        <service
+            android:name=".precision.PrecisionService"
+            android:exported="true"
+            android:label="@string/precision_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/precision_service" />
+        </service>
+
         <!-- Re-arms the next reminder after events that clear or shift alarms. -->
         <receiver
             android:name=".reminders.SystemEventReceiver"

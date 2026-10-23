@@ -20,6 +20,9 @@ import app.still.launcher.StillApplication
 import app.still.launcher.data.BlockingRepository
 import app.still.launcher.data.LauncherPreferences
 import app.still.launcher.data.ScreenTimeRepository
+import app.still.launcher.precision.Intervention
+import app.still.launcher.precision.InterventionKind
+import app.still.launcher.precision.PrecisionMode
 import kotlinx.coroutines.launch
 import java.time.Instant
 
@@ -35,16 +38,18 @@ data class AppSession(
 
 /**
  * In-app time reminders. Starting a session sets two alarms: one a minute before the end and
- * one at the end. When they fire, the reminder checks (with Usage access) whether you're still
- * in that app, and stays quiet if you've already left. At the end it either just reminds you or,
- * if Settings says so, blocks the app for a few minutes. Either way the notification's "Leave"
- * button takes you home.
+ * one at the end. When they fire, the reminder checks (with Precision mode or Usage access)
+ * whether you're still in that app, and stays quiet if you've already left. At the end it either
+ * just reminds you or, if Settings says so, blocks the app for a few minutes. With Precision
+ * mode STILL then steps in front of the app; without it, a notification's "Leave" button takes
+ * you home.
  */
 class AppTimeReminders(
     context: Context,
     private val blocking: BlockingRepository,
     private val screenTime: ScreenTimeRepository,
     private val preferences: LauncherPreferences,
+    private val precision: PrecisionMode,
 ) {
     private val appContext = context.applicationContext
     private val alarmManager = appContext.getSystemService(AlarmManager::class.java)
@@ -61,6 +66,8 @@ class AppTimeReminders(
     /** Starts a session for an app that's about to open. A new session replaces the app's previous one. */
     fun start(packageName: String, label: String, minutes: Int) {
         val session = AppSession(packageName, label, System.currentTimeMillis(), minutes)
+        // With Precision mode, stepping out and back in during the session doesn't ask again.
+        precision.gate.allow(packageName, session.endMillis)
         notifications.cancel(notificationId(session))
         if (minutes > 1) setAlarm(session.endMillis - 60_000L, alarmIntent(ACTION_ONE_MINUTE_LEFT, session))
         setAlarm(session.endMillis, alarmIntent(ACTION_TIME_UP, session))
@@ -72,10 +79,17 @@ class AppTimeReminders(
     }
 
     suspend fun onTimeUp(session: AppSession) {
+        // From now on, coming back to the app asks again.
+        precision.gate.onTimeUp(session.packageName)
         if (isStillIn(session) == false) return
         val blockMinutes = preferences.current().timeUpBlockMinutes
+        if (blockMinutes > 0) blocking.block(session.packageName, Instant.now().plusSeconds(blockMinutes * 60L))
+        if (precision.isRunning) {
+            val kind = if (blockMinutes > 0) InterventionKind.BLOCKED else InterventionKind.TIME_UP
+            precision.intervene(Intervention(session.packageName, kind, session.plannedMinutes))
+            return
+        }
         val text = if (blockMinutes > 0) {
-            blocking.block(session.packageName, Instant.now().plusSeconds(blockMinutes * 60L))
             appContext.getString(R.string.time_reminder_blocked, session.label, blockMinutes)
         } else {
             appContext.getString(R.string.time_reminder_planned, session.plannedMinutes)
@@ -84,15 +98,20 @@ class AppTimeReminders(
         if (blockMinutes > 0) bringHomeToFront()
     }
 
-    /** True or false with Usage access; null without it, in which case reminders always show. */
+    /**
+     * Whether you're still in the session's app: known with Precision mode, read from usage
+     * events with Usage access, and null without either, in which case reminders always show.
+     */
     private suspend fun isStillIn(session: AppSession): Boolean? {
+        precision.appInFront()?.let { return it == session.packageName }
         if (!screenTime.hasAccess()) return null
         return screenTime.appInFront(session.startMillis) == session.packageName
     }
 
     /**
-     * Tries to bring STILL's home to the front so the blocked app closes. Android may refuse to
-     * let an app open itself from the background; the notification's "Leave" button still works.
+     * Without Precision mode, tries to bring STILL's home to the front so the blocked app closes.
+     * Android may refuse to let an app open itself from the background; the notification's
+     * "Leave" button still works.
      */
     private fun bringHomeToFront() {
         try {

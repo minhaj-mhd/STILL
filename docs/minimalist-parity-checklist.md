@@ -32,7 +32,7 @@ Android: Compose gesture detectors; status bar expand via `StatusBarManager`/ref
 - [ ] Swipe left → all apps page
 - [ ] Swipe up → open search (toggle)
 - [ ] Swipe down → expand notification shade (toggle; fallback message on phones that don't support it)
-- [ ] Double-tap → lock screen (needs device admin in Minimalist). **STILL: planned for stage 3 step 4**, using the Precision mode Accessibility service's lock action, which keeps fingerprint/face unlock working (device-admin locking forces the PIN on the next unlock).
+- [ ] Double-tap → lock screen (needs device admin in Minimalist). **STILL: built in stage 3 step 4** with the Precision mode Accessibility service's lock action, which keeps fingerprint/face unlock working (device-admin locking forces the PIN on the next unlock). On by default, toggle under Settings > Gestures.
 
 ## 3. All apps page (STILL right page) — Keep
 
@@ -116,6 +116,8 @@ Android: Accessibility service reading view IDs and browser URL bars; breaks whe
 - [ ] Global setting + per-app toggle in the context menu
 
 ## 9. Precision mode (Accessibility) — Adapt
+
+STILL (stage 3 step 4): the service listens only for window-state changes (`canRetrieveWindowContent="false"`), so it knows which app is in front and nothing else. When a blocked app comes to the front from anywhere, STILL covers it with the blocked screen; launch-delay and time-reminder apps go through STILL's questions unless STILL just opened them (a pass that lasts while you stay, plus 1 minute after leaving, or until a time reminder's planned end). At time's up it shows the blocked screen or a "Time's up" screen with Leave / More time. Short-video blocking will need window content later, which means updating the disclosure.
 
 - [ ] Optional Accessibility service that makes foreground-app detection reliable (recommended on Android 14+)
 - [ ] Required for short-video blocking

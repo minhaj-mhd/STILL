@@ -16,11 +16,15 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -30,16 +34,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.still.launcher.R
 import app.still.launcher.data.AppScreenTime
+import app.still.launcher.precision.InterventionKind
 import app.still.launcher.ui.apps.AppActionsSheet
 import app.still.launcher.ui.apps.AppsPage
 import app.still.launcher.ui.apps.BlockAppSheet
 import app.still.launcher.ui.apps.BlockedScreen
 import app.still.launcher.ui.apps.LaunchDelayScreen
 import app.still.launcher.ui.apps.TimeIntentSheet
+import app.still.launcher.ui.apps.TimeUpScreen
 import app.still.launcher.ui.apps.RenameAppDialog
 import app.still.launcher.ui.components.rememberCurrentMinute
 import app.still.launcher.ui.editor.EditorHost
@@ -58,14 +65,18 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.still.launcher.util.defaultLauncherRequestIntent
 import app.still.launcher.util.homeSettingsIntent
 import app.still.launcher.util.isDefaultLauncher
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import java.time.Instant
 
 /** The three swipeable pages, left to right. STILL always opens on [Home]. */
 private enum class Page { Productivity, Home, Apps }
 
 /** Full-screen views over the pages, opened by swiping up on home. Back goes up this list. */
-private enum class Overlay { INSIGHTS, SETTINGS, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES }
+private enum class Overlay { INSIGHTS, SETTINGS, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, PRECISION }
 
 @Composable
 fun StillLauncher(
@@ -99,6 +110,9 @@ fun StillLauncher(
     var blockedScreenKey by rememberSaveable { mutableStateOf<String?>(null) }
     var launchDelayKey by rememberSaveable { mutableStateOf<String?>(null) }
     var timeAskKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var timeUpKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var timeUpMinutes by rememberSaveable { mutableIntStateOf(0) }
+    var showLockHelp by rememberSaveable { mutableStateOf(false) }
     // Look apps up by key so an open menu reflects changes (e.g. favorite toggled) immediately.
     val menuApp = state.apps.firstOrNull { it.key == menuAppKey }
     val renameApp = state.apps.firstOrNull { it.key == renameAppKey }
@@ -106,6 +120,7 @@ fun StillLauncher(
     val blockedScreenApp = state.apps.firstOrNull { it.key == blockedScreenKey }
     val launchDelayApp = state.apps.firstOrNull { it.key == launchDelayKey }
     val timeAskApp = state.apps.firstOrNull { it.key == timeAskKey }
+    val timeUpApp = state.apps.firstOrNull { it.key == timeUpKey }
 
     var isDefaultLauncher by remember { mutableStateOf(context.isDefaultLauncher()) }
     var hasUsageAccess by remember { mutableStateOf(viewModel.hasUsageAccess()) }
@@ -114,8 +129,18 @@ fun StillLauncher(
         hasUsageAccess = viewModel.hasUsageAccess()
         onPauseOrDispose { }
     }
+    val precisionRunning by viewModel.precisionRunning.collectAsStateWithLifecycle()
+    // Android can turn Precision mode off, e.g. after an update. The service takes a moment to
+    // connect when STILL starts, so only say so once it has had time to.
+    val precisionLost by produceState(false, state.precisionWanted, precisionRunning) {
+        value = false
+        if (state.precisionWanted && !precisionRunning) {
+            delay(PRECISION_CONNECT_MILLIS)
+            value = true
+        }
+    }
     // Screen time for whichever app the menu or block sheet is about.
-    val screenTimeApp = blockApp ?: menuApp ?: timeAskApp ?: launchDelayApp
+    val screenTimeApp = blockApp ?: menuApp ?: timeAskApp ?: launchDelayApp ?: timeUpApp
     val screenTime by produceState<AppScreenTime?>(null, screenTimeApp?.key, hasUsageAccess) {
         value = screenTimeApp?.let { viewModel.screenTime(it) }
     }
@@ -164,19 +189,56 @@ fun StillLauncher(
         }
     }
 
+    /** Closes everything over the pages: menus, sheets, editors, Insights and Settings. */
+    fun closeAll() {
+        query = ""
+        menuAppKey = null
+        renameAppKey = null
+        blockAppKey = null
+        blockedScreenKey = null
+        launchDelayKey = null
+        timeAskKey = null
+        timeUpKey = null
+        showLockHelp = false
+        editor = null
+        overlay = null
+    }
+
     // Pressing Home while STILL is already showing returns to the home page.
     LaunchedEffect(homePresses) {
         homePresses.collect {
-            query = ""
-            menuAppKey = null
-            renameAppKey = null
-            blockAppKey = null
-            blockedScreenKey = null
-            launchDelayKey = null
-            timeAskKey = null
-            editor = null
-            overlay = null
+            closeAll()
             goHome(animate = true)
+        }
+    }
+
+    // Precision mode caught an app coming to the front and brought STILL over it: step in the
+    // way STILL would have if the app had been opened from here.
+    LaunchedEffect(viewModel) {
+        viewModel.interventions.collect { request ->
+            val apps = viewModel.uiState.first { it.apps.isNotEmpty() }.apps
+            // Blocks and app settings cover a package in every profile; prefer the personal app.
+            val app = apps.firstOrNull { it.component.packageName == request.packageName && !it.isWorkProfile }
+                ?: apps.firstOrNull { it.component.packageName == request.packageName }
+                ?: return@collect
+            closeAll()
+            goHome(animate = false)
+            when (request.kind) {
+                InterventionKind.BLOCKED -> {
+                    // A block that just started (a schedule, or time's up) can take a moment to
+                    // reach the app list; the blocked screen closes itself if it isn't there.
+                    viewModel.setNow(Instant.now())
+                    withTimeoutOrNull(BLOCK_SHOWS_WITHIN_MILLIS) {
+                        viewModel.uiState.first { current -> current.apps.any { it.key == app.key && it.isBlocked } }
+                    }
+                    blockedScreenKey = app.key
+                }
+                InterventionKind.ASK -> launchApp(app)
+                InterventionKind.TIME_UP -> {
+                    timeUpMinutes = request.plannedMinutes
+                    timeUpKey = app.key
+                }
+            }
         }
     }
 
@@ -233,6 +295,14 @@ fun StillLauncher(
                     onLaunch = ::launchApp,
                     onLongPress = { menuAppKey = it.key },
                     onSwipeUp = { overlay = Overlay.INSIGHTS },
+                    onDoubleTap = if (state.doubleTapToLock) {
+                        { if (!viewModel.lockScreen()) showLockHelp = true }
+                    } else {
+                        null
+                    },
+                    precisionLost = precisionLost,
+                    onTurnOnPrecision = { overlay = Overlay.PRECISION },
+                    onDismissPrecisionLost = viewModel::forgetPrecision,
                 )
                 Page.Apps -> AppsPage(
                     apps = state.apps,
@@ -268,11 +338,12 @@ fun StillLauncher(
                 onAllowUsageAccess = { context.startActivity(viewModel.usageAccessIntent()) },
                 onClose = { overlay = null },
             )
-            Overlay.SETTINGS, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS, Overlay.SCHEDULES -> SettingsScreen(
+            Overlay.SETTINGS, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS, Overlay.SCHEDULES, Overlay.PRECISION -> SettingsScreen(
                 page = when (current) {
                     Overlay.HIDDEN_APPS -> SettingsPage.HIDDEN_APPS
                     Overlay.BLOCKED_APPS -> SettingsPage.BLOCKED_APPS
                     Overlay.SCHEDULES -> SettingsPage.SCHEDULES
+                    Overlay.PRECISION -> SettingsPage.PRECISION
                     else -> SettingsPage.MAIN
                 },
                 onNavigate = { page ->
@@ -281,6 +352,7 @@ fun StillLauncher(
                         SettingsPage.HIDDEN_APPS -> Overlay.HIDDEN_APPS
                         SettingsPage.BLOCKED_APPS -> Overlay.BLOCKED_APPS
                         SettingsPage.SCHEDULES -> Overlay.SCHEDULES
+                        SettingsPage.PRECISION -> Overlay.PRECISION
                     }
                 },
                 onClose = { overlay = Overlay.INSIGHTS },
@@ -298,6 +370,12 @@ fun StillLauncher(
                 onSetLaunchDelaySeconds = viewModel::setLaunchDelaySeconds,
                 timeUpBlockMinutes = state.timeUpBlockMinutes,
                 onSetTimeUpBlockMinutes = viewModel::setTimeUpBlockMinutes,
+                precisionOn = precisionRunning,
+                onTurnOnPrecision = { context.startActivity(viewModel.precisionSettingsIntent()) },
+                onTurnOffPrecision = viewModel::turnOffPrecision,
+                onOpenAppInfo = { context.startActivity(viewModel.appInfoIntent()) },
+                doubleTapToLock = state.doubleTapToLock,
+                onSetDoubleTapToLock = viewModel::setDoubleTapToLock,
             )
         }
     }
@@ -326,6 +404,20 @@ fun StillLauncher(
                 afterLaunchDelay(app)
             },
             onCancel = { launchDelayKey = null },
+        )
+    }
+
+    // Precision mode's "Time's up" over the app; "More time" asks how long again.
+    timeUpApp?.let { app ->
+        TimeUpScreen(
+            appLabel = app.label,
+            plannedMinutes = timeUpMinutes,
+            screenTime = screenTime,
+            onLeave = { timeUpKey = null },
+            onMoreTime = {
+                timeUpKey = null
+                timeAskKey = app.key
+            },
         )
     }
 
@@ -396,6 +488,25 @@ fun StillLauncher(
         )
     }
 
+    if (showLockHelp) {
+        AlertDialog(
+            onDismissRequest = { showLockHelp = false },
+            title = { Text(stringResource(R.string.lock_needs_precision_title)) },
+            text = { Text(stringResource(R.string.lock_needs_precision_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLockHelp = false
+                        overlay = Overlay.PRECISION
+                    },
+                ) { Text(stringResource(R.string.lock_set_up)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLockHelp = false }) { Text(stringResource(R.string.lock_not_now)) }
+            },
+        )
+    }
+
     renameApp?.let { app ->
         RenameAppDialog(
             app = app,
@@ -407,3 +518,9 @@ fun StillLauncher(
         )
     }
 }
+
+/** How long the Precision mode service gets to connect before home says it's off. */
+private const val PRECISION_CONNECT_MILLIS = 3_000L
+
+/** How long Precision mode's blocked screen waits for a block that just started to show up. */
+private const val BLOCK_SHOWS_WITHIN_MILLIS = 2_000L
