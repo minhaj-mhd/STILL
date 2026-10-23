@@ -54,7 +54,7 @@ import app.still.launcher.ui.notifications.NotificationFilterPage
 import app.still.launcher.ui.notifications.NotificationFilterViewModel
 
 /** Settings and the pages it leads to. */
-enum class SettingsPage { MAIN, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION }
+enum class SettingsPage { MAIN, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION }
 
 /**
  * Settings, reached from Insights. Shows each permission STILL uses with its state and a way to
@@ -116,6 +116,7 @@ fun SettingsScreen(
             doubleTapToLock = doubleTapToLock,
             onSetDoubleTapToLock = onSetDoubleTapToLock,
         )
+        SettingsPage.CUSTOMISE -> CustomisePage(onBack = { onNavigate(SettingsPage.MAIN) })
         SettingsPage.NOTIFICATION_FILTER -> NotificationFilterPage(
             apps = apps,
             onOpenHeld = onOpenHeldNotifications,
@@ -307,6 +308,10 @@ private fun MainSettings(
                     }
                 }
             }
+        }
+
+        Section(stringResource(R.string.settings_section_home)) {
+            NavigationRow(title = stringResource(R.string.customise_title), value = "") { onNavigate(SettingsPage.CUSTOMISE) }
         }
 
         Section(stringResource(R.string.settings_section_gestures)) {

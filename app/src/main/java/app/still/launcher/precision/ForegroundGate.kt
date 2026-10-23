@@ -6,6 +6,8 @@ data class ForegroundRule(
     val blocked: Boolean = false,
     /** A task gate keeps it closed until tasks or habits are done. */
     val gated: Boolean = false,
+    /** The day's phone limit is used up and it isn't an allowed app. */
+    val limited: Boolean = false,
     /** It has a launch delay or a time reminder, so it opens only through STILL's questions. */
     val asksFirst: Boolean = false,
 ) {
@@ -22,6 +24,9 @@ enum class InterventionKind {
     /** Show what's left to do before a task gate opens. */
     GATED,
 
+    /** The day's phone limit is used up: only allowed apps open. */
+    LIMIT,
+
     /** Go through the launch delay and "How long?", as if the app were opened from STILL. */
     ASK,
 
@@ -35,7 +40,7 @@ data class Intervention(val packageName: String, val kind: InterventionKind, val
 /**
  * Decides when Precision mode steps in as apps come to the front.
  *
- * A blocked or gated app is covered on every visit. An app with a launch delay or a time
+ * A blocked, gated or limited app is covered on every visit. An app with a launch delay or a time
  * reminder needs a pass, which STILL hands out when it opens the app after asking. A pass never
  * runs out while you stay in the app, and it lasts [graceMillis] after you leave, so a quick
  * look at another app doesn't ask again; a time reminder's pass also lasts until the planned
@@ -80,6 +85,7 @@ class ForegroundGate(val graceMillis: Long = DEFAULT_GRACE_MILLIS) {
         if (intervened) return null
         val kind = when {
             rule.blocked -> InterventionKind.BLOCKED
+            rule.limited -> InterventionKind.LIMIT
             rule.gated -> InterventionKind.GATED
             rule.asksFirst && !inUse -> InterventionKind.ASK
             else -> return null

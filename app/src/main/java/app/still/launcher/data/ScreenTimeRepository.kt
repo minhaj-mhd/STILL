@@ -70,6 +70,15 @@ class ScreenTimeRepository(context: Context) {
         }
     }
 
+    /** Milliseconds each app has been in front since [fromMillis], or null without Usage access. STILL is left out. */
+    suspend fun foregroundMillisSince(fromMillis: Long): Map<String, Long>? {
+        if (!hasAccess()) return null
+        return withContext(Dispatchers.IO) {
+            val end = System.currentTimeMillis()
+            foregroundTimeByApp(readEvents(fromMillis, end), fromMillis, end).filterKeys { it != appContext.packageName }
+        }
+    }
+
     /**
      * The package in front now, judging by usage events since [sinceMillis]; null when nothing
      * is (screen off, or back on STILL counts as STILL). Requires [hasAccess].

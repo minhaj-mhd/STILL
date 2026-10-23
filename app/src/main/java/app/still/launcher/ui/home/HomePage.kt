@@ -1,6 +1,8 @@
 package app.still.launcher.ui.home
 
 import android.text.format.DateFormat
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -24,28 +29,54 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.still.launcher.R
 import app.still.launcher.focus.FocusSession
+import app.still.launcher.limit.LimitState
+import app.still.launcher.productivity.ItemProgress
 import app.still.launcher.productivity.Reminder
+import app.still.launcher.data.AppDisplay
+import app.still.launcher.data.FolderOpening
+import app.still.launcher.data.FolderStyle
+import app.still.launcher.ui.HomeFolder
 import app.still.launcher.ui.LauncherApp
-import app.still.launcher.ui.components.AppLabel
+import app.still.launcher.ui.components.AppItem
+import app.still.launcher.ui.components.TaskRing
+import app.still.launcher.ui.components.TickRing
+import app.still.launcher.ui.components.formatDuration
+import app.still.launcher.ui.components.holdToDrag
 import app.still.launcher.ui.components.formatTime
 import app.still.launcher.ui.components.rememberCurrentMinute
+import app.still.launcher.ui.theme.stillPalette
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 
 @Composable
 fun HomePage(
@@ -53,8 +84,10 @@ fun HomePage(
     isDefaultLauncher: Boolean,
     onSetDefaultLauncher: () -> Unit,
     onClockClick: () -> Unit,
-    dueTasks: Int,
-    overdueTasks: Int,
+    /** Today's tasks and habits, for the inner ring and the line under the clock. */
+    progress: List<ItemProgress>,
+    /** Today against the daily phone limit, for the outer ring; null without a limit. */
+    limit: LimitState?,
     /** Apps task gates keep closed right now, and how many items they wait for. */
     lockedApps: Int,
     itemsToGo: Int,
@@ -74,13 +107,35 @@ fun HomePage(
     precisionLost: Boolean,
     onTurnOnPrecision: () -> Unit,
     onDismissPrecisionLost: () -> Unit,
+    folders: List<HomeFolder>,
+    folderStyle: FolderStyle,
+    folderOpening: FolderOpening,
+    appDisplay: AppDisplay,
+    /** The folder that's open, if any. */
+    openFolderId: String?,
+    /** Opens a folder, or closes it with null. */
+    onOpenFolder: (String?) -> Unit,
+    onFolderLongPress: (HomeFolder) -> Unit,
+    /** Long-pressing empty space: opens Customise. */
+    onLongPressHome: () -> Unit,
+    /** Favourites were dragged into a new order. */
+    onReorderFavorites: (List<LauncherApp>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val openFolder = folders.firstOrNull { it.id == openFolderId }
+    BackHandler(enabled = openFolder != null) { onOpenFolder(null) }
+    // Spotlight and Orbit put the folder centre stage, so the clock steps back.
+    val clockDimmed = openFolder != null && (folderOpening == FolderOpening.SPOTLIGHT || folderOpening == FolderOpening.ORBIT)
+    val clockAlpha by animateFloatAsState(if (!clockDimmed) 1f else if (folderOpening == FolderOpening.ORBIT) 0.12f else 0.25f, label = "clock")
     Column(
         modifier = modifier
             .fillMaxSize()
             .swipeUp(onSwipeUp)
-            .doubleTap(onDoubleTap)
+            .homeTaps(
+                onTap = if (openFolder != null) ({ onOpenFolder(null) }) else null,
+                onDoubleTap = onDoubleTap,
+                onLongPress = onLongPressHome,
+            )
             .systemBarsPadding()
             .padding(horizontal = 32.dp, vertical = 24.dp),
     ) {
@@ -97,10 +152,25 @@ fun HomePage(
             }
             Spacer(Modifier.height(24.dp))
         }
-        Clock(onClick = onClockClick)
-        if (dueTasks > 0) DueTasks(dueTasks, overdueTasks, onDueTasksClick)
-        if (lockedApps > 0) LockedApps(lockedApps, itemsToGo, onDueTasksClick)
-        focus?.let { Focusing(it, onDueTasksClick) }
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+            Box(contentAlignment = Alignment.Center) {
+                BezelClock(limit, progress, onClick = onClockClick, modifier = Modifier.graphicsLayer { alpha = clockAlpha })
+                if (openFolder != null && folderOpening == FolderOpening.ORBIT) {
+                    key(openFolder.id) {
+                        Box(Modifier.requiredSize(BEZEL_SIZE + ORBIT_REACH)) {
+                            OrbitApps(openFolder, appDisplay, BEZEL_SIZE + ORBIT_REACH, onLaunch, onLongPress)
+                        }
+                    }
+                }
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.graphicsLayer { alpha = clockAlpha }) {
+                Spacer(Modifier.height(8.dp))
+                DateLine(limit)
+                ProgressLine(progress, onDueTasksClick)
+                if (lockedApps > 0) LockedApps(lockedApps, itemsToGo, onDueTasksClick)
+                focus?.let { Focusing(it, onDueTasksClick) }
+            }
+        }
         if (reminders.isNotEmpty()) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -128,13 +198,29 @@ fun HomePage(
                 }
             }
         }
+        if (folders.isNotEmpty()) {
+            Spacer(Modifier.height(20.dp))
+            FolderBar(folders, folderStyle, openFolderId, onToggle = { onOpenFolder(if (it.id == openFolderId) null else it.id) }, onLongPress = onFolderLongPress)
+        }
         Box(
-            contentAlignment = Alignment.CenterStart,
+            contentAlignment = if (openFolder != null) Alignment.TopStart else Alignment.CenterStart,
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .padding(top = if (openFolder != null) 12.dp else 0.dp),
         ) {
-            if (favorites.isEmpty()) {
+            if (openFolder != null) {
+                key(openFolder.id) {
+                    FolderContents(
+                        folder = openFolder,
+                        opening = folderOpening,
+                        display = appDisplay,
+                        pointerAt = (folders.indexOf(openFolder) + 0.5f) / folders.size,
+                        onLaunch = onLaunch,
+                        onLongPress = onLongPress,
+                    )
+                }
+            } else if (favorites.isEmpty()) {
                 Text(
                     text = stringResource(R.string.home_favorites_empty),
                     style = MaterialTheme.typography.bodyLarge,
@@ -143,18 +229,7 @@ fun HomePage(
             } else {
                 // A plain column, not a scrolling list, so a swipe that starts on a favorite still
                 // reaches the swipe-up gesture. Home is for a handful of apps anyway.
-                Column {
-                    favorites.forEach { app ->
-                        key(app.key) {
-                            AppLabel(
-                                app = app,
-                                onClick = { onLaunch(app) },
-                                onLongClick = { onLongPress(app) },
-                                style = MaterialTheme.typography.headlineMedium,
-                            )
-                        }
-                    }
-                }
+                Favorites(favorites, appDisplay, onLaunch, onLongPress, onReorderFavorites)
             }
         }
     }
@@ -184,39 +259,199 @@ private fun Modifier.swipeUp(onSwipeUp: () -> Unit): Modifier {
 private val SWIPE_UP_DISTANCE = 72.dp
 
 /**
- * Calls [onDoubleTap] for a double-tap on empty space. Apps, the clock and cards handle their
- * own taps, so a double-tap on them doesn't count. Does nothing when [onDoubleTap] is null.
+ * Taps on empty space: [onTap] (closing an open folder), [onDoubleTap] (locking) and
+ * [onLongPress] (Customise). Apps, the clock and cards handle their own taps, so tapping them
+ * doesn't count. [onTap] and [onDoubleTap] can be null when they do nothing.
  */
 @Composable
-private fun Modifier.doubleTap(onDoubleTap: (() -> Unit)?): Modifier {
+private fun Modifier.homeTaps(onTap: (() -> Unit)?, onDoubleTap: (() -> Unit)?, onLongPress: () -> Unit): Modifier {
+    val currentOnTap by rememberUpdatedState(onTap)
     val currentOnDoubleTap by rememberUpdatedState(onDoubleTap)
-    if (onDoubleTap == null) return this
-    return pointerInput(Unit) {
-        detectTapGestures(onDoubleTap = { currentOnDoubleTap?.invoke() })
+    val currentOnLongPress by rememberUpdatedState(onLongPress)
+    val haptics = LocalHapticFeedback.current
+    return pointerInput(onTap != null, onDoubleTap != null) {
+        detectTapGestures(
+            onTap = if (onTap != null) ({ currentOnTap?.invoke() }) else null,
+            onDoubleTap = if (onDoubleTap != null) ({ currentOnDoubleTap?.invoke() }) else null,
+            onLongPress = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                currentOnLongPress()
+            },
+        )
     }
 }
 
+/**
+ * The favourites as names, icons and names, or a grid of icons. Hold one and drag it to move
+ * it: the others make room as it passes, and the new order is saved when it's let go. A hold
+ * released in place opens the app's menu instead.
+ */
 @Composable
-private fun Clock(onClick: () -> Unit) {
+private fun Favorites(
+    favorites: List<LauncherApp>,
+    display: AppDisplay,
+    onLaunch: (LauncherApp) -> Unit,
+    onLongPress: (LauncherApp) -> Unit,
+    onReorder: (List<LauncherApp>) -> Unit,
+) {
+    val icons = display == AppDisplay.ICONS_ONLY
+    val columns = if (icons) ICON_COLUMNS else 1
+    var order by remember(favorites) { mutableStateOf(favorites) }
+    var dragged by remember { mutableStateOf<String?>(null) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    // One slot's size, gaps included, to tell when the dragged app has reached the next one.
+    var slot by remember { mutableStateOf(Size.Zero) }
+    val rowGap = with(LocalDensity.current) { ICON_ROW_GAP.toPx() }
+    val haptics = LocalHapticFeedback.current
+
+    fun dragBy(step: Offset) {
+        offset += step
+        val from = order.indexOfFirst { it.key == dragged }
+        if (from < 0 || slot.width == 0f || slot.height == 0f) return
+        val columnShift = if (columns > 1) (offset.x / slot.width).roundToInt() else 0
+        val rowShift = (offset.y / slot.height).roundToInt()
+        val to = (from + rowShift * columns + columnShift).coerceIn(0, order.lastIndex)
+        if (to == from) return
+        order = order.toMutableList().apply { add(to, removeAt(from)) }
+        // It now sits in its new slot; move the offset by as much so it stays under the finger.
+        offset -= Offset((to % columns - from % columns) * slot.width, (to / columns - from / columns) * slot.height)
+    }
+
+    @Composable
+    fun Item(app: LauncherApp, modifier: Modifier = Modifier) {
+        val lifted = dragged == app.key
+        AppItem(
+            app = app,
+            display = display,
+            onClick = {},
+            onLongClick = {},
+            clickable = false,
+            style = MaterialTheme.typography.headlineMedium,
+            circleSize = 60.dp,
+            modifier = modifier
+                .zIndex(if (lifted) 1f else 0f)
+                .graphicsLayer {
+                    if (lifted) {
+                        translationX = offset.x
+                        translationY = offset.y
+                        scaleX = LIFTED_SCALE
+                        scaleY = LIFTED_SCALE
+                    }
+                }
+                .holdToDrag(
+                    key = app.key,
+                    onTap = { onLaunch(app) },
+                    onLift = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        dragged = app.key
+                        offset = Offset.Zero
+                    },
+                    onDrag = ::dragBy,
+                    onDrop = { moved ->
+                        dragged = null
+                        offset = Offset.Zero
+                        if (moved) onReorder(order) else onLongPress(app)
+                    },
+                ),
+        )
+    }
+
+    if (icons) {
+        Column(verticalArrangement = Arrangement.spacedBy(ICON_ROW_GAP), modifier = Modifier.fillMaxWidth()) {
+            order.chunked(columns).forEach { row ->
+                // The lifted app's row draws on top, so it passes over the rows below.
+                Row(Modifier.fillMaxWidth().zIndex(if (row.any { it.key == dragged }) 1f else 0f)) {
+                    row.forEach { app ->
+                        key(app.key) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .onSizeChanged { slot = Size(it.width.toFloat(), it.height + rowGap) },
+                            ) { Item(app) }
+                        }
+                    }
+                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
+    } else {
+        Column {
+            order.forEach { app ->
+                key(app.key) { Item(app, Modifier.onSizeChanged { slot = Size(it.width.toFloat(), it.height.toFloat()) }) }
+            }
+        }
+    }
+}
+
+/** A lifted app grows a little, so it's clear what's being moved. */
+private const val LIFTED_SCALE = 1.06f
+private val ICON_ROW_GAP = 16.dp
+
+private const val ICON_COLUMNS = 4
+
+/** How far Orbit's apps reach beyond the clock's rings. */
+private val ORBIT_REACH = 40.dp
+
+/**
+ * The clock inside two rings, like a watch: the ticks fill with today's phone time against the
+ * daily limit (amber when it's close, red when it's used up), and the inner ring has one segment
+ * per item on today's list. Tapping it opens the alarms.
+ */
+@Composable
+private fun BezelClock(limit: LimitState?, progress: List<ItemProgress>, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val locale = LocalLocale.current.platformLocale
     val now by rememberCurrentMinute()
+    val palette = stillPalette
+    val ringColor = when {
+        limit?.isReached == true -> palette.danger
+        limit?.isWarning == true -> palette.warning
+        else -> palette.accent
+    }
     val timePattern = if (DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm"
-    val datePattern = DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM")
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.clickable(onClick = onClick),
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(BEZEL_SIZE)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
     ) {
+        TickRing(fraction = limit?.fraction ?: 0f, lit = ringColor, unlit = palette.faint, modifier = Modifier.fillMaxSize())
+        TaskRing(progress, done = palette.accent, overdue = palette.warning, pending = palette.faint, modifier = Modifier.size(TASK_RING_SIZE))
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = now.format(DateTimeFormatter.ofPattern(timePattern, locale)),
+                fontSize = 52.sp,
+                fontWeight = FontWeight.Light,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            limit?.takeIf { it.isOn }?.let {
+                Text(
+                    text = if (it.isReached) stringResource(R.string.home_times_up) else stringResource(R.string.limit_left, formatDuration(it.left)),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = ringColor,
+                )
+            }
+        }
+    }
+}
+
+private val BEZEL_SIZE = 236.dp
+private val TASK_RING_SIZE = 172.dp
+
+/** The date, or that the day's phone time is up. */
+@Composable
+private fun DateLine(limit: LimitState?) {
+    val locale = LocalLocale.current.platformLocale
+    val now by rememberCurrentMinute()
+    if (limit?.isReached == true) {
+        Text(stringResource(R.string.home_limit_reached), style = MaterialTheme.typography.titleSmall, color = stillPalette.danger)
+    } else {
         Text(
-            text = now.format(DateTimeFormatter.ofPattern(timePattern, locale)),
-            fontSize = 72.sp,
-            fontWeight = FontWeight.Light,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Text(
-            text = now.format(DateTimeFormatter.ofPattern(datePattern, locale)),
-            style = MaterialTheme.typography.titleMedium,
+            text = now.format(DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM"), locale)),
+            style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -225,20 +460,28 @@ private fun Clock(onClick: () -> Unit) {
 /** More reminders than this are summarised as "+N more" so favorites keep their space. */
 private const val MAX_REMINDER_CARDS = 3
 
-/** "3 tasks due · 1 overdue" under the date; tapping it opens the Today page. Hidden when nothing is due. */
+/** "4 of 7 done · 1 overdue" under the date; tapping it opens the Today page. Hidden when nothing is due today. */
 @Composable
-private fun DueTasks(dueTasks: Int, overdueTasks: Int, onClick: () -> Unit) {
-    val text = buildList {
-        add(pluralStringResource(R.plurals.home_tasks_due, dueTasks, dueTasks))
-        if (overdueTasks > 0) add(pluralStringResource(R.plurals.home_tasks_overdue, overdueTasks, overdueTasks))
-    }.joinToString(" · ")
+private fun ProgressLine(progress: List<ItemProgress>, onClick: () -> Unit) {
+    if (progress.isEmpty()) return
+    val done = progress.count { it == ItemProgress.DONE }
+    val overdue = progress.count { it == ItemProgress.OVERDUE }
+    val doneText = stringResource(R.string.home_progress, done, progress.size)
+    val overdueText = pluralStringResource(R.plurals.home_tasks_overdue, overdue, overdue)
+    val warning = stillPalette.warning
     Text(
-        text = text,
+        text = buildAnnotatedString {
+            append(doneText)
+            if (overdue > 0) {
+                append(" · ")
+                withStyle(SpanStyle(color = warning)) { append(overdueText) }
+            }
+        },
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+            .padding(vertical = 6.dp),
     )
 }
 

@@ -1,21 +1,27 @@
 package app.still.launcher.data
 
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import app.still.launcher.focus.FocusSession
+import app.still.launcher.limit.LimitSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.io.IOException
+import java.util.UUID
 
 /** User choices about apps. Favorites, hidden apps and renames are keyed by [InstalledApp.key]. */
 data class LauncherSettings(
@@ -40,9 +46,22 @@ data class LauncherSettings(
     val notificationAllowedPackages: Set<String> = emptySet(),
     /** Show how many notifications are held back, as a quiet notification of STILL's own. */
     val notificationCountShown: Boolean = true,
+    /** The daily phone limit. */
+    val limit: LimitSettings = LimitSettings(),
+    /** Folders on home, in the order they were made. */
+    val folders: List<AppFolder> = emptyList(),
+    val folderStyle: FolderStyle = FolderStyle.STRIP,
+    val folderOpening: FolderOpening = FolderOpening.SPOTLIGHT,
+    val appDisplay: AppDisplay = AppDisplay.TEXT,
+    val accent: AccentColor = AccentColor.TEAL,
+    val wallpaper: WallpaperChoice = WallpaperChoice.BLACK,
+    /** How much the phone's wallpaper is darkened behind home, 0 to [MAX_WALLPAPER_DIM]. */
+    val wallpaperDim: Float = DEFAULT_WALLPAPER_DIM,
 ) {
     companion object {
         const val DEFAULT_LAUNCH_DELAY_SECONDS = 15
+        const val DEFAULT_WALLPAPER_DIM = 0.4f
+        const val MAX_WALLPAPER_DIM = 0.8f
     }
 }
 
@@ -67,6 +86,14 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
                 notificationFilterOn = prefs[NOTIFICATION_FILTER_ON] ?: false,
                 notificationAllowedPackages = prefs[NOTIFICATION_ALLOWED_PACKAGES] ?: emptySet(),
                 notificationCountShown = prefs[NOTIFICATION_COUNT_SHOWN] ?: true,
+                limit = prefs[DAILY_LIMIT]?.let(::decodeLimit) ?: LimitSettings(),
+                folders = prefs.folders(),
+                folderStyle = enumOr(prefs[FOLDER_STYLE], FolderStyle.STRIP),
+                folderOpening = enumOr(prefs[FOLDER_OPENING], FolderOpening.SPOTLIGHT),
+                appDisplay = enumOr(prefs[APP_DISPLAY], AppDisplay.TEXT),
+                accent = enumOr(prefs[ACCENT], AccentColor.TEAL),
+                wallpaper = enumOr(prefs[WALLPAPER], WallpaperChoice.BLACK),
+                wallpaperDim = prefs[WALLPAPER_DIM] ?: LauncherSettings.DEFAULT_WALLPAPER_DIM,
             )
         }
 
@@ -81,6 +108,100 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs ->
             if (session == null) prefs.remove(FOCUS_SESSION) else prefs[FOCUS_SESSION] = json.encodeToString(FocusSession.serializer(), session)
         }
+    }
+
+    /** Makes a folder named [name] holding [firstApp], taking it out of any other folder; returns the folder's id. */
+    suspend fun createFolder(name: String, firstApp: String): String {
+        val id = UUID.randomUUID().toString()
+        dataStore.edit { prefs ->
+            val folders = prefs.folders() + AppFolder(id, name.trim())
+            prefs.setFolders(moveToFolder(folders, firstApp, id))
+        }
+        return id
+    }
+
+    /** Moves [appKey] into the folder [folderId], or out of its folder when that's null. */
+    suspend fun moveToFolder(appKey: String, folderId: String?) {
+        dataStore.edit { prefs -> prefs.setFolders(moveToFolder(prefs.folders(), appKey, folderId)) }
+    }
+
+    suspend fun renameFolder(folderId: String, name: String) {
+        dataStore.edit { prefs -> prefs.setFolders(prefs.folders().map { if (it.id == folderId) it.copy(name = name.trim()) else it }) }
+    }
+
+    /** The folder goes; its apps stay in the app list. */
+    suspend fun deleteFolder(folderId: String) {
+        dataStore.edit { prefs -> prefs.setFolders(prefs.folders().filterNot { it.id == folderId }) }
+    }
+
+    suspend fun setFolderStyle(style: FolderStyle) {
+        dataStore.edit { prefs -> prefs[FOLDER_STYLE] = style.name }
+    }
+
+    suspend fun setFolderOpening(opening: FolderOpening) {
+        dataStore.edit { prefs -> prefs[FOLDER_OPENING] = opening.name }
+    }
+
+    suspend fun setAppDisplay(display: AppDisplay) {
+        dataStore.edit { prefs -> prefs[APP_DISPLAY] = display.name }
+    }
+
+    suspend fun setAccent(accent: AccentColor) {
+        dataStore.edit { prefs -> prefs[ACCENT] = accent.name }
+    }
+
+    suspend fun setWallpaper(wallpaper: WallpaperChoice) {
+        dataStore.edit { prefs -> prefs[WALLPAPER] = wallpaper.name }
+    }
+
+    suspend fun setWallpaperDim(dim: Float) {
+        dataStore.edit { prefs -> prefs[WALLPAPER_DIM] = dim.coerceIn(0f, LauncherSettings.MAX_WALLPAPER_DIM) }
+    }
+
+    private fun Preferences.folders(): List<AppFolder> = this[FOLDERS]?.let { text ->
+        try {
+            json.decodeFromString(foldersSerializer, text)
+        } catch (e: SerializationException) {
+            null
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    } ?: emptyList()
+
+    private fun MutablePreferences.setFolders(folders: List<AppFolder>) {
+        this[FOLDERS] = json.encodeToString(foldersSerializer, folders)
+    }
+
+    /** A value saved by a newer version that this one doesn't know falls back to [default]. */
+    private inline fun <reified T : Enum<T>> enumOr(name: String?, default: T): T =
+        enumValues<T>().firstOrNull { it.name == name } ?: default
+
+    /** Changes the daily limit's settings in one step, so rules that compare old and new see the saved values. */
+    suspend fun updateLimit(change: (LimitSettings) -> LimitSettings) {
+        dataStore.edit { prefs ->
+            val current = prefs[DAILY_LIMIT]?.let(::decodeLimit) ?: LimitSettings()
+            prefs[DAILY_LIMIT] = json.encodeToString(LimitSettings.serializer(), change(current))
+        }
+    }
+
+    /** The last limit notice shown, e.g. "2026-10-23:WARN", so it isn't shown twice. */
+    suspend fun limitNotice(): String? = dataStore.data.first()[LIMIT_NOTICE]
+
+    suspend fun setLimitNotice(notice: String) {
+        dataStore.edit { prefs -> prefs[LIMIT_NOTICE] = notice }
+    }
+
+    /** Settings saved by a different app version that can't be read fall back to no limit. */
+    private fun decodeLimit(text: String): LimitSettings? = try {
+        json.decodeFromString(LimitSettings.serializer(), text).let { limit ->
+            // The first build with a limit didn't record the day it started; a raise waiting
+            // since then was made on that day, the only day it could have been.
+            if (limit.startedOn == null && limit.plan.isOn && limit.pending != null) limit.copy(startedOn = limit.pending.from.minusDays(1)) else limit
+        }
+    } catch (e: SerializationException) {
+        null
+    } catch (e: IllegalArgumentException) {
+        null
     }
 
     /** A session saved by a different app version that can't be read is treated as none. */
@@ -100,6 +221,18 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs ->
             val current = prefs.favorites() - appKey
             prefs[FAVORITES] = (if (favorite) current + appKey else current).joinToString(SEPARATOR)
+        }
+    }
+
+    /**
+     * Puts the favourites in [order]. Favourites it leaves out, such as hidden apps that home
+     * doesn't show, keep their place at the end.
+     */
+    suspend fun setFavoriteOrder(order: List<String>) {
+        dataStore.edit { prefs ->
+            val current = prefs.favorites()
+            val ordered = order.filter { it in current }
+            prefs[FAVORITES] = (ordered + (current - ordered.toSet())).joinToString(SEPARATOR)
         }
     }
 
@@ -175,6 +308,17 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val PRECISION_WANTED = booleanPreferencesKey("precisionWanted")
         val GATE_ALWAYS_OPEN_PACKAGES = stringSetPreferencesKey("gateAlwaysOpenPackages")
         val FOCUS_SESSION = stringPreferencesKey("focusSession")
+        val DAILY_LIMIT = stringPreferencesKey("dailyLimit")
+        val LIMIT_NOTICE = stringPreferencesKey("limitNotice")
+        val FOLDERS = stringPreferencesKey("folders")
+        val FOLDER_STYLE = stringPreferencesKey("folderStyle")
+        val FOLDER_OPENING = stringPreferencesKey("folderOpening")
+        val APP_DISPLAY = stringPreferencesKey("appDisplay")
+        val ACCENT = stringPreferencesKey("accent")
+        val WALLPAPER = stringPreferencesKey("wallpaper")
+        val WALLPAPER_DIM = floatPreferencesKey("wallpaperDim")
+        // Typed explicitly, as for Room's converters.
+        val foldersSerializer: KSerializer<List<AppFolder>> = ListSerializer(AppFolder.serializer())
         val NOTIFICATION_FILTER_ON = booleanPreferencesKey("notificationFilterOn")
         val NOTIFICATION_ALLOWED_PACKAGES = stringSetPreferencesKey("notificationAllowedPackages")
         val NOTIFICATION_COUNT_SHOWN = booleanPreferencesKey("notificationCountShown")

@@ -14,6 +14,7 @@ class StillApplication : Application() {
         container.appTimeReminders.createChannel()
         container.focusTimer.createChannel()
         container.notificationFilter.createChannel()
+        container.dailyLimit.createChannel()
         container.notificationFilter.rebindIfAllowed()
     }
 }

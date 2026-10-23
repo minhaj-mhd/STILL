@@ -98,6 +98,11 @@
             </intent-filter>
         </service>
 
+        <!-- The daily phone limit's check alarm. -->
+        <receiver
+            android:name=".limit.LimitCheckReceiver"
+            android:exported="false" />
+
         <!-- The focus timer's end alarm and its notification's Stop button. -->
         <receiver
             android:name=".focus.FocusTimerReceiver"

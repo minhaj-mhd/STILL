@@ -2,11 +2,13 @@ package app.still.launcher
 
 import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
+import app.still.launcher.data.AppIcons
 import app.still.launcher.data.AppRepository
 import app.still.launcher.data.BlockingRepository
 import app.still.launcher.data.GateRepository
 import app.still.launcher.focus.FocusTimer
 import app.still.launcher.gates.TaskGateMonitor
+import app.still.launcher.limit.DailyLimitMonitor
 import app.still.launcher.notifications.NotificationFilter
 import app.still.launcher.data.ScreenTimeRepository
 import app.still.launcher.util.EssentialApps
@@ -32,6 +34,7 @@ class AppContainer(context: Context) {
 
     val preferences = LauncherPreferences(context.launcherDataStore)
     val appRepository = AppRepository(context)
+    val appIcons = AppIcons(context)
     val productivityRepository = ProductivityRepository(database.productivityDao())
     val notesRepository = NotesRepository(database.noteDao())
     val blockingRepository = BlockingRepository(database.appBlockDao(), database.blockingScheduleDao())
@@ -40,6 +43,7 @@ class AppContainer(context: Context) {
     val gateRepository = GateRepository(database.taskGateDao())
     val taskGates = TaskGateMonitor(productivityRepository, gateRepository, applicationScope)
     val precisionMode = PrecisionMode(context)
+    val dailyLimit = DailyLimitMonitor(context, preferences, screenTimeRepository, essentialApps, applicationScope)
     val appTimeReminders = AppTimeReminders(context, blockingRepository, screenTimeRepository, preferences, precisionMode)
     val reminderScheduler = ReminderScheduler(context, productivityRepository, applicationScope)
     val focusTimer = FocusTimer(context, preferences, productivityRepository, applicationScope)

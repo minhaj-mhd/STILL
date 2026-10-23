@@ -49,9 +49,10 @@ class PrecisionService : AccessibilityService() {
                 container.blockingRepository.blocks,
                 container.blockingRepository.schedules,
                 container.preferences.settings,
-                // Gates are read straight from the monitor; this only looks again when they change.
+                // Gates and the limit are read straight from their monitors; this only looks again when they change.
                 container.taskGates.inputs,
-            ) { blocks, schedules, settings, _ ->
+                container.dailyLimit.state,
+            ) { blocks, schedules, settings, _, _ ->
                 Rules(blocks, schedules, settings)
             }.collect { latest ->
                 rules = latest
@@ -64,6 +65,7 @@ class PrecisionService : AccessibilityService() {
             while (true) {
                 delay(RECHECK_MILLIS)
                 container.taskGates.setToday(LocalDate.now())
+                container.dailyLimit.refresh()
                 recheck()
             }
         }
@@ -116,6 +118,7 @@ class PrecisionService : AccessibilityService() {
         return ForegroundRule(
             blocked = activeBlock(packageName, rules.blocks, scheduled, now, zone) != null,
             gated = gates.isNotEmpty(),
+            limited = container.dailyLimit.keepsClosed(packageName, now.toEpochMilli()),
             asksFirst = packageName in rules.settings.launchDelayPackages || packageName in rules.settings.timeReminderPackages,
         )
     }

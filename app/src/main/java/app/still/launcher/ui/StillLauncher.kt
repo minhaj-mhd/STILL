@@ -32,6 +32,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -39,25 +40,34 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.still.launcher.R
 import app.still.launcher.data.AppScreenTime
+import app.still.launcher.limit.LimitSettings
 import app.still.launcher.precision.InterventionKind
+import app.still.launcher.productivity.progress
 import app.still.launcher.ui.apps.AppActionsSheet
 import app.still.launcher.ui.apps.AppsPage
 import app.still.launcher.ui.apps.BlockAppSheet
 import app.still.launcher.ui.apps.BlockedScreen
+import app.still.launcher.ui.apps.FolderActionsSheet
+import app.still.launcher.ui.apps.FolderNameDialog
+import app.still.launcher.ui.apps.FolderPickerSheet
 import app.still.launcher.ui.apps.LaunchDelayScreen
 import app.still.launcher.ui.apps.TimeIntentSheet
 import app.still.launcher.ui.apps.TimeUpScreen
 import app.still.launcher.ui.apps.RenameAppDialog
 import app.still.launcher.ui.components.rememberCurrentMinute
+import app.still.launcher.ui.theme.WallpaperBackground
 import app.still.launcher.ui.editor.EditorHost
 import app.still.launcher.ui.editor.EditorTarget
 import app.still.launcher.ui.editor.EditorTargetSaver
 import app.still.launcher.ui.gates.GateScreen
 import app.still.launcher.ui.home.HomePage
 import app.still.launcher.ui.insights.InsightsPage
+import app.still.launcher.ui.limit.DailyLimitPage
+import app.still.launcher.ui.limit.LimitScreen
 import app.still.launcher.ui.notifications.HeldNotificationsPage
 import app.still.launcher.ui.notifications.NotificationFilterViewModel
 import app.still.launcher.ui.notes.NotesPage
+import app.still.launcher.ui.settings.CustomisePage
 import app.still.launcher.ui.settings.SettingsPage
 import app.still.launcher.ui.settings.SettingsScreen
 import app.still.launcher.ui.productivity.LeftPageTabs
@@ -79,7 +89,7 @@ import java.time.Instant
 private enum class Page { Productivity, Home, Apps }
 
 /** Full-screen views over the pages, opened by swiping up on home. Back goes up this list. */
-private enum class Overlay { INSIGHTS, SETTINGS, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION, HELD_NOTIFICATIONS }
+private enum class Overlay { INSIGHTS, DAILY_LIMIT, HOME_CUSTOMISE, SETTINGS, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION, HELD_NOTIFICATIONS }
 
 @Composable
 fun StillLauncher(
@@ -111,6 +121,11 @@ fun StillLauncher(
     var query by rememberSaveable { mutableStateOf("") }
     var menuAppKey by rememberSaveable { mutableStateOf<String?>(null) }
     var renameAppKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var folderPickerKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var newFolderForKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var folderMenuId by rememberSaveable { mutableStateOf<String?>(null) }
+    var renamingFolderId by rememberSaveable { mutableStateOf<String?>(null) }
+    var openFolderId by rememberSaveable { mutableStateOf<String?>(null) }
     var editor by rememberSaveable(stateSaver = EditorTargetSaver) { mutableStateOf<EditorTarget?>(null) }
     var leftTab by rememberSaveable { mutableStateOf(LeftTab.TODAY) }
     var overlay by rememberSaveable { mutableStateOf<Overlay?>(null) }
@@ -122,16 +137,24 @@ fun StillLauncher(
     var timeUpMinutes by rememberSaveable { mutableIntStateOf(0) }
     var showLockHelp by rememberSaveable { mutableStateOf(false) }
     var gateScreenKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var limitScreenKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var limitEmergencyKey by rememberSaveable { mutableStateOf<String?>(null) }
     var emergencyKey by rememberSaveable { mutableStateOf<String?>(null) }
     // Look apps up by key so an open menu reflects changes (e.g. favorite toggled) immediately.
     val menuApp = state.apps.firstOrNull { it.key == menuAppKey }
     val renameApp = state.apps.firstOrNull { it.key == renameAppKey }
+    val folderPickerApp = state.apps.firstOrNull { it.key == folderPickerKey }
+    val newFolderApp = state.apps.firstOrNull { it.key == newFolderForKey }
+    val folderMenu = state.folders.firstOrNull { it.id == folderMenuId }
+    val renamingFolder = state.folders.firstOrNull { it.id == renamingFolderId }
     val blockApp = state.apps.firstOrNull { it.key == blockAppKey }
     val blockedScreenApp = state.apps.firstOrNull { it.key == blockedScreenKey }
     val launchDelayApp = state.apps.firstOrNull { it.key == launchDelayKey }
     val timeAskApp = state.apps.firstOrNull { it.key == timeAskKey }
     val timeUpApp = state.apps.firstOrNull { it.key == timeUpKey }
     val gateScreenApp = state.apps.firstOrNull { it.key == gateScreenKey }
+    val limitScreenApp = state.apps.firstOrNull { it.key == limitScreenKey }
+    val limitEmergencyApp = state.apps.firstOrNull { it.key == limitEmergencyKey }
     val emergencyApp = state.apps.firstOrNull { it.key == emergencyKey }
 
     var isDefaultLauncher by remember { mutableStateOf(context.isDefaultLauncher()) }
@@ -179,10 +202,11 @@ fun StillLauncher(
         }
     }
 
-    // Opening an app from STILL goes: blocked? → gated? → launch delay → "how long?" → open.
+    // Opening an app from STILL goes: blocked? → daily limit used up? → gated? → launch delay → "how long?" → open.
     fun openApp(app: LauncherApp) {
         if (viewModel.launch(app)) {
             query = ""
+            openFolderId = null
             // Coming back to STILL should land on home, not on the list or page you left from.
             overlay = null
             goHome(animate = false)
@@ -198,6 +222,7 @@ fun StillLauncher(
     fun launchApp(app: LauncherApp) {
         when {
             app.isBlocked -> blockedScreenKey = app.key
+            app.isLimited -> limitScreenKey = app.key
             app.isGated -> gateScreenKey = app.key
             app.hasLaunchDelay -> launchDelayKey = app.key
             else -> afterLaunchDelay(app)
@@ -216,6 +241,13 @@ fun StillLauncher(
         timeUpKey = null
         gateScreenKey = null
         emergencyKey = null
+        limitScreenKey = null
+        limitEmergencyKey = null
+        folderPickerKey = null
+        newFolderForKey = null
+        folderMenuId = null
+        renamingFolderId = null
+        openFolderId = null
         showLockHelp = false
         editor = null
         overlay = null
@@ -249,6 +281,13 @@ fun StillLauncher(
                         viewModel.uiState.first { current -> current.apps.any { it.key == app.key && it.isBlocked } }
                     }
                     blockedScreenKey = app.key
+                }
+                InterventionKind.LIMIT -> {
+                    viewModel.setNow(Instant.now())
+                    val limited = withTimeoutOrNull(BLOCK_SHOWS_WITHIN_MILLIS) {
+                        viewModel.uiState.first { current -> current.apps.any { it.key == app.key && it.isLimited } }
+                    }
+                    if (limited != null) limitScreenKey = app.key else launchApp(app)
                 }
                 InterventionKind.GATED -> {
                     viewModel.setNow(Instant.now())
@@ -291,7 +330,9 @@ fun StillLauncher(
         if (pagerState.currentPage != Page.Home.ordinal) goHome(animate = true)
     }
 
-    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+    // The pages sit on the wallpaper; screens opened over them keep solid backgrounds.
+    Surface(color = Color.Transparent, contentColor = MaterialTheme.colorScheme.onBackground, modifier = Modifier.fillMaxSize()) {
+        WallpaperBackground()
         HorizontalPager(
             state = pagerState,
             beyondViewportPageCount = 1,
@@ -321,8 +362,8 @@ fun StillLauncher(
                             // No clock app installed; nothing to open.
                         }
                     },
-                    dueTasks = agenda?.dueTaskCount ?: 0,
-                    overdueTasks = agenda?.overdueTaskCount ?: 0,
+                    progress = agenda?.progress.orEmpty(),
+                    limit = state.limit,
                     lockedApps = state.gateLocks.lockedAppCount,
                     itemsToGo = state.gateLocks.itemsToGo,
                     focus = focus,
@@ -345,6 +386,15 @@ fun StillLauncher(
                     precisionLost = precisionLost,
                     onTurnOnPrecision = { overlay = Overlay.PRECISION },
                     onDismissPrecisionLost = viewModel::forgetPrecision,
+                    folders = state.folders,
+                    folderStyle = state.folderStyle,
+                    folderOpening = state.folderOpening,
+                    appDisplay = state.appDisplay,
+                    openFolderId = openFolderId,
+                    onOpenFolder = { openFolderId = it },
+                    onFolderLongPress = { folderMenuId = it.id },
+                    onLongPressHome = { overlay = Overlay.HOME_CUSTOMISE },
+                    onReorderFavorites = viewModel::reorderFavorites,
                 )
                 Page.Apps -> AppsPage(
                     apps = state.apps,
@@ -379,8 +429,17 @@ fun StillLauncher(
                 heldCount = held.size.takeIf { filterSettings.on },
                 onOpenHeld = { overlay = Overlay.HELD_NOTIFICATIONS },
                 onOpenSettings = { overlay = Overlay.SETTINGS },
+                onOpenDailyLimit = { overlay = Overlay.DAILY_LIMIT },
                 onAllowUsageAccess = { context.startActivity(viewModel.usageAccessIntent()) },
                 onClose = { overlay = null },
+            )
+            // Long-pressing home opens Customise on its own; closing it goes back to home.
+            Overlay.HOME_CUSTOMISE -> CustomisePage(onBack = { overlay = null })
+            Overlay.DAILY_LIMIT -> DailyLimitPage(
+                apps = state.apps,
+                hasUsageAccess = hasUsageAccess,
+                onAllowUsageAccess = { context.startActivity(viewModel.usageAccessIntent()) },
+                onBack = { overlay = Overlay.INSIGHTS },
             )
             Overlay.HELD_NOTIFICATIONS -> HeldNotificationsPage(
                 apps = state.apps,
@@ -388,9 +447,10 @@ fun StillLauncher(
                 onOpenSettings = { overlay = Overlay.NOTIFICATION_FILTER },
                 onClose = { overlay = Overlay.INSIGHTS },
             )
-            Overlay.SETTINGS, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS, Overlay.SCHEDULES, Overlay.GATES,
+            Overlay.SETTINGS, Overlay.CUSTOMISE, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS, Overlay.SCHEDULES, Overlay.GATES,
             Overlay.NOTIFICATION_FILTER, Overlay.PRECISION -> SettingsScreen(
                 page = when (current) {
+                    Overlay.CUSTOMISE -> SettingsPage.CUSTOMISE
                     Overlay.HIDDEN_APPS -> SettingsPage.HIDDEN_APPS
                     Overlay.BLOCKED_APPS -> SettingsPage.BLOCKED_APPS
                     Overlay.SCHEDULES -> SettingsPage.SCHEDULES
@@ -402,6 +462,7 @@ fun StillLauncher(
                 onNavigate = { page ->
                     overlay = when (page) {
                         SettingsPage.MAIN -> Overlay.SETTINGS
+                        SettingsPage.CUSTOMISE -> Overlay.CUSTOMISE
                         SettingsPage.HIDDEN_APPS -> Overlay.HIDDEN_APPS
                         SettingsPage.BLOCKED_APPS -> Overlay.BLOCKED_APPS
                         SettingsPage.SCHEDULES -> Overlay.SCHEDULES
@@ -449,6 +510,49 @@ fun StillLauncher(
         } else {
             BlockedScreen(app.label, until, app.blockedBySchedule, onClose = { blockedScreenKey = null })
         }
+    }
+
+    // The day's phone limit is used up: only allowed apps open. If it no longer applies (a new
+    // day, or the limit changed), carry on opening the app.
+    limitScreenApp?.let { app ->
+        val limit = state.limit
+        if (!app.isLimited || limit == null) {
+            LaunchedEffect(app.key) {
+                limitScreenKey = null
+                launchApp(app)
+            }
+        } else {
+            LimitScreen(
+                app = app,
+                limit = limit,
+                allowedApps = state.apps.filter { it.component.packageName in state.limitSettings.allowed && !it.isWorkProfile },
+                emergenciesLeft = state.limitSettings.emergenciesLeft(limit.day),
+                onOpenAllowed = { allowed ->
+                    limitScreenKey = null
+                    launchApp(allowed)
+                },
+                onEmergency = {
+                    limitScreenKey = null
+                    limitEmergencyKey = app.key
+                },
+                onClose = { limitScreenKey = null },
+            )
+        }
+    }
+
+    // Emergency minutes past the limit wait through a countdown, then open the app for a few minutes.
+    limitEmergencyApp?.let { app ->
+        LaunchDelayScreen(
+            appLabel = app.label,
+            seconds = LimitSettings.EMERGENCY_DELAY_SECONDS,
+            screenTime = null,
+            question = stringResource(R.string.gate_emergency_question, app.label, LimitSettings.EMERGENCY_MINUTES),
+            onOpen = {
+                limitEmergencyKey = null
+                viewModel.useLimitEmergency(app) { openApp(app) }
+            },
+            onCancel = { limitEmergencyKey = null },
+        )
     }
 
     // A task gate keeps the app closed until what's left is done on the Today page. If the gate
@@ -554,6 +658,15 @@ fun StillLauncher(
                 viewModel.setFavorite(app, favorite)
                 menuAppKey = null
             },
+            folderName = state.folders.firstOrNull { it.id == app.folderId }?.name,
+            onMoveToFolder = {
+                menuAppKey = null
+                if (state.folders.isEmpty()) newFolderForKey = app.key else folderPickerKey = app.key
+            },
+            onRemoveFromFolder = {
+                viewModel.moveToFolder(app, null)
+                menuAppKey = null
+            },
             onRename = {
                 menuAppKey = null
                 renameAppKey = app.key
@@ -601,6 +714,60 @@ fun StillLauncher(
             dismissButton = {
                 TextButton(onClick = { showLockHelp = false }) { Text(stringResource(R.string.lock_not_now)) }
             },
+        )
+    }
+
+    folderPickerApp?.let { app ->
+        FolderPickerSheet(
+            app = app,
+            folders = state.folders,
+            onMove = { folderId ->
+                viewModel.moveToFolder(app, folderId)
+                folderPickerKey = null
+            },
+            onNewFolder = {
+                folderPickerKey = null
+                newFolderForKey = app.key
+            },
+            onDismiss = { folderPickerKey = null },
+        )
+    }
+
+    newFolderApp?.let { app ->
+        FolderNameDialog(
+            initial = "",
+            onSave = { name ->
+                viewModel.createFolder(name, app)
+                newFolderForKey = null
+            },
+            onDismiss = { newFolderForKey = null },
+        )
+    }
+
+    folderMenu?.let { folder ->
+        FolderActionsSheet(
+            folder = folder,
+            onRename = {
+                folderMenuId = null
+                renamingFolderId = folder.id
+            },
+            onDelete = {
+                viewModel.deleteFolder(folder.id)
+                if (openFolderId == folder.id) openFolderId = null
+                folderMenuId = null
+            },
+            onDismiss = { folderMenuId = null },
+        )
+    }
+
+    renamingFolder?.let { folder ->
+        FolderNameDialog(
+            initial = folder.name,
+            onSave = { name ->
+                viewModel.renameFolder(folder.id, name)
+                renamingFolderId = null
+            },
+            onDismiss = { renamingFolderId = null },
         )
     }
 

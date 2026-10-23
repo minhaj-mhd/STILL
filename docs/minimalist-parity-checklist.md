@@ -149,6 +149,8 @@ Android: toggles the system greyscale (daltonizer) secure setting; needs `WRITE_
 
 ## 12. Appearance — Adapt (STILL goes further: wallpapers, gradients, presets)
 
+STILL (stage 4, 2026-10-23): Settings > Customise has wallpapers (Black, Night, Forest, Paper as a light theme, Shapes, or the phone's own wallpaper with a dim slider and a button to Android's picker), accents (Teal, Coral, Violet, Amber, Stone, or from the wallpaper on Android 12+), apps shown as text / icon and name / icons only (each app's own logo in one colour), folder style (Strip, Tabbed, Paper stack, Orbit dots) and folder opening (Spotlight, Drop, Bloom, Cascade, Shelf, Orbit). It also opens on its own from a long-press on empty home, and home's favourites can be dragged into a new order. Fonts, text size and time format are still to do.
+
 - [ ] Color themes: black, white, e-ink, follow system, custom color
 - [ ] Custom theme: pick background color, light or dark text, contrast warning, recent custom themes
 - [ ] Fonts: default, light, thin, medium, condensed, monospace, OpenDyslexic, Architect, Goldman, Orbitron

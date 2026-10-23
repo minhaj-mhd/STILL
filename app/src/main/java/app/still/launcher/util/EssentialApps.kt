@@ -41,6 +41,9 @@ class EssentialApps(context: Context) {
     fun notificationsAlwaysThrough(packageName: String): Boolean =
         isEssential(packageName) || packageName in SYSTEM_PACKAGES || packageName == clockApp()
 
+    /** Apps that open even when the daily phone limit is used up, and whose time never counts: the essential ones and the clock. */
+    fun alwaysOpenAfterLimit(packageName: String): Boolean = isEssential(packageName) || packageName == clockApp()
+
     /** [canGate], and not one of the apps the user keeps [alwaysOpen]. */
     fun canGate(packageName: String, alwaysOpen: Set<String>): Boolean = packageName !in alwaysOpen && canGate(packageName)
 

@@ -4,14 +4,14 @@
     <!-- Home -->
     <string name="home_not_default_title">STILL isn\'t your home app yet</string>
     <string name="home_not_default_action">Set as home app</string>
-    <plurals name="home_tasks_due">
-        <item quantity="one">%d task due</item>
-        <item quantity="other">%d tasks due</item>
-    </plurals>
     <plurals name="home_tasks_overdue">
         <item quantity="one">%d overdue</item>
         <item quantity="other">%d overdue</item>
     </plurals>
+    <!-- "4 of 7 done": a fraction, not a count of things, so no plural form is needed. -->
+    <string name="home_progress" tools:ignore="PluralsCandidate">%1$d of %2$d done</string>
+    <string name="home_times_up">Time\'s up</string>
+    <string name="home_limit_reached">Phone time\'s up · allowed apps only</string>
     <plurals name="home_more_reminders">
         <item quantity="one">+%d more reminder</item>
         <item quantity="other">+%d more reminders</item>
@@ -66,6 +66,9 @@
     <string name="insights_range_today">Today</string>
     <string name="insights_range_week">Last 7 days</string>
     <string name="insights_daily_average">About %1$s a day</string>
+    <string name="insights_set_limit">Set a daily limit</string>
+    <string name="insights_limit_left">%1$s left of %2$s</string>
+    <string name="insights_limit_reached">Time\'s up · resets at %1$s</string>
     <string name="insights_top_apps">Top apps</string>
     <string name="insights_no_usage">No app use recorded yet.</string>
     <string name="insights_nothing_due">Nothing due today</string>
@@ -241,6 +244,101 @@
     <plurals name="insights_focus_by_hand">
         <item quantity="one">%d logged by hand</item>
         <item quantity="other">%d logged by hand</item>
+    </plurals>
+
+    <!-- Customise -->
+    <string name="settings_section_home">Home screen</string>
+    <string name="customise_title">Customise</string>
+    <string name="customise_wallpaper">Wallpaper</string>
+    <string name="customise_dim">Dim the wallpaper</string>
+    <string name="customise_change_wallpaper">Change wallpaper</string>
+    <string name="customise_accent">Accent</string>
+    <string name="customise_apps_shown_as">Apps shown as</string>
+    <string name="customise_folder_style">Folders</string>
+    <string name="customise_folder_opening">Folder opening</string>
+    <string name="customise_opening_hint">Orbit places a folder\'s apps around the clock; it suits short names or icons.</string>
+    <string name="wallpaper_black">Black</string>
+    <string name="wallpaper_night">Night</string>
+    <string name="wallpaper_forest">Forest</string>
+    <string name="wallpaper_paper">Paper</string>
+    <string name="wallpaper_shapes">Shapes</string>
+    <string name="wallpaper_phone">Phone</string>
+    <string name="accent_teal">Teal</string>
+    <string name="accent_coral">Coral</string>
+    <string name="accent_violet">Violet</string>
+    <string name="accent_amber">Amber</string>
+    <string name="accent_stone">Stone</string>
+    <string name="accent_wallpaper">Wallpaper</string>
+    <string name="display_text">Text</string>
+    <string name="display_icon_and_name">Icon and name</string>
+    <string name="display_icons_only">Icons only</string>
+    <string name="folder_style_strip">Strip</string>
+    <string name="folder_style_tabbed">Tabbed</string>
+    <string name="folder_style_paper">Paper stack</string>
+    <string name="folder_style_dots">Orbit dots</string>
+    <string name="opening_spotlight">Spotlight</string>
+    <string name="opening_drop">Drop</string>
+    <string name="opening_bloom">Bloom</string>
+    <string name="opening_cascade">Cascade</string>
+    <string name="opening_shelf">Shelf</string>
+    <string name="opening_orbit">Orbit</string>
+
+    <!-- Folders -->
+    <string name="folder_move">Move to folder…</string>
+    <string name="folder_move_title">Move %1$s to</string>
+    <string name="folder_remove_from">Remove from %1$s</string>
+    <string name="folder_current">%1$s (here now)</string>
+    <string name="folder_new">New folder</string>
+    <string name="folder_name_hint">Work, Places, Reading…</string>
+    <string name="folder_rename">Rename folder</string>
+    <string name="folder_delete">Delete folder</string>
+    <string name="folder_delete_title">Delete “%1$s”?</string>
+    <string name="folder_delete_body">Its apps stay in the app list.</string>
+    <string name="folder_add_hint">Add apps from their long-press menu in the app list.</string>
+
+    <!-- Daily phone limit -->
+    <string name="limit_channel_name">Daily limit</string>
+    <string name="limit_channel_description">A warning before your daily phone time runs out, and when it has</string>
+    <string name="limit_notice_warn">%1$d min of phone time left today</string>
+    <string name="limit_notice_reached">Phone time\'s up for today</string>
+    <string name="limit_notice_reached_text">Only your allowed apps open until tomorrow.</string>
+    <string name="limit_title">Daily limit</string>
+    <string name="limit_needs_access">Allow usage access to set a daily phone limit.</string>
+    <string name="limit_none">No daily limit</string>
+    <string name="limit_off">Off</string>
+    <string name="limit_of">of %1$s</string>
+    <string name="limit_left">%1$s left</string>
+    <string name="limit_reached_title">Time\'s up for today</string>
+    <string name="limit_resets_at">Resets at %1$s</string>
+    <string name="limit_only_allowed_until">Only allowed apps open until %1$s</string>
+    <string name="limit_midnight">midnight</string>
+    <string name="limit_weekdays">Weekdays</string>
+    <string name="limit_weekends">Weekends</string>
+    <string name="limit_same_every_day">Same every day</string>
+    <string name="limit_different_weekends">Different at weekends</string>
+    <string name="limit_from_tomorrow">%1$s from tomorrow</string>
+    <string name="limit_plan_weekends">%1$s, %2$s at weekends</string>
+    <string name="limit_warn_before">Warn me before</string>
+    <string name="limit_warn_off">Off</string>
+    <string name="limit_day_starts">Day starts at</string>
+    <string name="limit_midnight_option">Midnight</string>
+    <string name="limit_four_am">4 AM</string>
+    <string name="limit_allowed">After the limit, only these open</string>
+    <string name="limit_always_open">Phone, Settings, Clock and STILL always open.</string>
+    <string name="limit_counts_allowed">Allowed apps count too</string>
+    <string name="limit_counts_allowed_detail">When off, time in them doesn\'t use up your limit</string>
+    <string name="limit_raise_tomorrow">Raising it starts tomorrow</string>
+    <string name="limit_raise_tomorrow_detail">Lowering it counts straight away. On the day you start a limit, you can change it freely.</string>
+    <string name="limit_raise_tomorrow_off_soon">Raises count straight away from tomorrow</string>
+    <string name="limit_allow_more_body">Your phone time is up. Allowing more apps now opens them today.</string>
+    <string name="limit_screen_title">%1$s can wait until tomorrow</string>
+    <string name="limit_screen_body">Your %1$s for today is used up. Everything opens again at %2$s.</string>
+    <string name="limit_open_now">Open now</string>
+    <string name="limit_no_allowed">No allowed apps yet. Choose them in Insights.</string>
+    <string name="limit_go_home">Go home</string>
+    <plurals name="limit_emergency">
+        <item quantity="one">Emergency 5 minutes · %d left today</item>
+        <item quantity="other">Emergency 5 minutes · %d left today</item>
     </plurals>
 
     <!-- Notification filter -->

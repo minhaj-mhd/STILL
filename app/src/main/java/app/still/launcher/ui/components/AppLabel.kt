@@ -18,7 +18,10 @@ import androidx.compose.ui.unit.dp
 import app.still.launcher.R
 import app.still.launcher.ui.LauncherApp
 
-/** An app shown as text only, the way both the home screen and the app list draw it. */
+/**
+ * An app shown as text only, the way both the home screen and the app list draw it. With
+ * [clickable] off, taps are left to the caller, e.g. home's drag-to-reorder.
+ */
 @Composable
 fun AppLabel(
     app: LauncherApp,
@@ -27,23 +30,27 @@ fun AppLabel(
     modifier: Modifier = Modifier,
     style: TextStyle = MaterialTheme.typography.headlineSmall,
     dimmed: Boolean = false,
+    clickable: Boolean = true,
 ) {
     val haptics = LocalHapticFeedback.current
     Row(
         verticalAlignment = Alignment.Bottom,
         modifier = modifier
             .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onLongClick()
-                },
+            .then(
+                if (!clickable) Modifier
+                else Modifier.combinedClickable(
+                    onClick = onClick,
+                    onLongClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onLongClick()
+                    },
+                ),
             )
             .padding(vertical = 10.dp),
     ) {
         // Blocked and gated apps stay listed, greyed out, so you can see what's closed.
-        val closed = app.isBlocked || app.isGated
+        val closed = app.isBlocked || app.isGated || app.isLimited
         val color = if (dimmed || closed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground
         Text(
             text = app.label,
@@ -55,7 +62,7 @@ fun AppLabel(
         )
         if (app.isWorkProfile) Tag(stringResource(R.string.apps_work_label))
         if (app.isBlocked) Tag(stringResource(R.string.apps_blocked_label))
-        else if (app.isGated) Tag(stringResource(R.string.apps_locked_label))
+        else if (app.isGated || app.isLimited) Tag(stringResource(R.string.apps_locked_label))
     }
 }
 

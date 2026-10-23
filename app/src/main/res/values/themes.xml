@@ -1,7 +1,12 @@
 <resources>
-    <!-- Window theme shown before Compose draws; Compose styling lives in ui/theme/Theme.kt. -->
-    <style name="Theme.Still" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@android:color/black</item>
+    <!--
+        Window theme shown before Compose draws; Compose styling lives in ui/theme/Theme.kt.
+        The phone's wallpaper shows through wherever STILL draws nothing, as it does for the
+        "Phone wallpaper" choice in Customise.
+    -->
+    <style name="Theme.Still" parent="android:Theme.Material.Wallpaper.NoTitleBar">
+        <item name="android:windowShowWallpaper">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>

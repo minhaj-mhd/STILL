@@ -59,6 +59,7 @@ class SystemEventReceiver : BroadcastReceiver() {
             try {
                 container.reminderScheduler.rescheduleNext()
                 container.focusTimer.restore()
+                container.dailyLimit.refresh()
             } finally {
                 pending.finish()
             }

@@ -8,8 +8,15 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.still.launcher.ui.LauncherViewModel
 import app.still.launcher.ui.StillLauncher
+import app.still.launcher.ui.components.AppIconLoader
+import app.still.launcher.ui.components.LocalAppIconLoader
 import app.still.launcher.ui.theme.StillTheme
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,13 +39,22 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) handleOpenRequests(intent)
         setContent {
-            StillTheme {
-                StillLauncher(
-                    viewModel = viewModel,
-                    homePresses = homePresses,
-                    todayRequests = todayRequests.receiveAsFlow(),
-                    heldNotificationRequests = heldNotificationRequests.receiveAsFlow(),
-                )
+            val appearance by viewModel.appearance.collectAsStateWithLifecycle()
+            // Status and navigation bar icons dark on the light wallpaper, light on the rest.
+            LaunchedEffect(appearance.isLight) {
+                val style = if (appearance.isLight) SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT) else SystemBarStyle.dark(Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            }
+            val iconLoader = remember { AppIconLoader(viewModel::icon) }
+            StillTheme(appearance) {
+                CompositionLocalProvider(LocalAppIconLoader provides iconLoader) {
+                    StillLauncher(
+                        viewModel = viewModel,
+                        homePresses = homePresses,
+                        todayRequests = todayRequests.receiveAsFlow(),
+                        heldNotificationRequests = heldNotificationRequests.receiveAsFlow(),
+                    )
+                }
             }
         }
     }

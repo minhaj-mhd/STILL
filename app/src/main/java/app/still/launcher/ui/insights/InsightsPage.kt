@@ -38,6 +38,10 @@ import app.still.launcher.R
 import app.still.launcher.data.ScreenTimeSummary
 import app.still.launcher.productivity.TodayAgenda
 import app.still.launcher.ui.LauncherApp
+import app.still.launcher.limit.LimitState
+import app.still.launcher.ui.limit.DailyLimitViewModel
+import app.still.launcher.ui.limit.resetText
+import app.still.launcher.ui.theme.stillPalette
 import app.still.launcher.ui.components.Chip
 import app.still.launcher.ui.components.ChipRow
 import app.still.launcher.ui.components.FieldLabel
@@ -62,9 +66,11 @@ fun InsightsPage(
     heldCount: Int?,
     onOpenHeld: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenDailyLimit: () -> Unit,
     onAllowUsageAccess: () -> Unit,
     onClose: () -> Unit,
     viewModel: InsightsViewModel = viewModel(factory = InsightsViewModel.Factory),
+    limitViewModel: DailyLimitViewModel = viewModel(factory = DailyLimitViewModel.Factory),
 ) {
     BackHandler(onBack = onClose)
     var hasUsageAccess by remember { mutableStateOf(viewModel.hasUsageAccess()) }
@@ -76,6 +82,7 @@ fun InsightsPage(
     val summary by viewModel.screenTime.collectAsStateWithLifecycle()
     val streaks by viewModel.streaks.collectAsStateWithLifecycle()
     val focusStats by viewModel.focusStats.collectAsStateWithLifecycle()
+    val limit by limitViewModel.state.collectAsStateWithLifecycle()
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
@@ -100,7 +107,7 @@ fun InsightsPage(
                     .verticalScroll(rememberScrollState())
                     .padding(start = 32.dp, end = 32.dp, top = 24.dp, bottom = 48.dp),
             ) {
-                ScreenTimeSection(apps, summary, hasUsageAccess, onAllowUsageAccess)
+                ScreenTimeSection(apps, summary, limit, hasUsageAccess, onAllowUsageAccess, onOpenDailyLimit)
                 TodaySection(agenda)
                 heldCount?.let { HeldSection(it, onOpenHeld) }
                 focusStats?.let { FocusSection(it) }
@@ -114,8 +121,10 @@ fun InsightsPage(
 private fun ScreenTimeSection(
     apps: List<LauncherApp>,
     summary: ScreenTimeSummary?,
+    limit: LimitState?,
     hasUsageAccess: Boolean,
     onAllowUsageAccess: () -> Unit,
+    onOpenDailyLimit: () -> Unit,
 ) {
     var range by rememberSaveable { mutableStateOf(Range.TODAY) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -142,7 +151,11 @@ private fun ScreenTimeSection(
             .filterValues { !it.isZero }
         val total = usage.values.fold(Duration.ZERO, Duration::plus)
 
-        Text(formatDuration(total), style = MaterialTheme.typography.displaySmall)
+        // Tapping today's time opens the daily limit.
+        Column(Modifier.clickable(onClick = onOpenDailyLimit)) {
+            Text(formatDuration(total), style = MaterialTheme.typography.displaySmall)
+            if (range == Range.TODAY) LimitLine(limit)
+        }
         if (range == Range.WEEK) {
             Text(
                 text = stringResource(R.string.insights_daily_average, formatDuration(total.dividedBy(7))),
@@ -166,6 +179,19 @@ private fun ScreenTimeSection(
             }
         }
     }
+}
+
+/** "1h 50m left of 4h 30m ›", "Time's up · resets at midnight ›", or "Set a daily limit ›". */
+@Composable
+private fun LimitLine(limit: LimitState?) {
+    val palette = stillPalette
+    val (text, color) = when {
+        limit == null || !limit.isOn -> stringResource(R.string.insights_set_limit) to MaterialTheme.colorScheme.onSurfaceVariant
+        limit.isReached -> stringResource(R.string.insights_limit_reached, resetText(limit)) to palette.danger
+        else -> stringResource(R.string.insights_limit_left, formatDuration(limit.left), formatDuration(limit.limit)) to
+            if (limit.isWarning) palette.warning else palette.accent
+    }
+    Text("$text  ›", style = MaterialTheme.typography.titleMedium, color = color)
 }
 
 /** An app's name and time, with a bar showing its share of the busiest app's time. */

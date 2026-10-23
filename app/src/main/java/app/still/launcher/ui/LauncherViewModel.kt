@@ -11,13 +11,20 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import app.still.launcher.StillApplication
 import app.still.launcher.blocking.activeBlock
 import app.still.launcher.blocking.scheduledBlocks
+import app.still.launcher.data.AccentColor
+import app.still.launcher.data.AppDisplay
+import app.still.launcher.data.AppIcons
 import app.still.launcher.data.AppRepository
+import app.still.launcher.data.FolderOpening
+import app.still.launcher.data.FolderStyle
 import app.still.launcher.data.AppScreenTime
 import app.still.launcher.data.BlockingRepository
 import app.still.launcher.data.GateRepository
 import app.still.launcher.data.LauncherPreferences
 import app.still.launcher.data.LauncherSettings
+import app.still.launcher.data.MonoIcon
 import app.still.launcher.data.ScreenTimeRepository
+import app.still.launcher.data.WallpaperChoice
 import app.still.launcher.gates.EmergencyOpen
 import app.still.launcher.gates.GateCheck
 import app.still.launcher.gates.GateLocks
@@ -25,12 +32,18 @@ import app.still.launcher.gates.TaskGateMonitor
 import app.still.launcher.gates.closedGates
 import app.still.launcher.gates.emergencyOpenFor
 import app.still.launcher.gates.gateLocks
+import app.still.launcher.limit.DailyLimitMonitor
+import app.still.launcher.limit.LimitSettings
+import app.still.launcher.limit.LimitState
 import app.still.launcher.precision.Intervention
 import app.still.launcher.precision.PrecisionMode
 import app.still.launcher.reminders.AppTimeReminders
+import app.still.launcher.ui.theme.Appearance
 import app.still.launcher.util.EssentialApps
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -75,11 +88,18 @@ data class LauncherApp(
     val gates: List<GateCheck> = emptyList(),
     /** How it can still be opened past [gates] today; null when it can't. */
     val emergencyOpen: EmergencyOpen? = null,
+    /** The day's phone limit is used up and this isn't an allowed app. */
+    val isLimited: Boolean = false,
+    /** The home folder it's in, if any. */
+    val folderId: String? = null,
 ) {
     val isRenamed: Boolean get() = label != originalLabel
     val isBlocked: Boolean get() = blockedUntil != null
     val isGated: Boolean get() = gates.isNotEmpty()
 }
+
+/** A folder on home with its apps, in the order they were added; hidden and uninstalled apps are left out. */
+data class HomeFolder(val id: String, val name: String, val apps: List<LauncherApp>)
 
 data class LauncherUiState(
     /** All apps, hidden ones included, sorted by display label. */
@@ -96,6 +116,13 @@ data class LauncherUiState(
     val gateLocks: GateLocks = GateLocks(),
     /** Apps the user keeps open whatever the gates say. */
     val gateAlwaysOpen: Set<String> = emptySet(),
+    /** Today against the daily limit; null without a limit or Usage access. */
+    val limit: LimitState? = null,
+    val limitSettings: LimitSettings = LimitSettings(),
+    val folders: List<HomeFolder> = emptyList(),
+    val folderStyle: FolderStyle = FolderStyle.STRIP,
+    val folderOpening: FolderOpening = FolderOpening.SPOTLIGHT,
+    val appDisplay: AppDisplay = AppDisplay.TEXT,
 )
 
 class LauncherViewModel(
@@ -108,6 +135,8 @@ class LauncherViewModel(
     private val precision: PrecisionMode,
     private val taskGates: TaskGateMonitor,
     private val gateRepository: GateRepository,
+    private val dailyLimit: DailyLimitMonitor,
+    private val appIcons: AppIcons,
 ) : ViewModel() {
 
     /** The current minute, so blocks end on time without anything else changing. */
@@ -118,9 +147,9 @@ class LauncherViewModel(
             appRepository.installedApps,
             preferences.settings,
             combine(blocking.blocks, blocking.schedules, ::Pair),
-            taskGates.inputs,
+            combine(taskGates.inputs, dailyLimit.state, ::Pair),
             clock,
-        ) { installed, settings, (blocks, schedules), gateInputs, now ->
+        ) { installed, settings, (blocks, schedules), (gateInputs, limitState), now ->
             val collator = Collator.getInstance()
             val zone = ZoneId.systemDefault()
             val scheduled = scheduledBlocks(schedules, LocalDateTime.ofInstant(now, zone))
@@ -128,6 +157,7 @@ class LauncherViewModel(
             val canGate = { packageName: String -> essentialApps.canGate(packageName, alwaysOpen) }
             val closed = gateInputs?.let { closedGates(it, now, zone, canGate) }.orEmpty()
             val today = now.atZone(zone).toLocalDate()
+            val folderOf = settings.folders.flatMap { folder -> folder.apps.map { it to folder.id } }.toMap()
             val apps = installed
                 .map { app ->
                     val packageName = app.component.packageName
@@ -153,6 +183,9 @@ class LauncherViewModel(
                         canGate = canBlock && canGate(packageName),
                         gates = gates,
                         emergencyOpen = gateInputs?.let { emergencyOpenFor(gates, it.events, today, zone) },
+                        isLimited = canBlock &&
+                            settings.limit.keepsClosed(limitState, packageName, now.toEpochMilli(), essentialApps::alwaysOpenAfterLimit),
+                        folderId = folderOf[app.key],
                     )
                 }
                 .sortedWith(compareBy(collator) { it.label })
@@ -169,6 +202,14 @@ class LauncherViewModel(
                 precisionWanted = settings.precisionWanted,
                 gateLocks = gateLocks(closed) { labels[it] },
                 gateAlwaysOpen = alwaysOpen,
+                limit = limitState,
+                limitSettings = settings.limit,
+                folders = settings.folders.map { folder ->
+                    HomeFolder(folder.id, folder.name, folder.apps.mapNotNull { key -> byKey[key]?.takeUnless { it.isHidden } })
+                },
+                folderStyle = settings.folderStyle,
+                folderOpening = settings.folderOpening,
+                appDisplay = settings.appDisplay,
             )
         }
             .flowOn(Dispatchers.Default)
@@ -179,7 +220,14 @@ class LauncherViewModel(
     fun setNow(now: Instant) {
         clock.value = now
         taskGates.setToday(now.atZone(ZoneId.systemDefault()).toLocalDate())
+        viewModelScope.launch { dailyLimit.refresh() }
     }
+
+    /** Accent and wallpaper, for the theme around everything. */
+    val appearance: StateFlow<Appearance> = preferences.settings
+        .map { Appearance(it.accent, it.wallpaper, it.wallpaperDim) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, Appearance())
 
     /** Whether Precision mode's service is connected. */
     val precisionRunning: StateFlow<Boolean> = precision.running
@@ -195,6 +243,11 @@ class LauncherViewModel(
 
     fun setFavorite(app: LauncherApp, favorite: Boolean) {
         viewModelScope.launch { preferences.setFavorite(app.key, favorite) }
+    }
+
+    /** Saves the order home's favourites were dragged into. */
+    fun reorderFavorites(order: List<LauncherApp>) {
+        viewModelScope.launch { preferences.setFavoriteOrder(order.map { it.key }) }
     }
 
     fun setHidden(app: LauncherApp, hidden: Boolean) {
@@ -261,6 +314,62 @@ class LauncherViewModel(
         }
     }
 
+    /** Lets [app] past the used-up daily limit for a few minutes, using one of today's emergency openings, then calls [onOpen]. */
+    fun useLimitEmergency(app: LauncherApp, onOpen: () -> Unit) {
+        viewModelScope.launch {
+            dailyLimit.useEmergency(app.component.packageName)
+            onOpen()
+        }
+    }
+
+    /** [app]'s one-colour icon, [sizePx] square; null when its icon can't be read. */
+    suspend fun icon(app: LauncherApp, sizePx: Int): MonoIcon? = appIcons.monochrome(app.component, app.user, sizePx)
+
+    /** Makes a folder named [name] and puts [app] in it. */
+    fun createFolder(name: String, app: LauncherApp) {
+        viewModelScope.launch { preferences.createFolder(name, app.key) }
+    }
+
+    /** Moves [app] into the folder [folderId], or out of its folder when that's null. */
+    fun moveToFolder(app: LauncherApp, folderId: String?) {
+        viewModelScope.launch { preferences.moveToFolder(app.key, folderId) }
+    }
+
+    fun renameFolder(folderId: String, name: String) {
+        viewModelScope.launch { preferences.renameFolder(folderId, name) }
+    }
+
+    fun deleteFolder(folderId: String) {
+        viewModelScope.launch { preferences.deleteFolder(folderId) }
+    }
+
+    fun setFolderStyle(style: FolderStyle) {
+        viewModelScope.launch { preferences.setFolderStyle(style) }
+    }
+
+    fun setFolderOpening(opening: FolderOpening) {
+        viewModelScope.launch { preferences.setFolderOpening(opening) }
+    }
+
+    fun setAppDisplay(display: AppDisplay) {
+        viewModelScope.launch { preferences.setAppDisplay(display) }
+    }
+
+    fun setAccent(accent: AccentColor) {
+        viewModelScope.launch { preferences.setAccent(accent) }
+    }
+
+    fun setWallpaper(wallpaper: WallpaperChoice) {
+        viewModelScope.launch { preferences.setWallpaper(wallpaper) }
+    }
+
+    fun setWallpaperDim(dim: Float) {
+        viewModelScope.launch { preferences.setWallpaperDim(dim) }
+    }
+
+    /** Android's wallpaper picker; on a Pixel, Wallpaper and style. */
+    fun wallpaperPickerIntent(): Intent = Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), null)
+
     /** Locks the screen; false when Precision mode is off. */
     fun lockScreen(): Boolean = precision.lockScreen()
 
@@ -314,6 +423,8 @@ class LauncherViewModel(
                     container.precisionMode,
                     container.taskGates,
                     container.gateRepository,
+                    container.dailyLimit,
+                    container.appIcons,
                 )
             }
         }

@@ -51,6 +51,10 @@ fun AppActionsSheet(
     onSetLaunchDelay: (Boolean) -> Unit,
     onSetTimeReminder: (Boolean) -> Unit,
     onSetFavorite: (Boolean) -> Unit,
+    /** The folder the app is in, if any. */
+    folderName: String?,
+    onMoveToFolder: () -> Unit,
+    onRemoveFromFolder: () -> Unit,
     onRename: () -> Unit,
     onSetHidden: (Boolean) -> Unit,
     onAppInfo: () -> Unit,
@@ -111,6 +115,8 @@ fun AppActionsSheet(
                     ActionRow(stringResource(R.string.action_add_favorite)) { onSetFavorite(true) }
                 }
             }
+            ActionRow(stringResource(R.string.folder_move), onMoveToFolder)
+            folderName?.let { ActionRow(stringResource(R.string.folder_remove_from, it), onRemoveFromFolder) }
             ActionRow(stringResource(R.string.action_rename), onRename)
             if (app.isHidden) {
                 ActionRow(stringResource(R.string.action_unhide)) { onSetHidden(false) }
