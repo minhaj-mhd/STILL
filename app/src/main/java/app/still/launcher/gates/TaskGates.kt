@@ -125,3 +125,30 @@ fun emergencyOpenFor(checks: List<GateCheck>, events: List<GateEvent>, today: Lo
         minutes = checks.minOf { it.gate.emergencyMinutes },
     )
 }
+
+/** What task gates are keeping closed right now, for the home line and the Today page. */
+data class GateLocks(
+    /** For each pending item, the labels of the apps it keeps closed, sorted. */
+    val appsByItem: Map<GateItem, List<String>> = emptyMap(),
+    val lockedAppCount: Int = 0,
+) {
+    val itemsToGo: Int get() = appsByItem.size
+}
+
+/**
+ * Turns [closed] (package to the gates keeping it closed) into [GateLocks]. [label] names a
+ * package; apps without one (no longer installed) are left out.
+ */
+fun gateLocks(closed: Map<String, List<GateCheck>>, label: (String) -> String?): GateLocks {
+    val appsByItem = mutableMapOf<GateItem, MutableSet<String>>()
+    var lockedApps = 0
+    for ((packageName, checks) in closed) {
+        val name = label(packageName) ?: continue
+        lockedApps++
+        for (check in checks) {
+            check.tasks.forEach { appsByItem.getOrPut(GateItem(ItemType.TASK, it.task.id)) { mutableSetOf() }.add(name) }
+            check.habits.forEach { appsByItem.getOrPut(GateItem(ItemType.HABIT, it.habit.id)) { mutableSetOf() }.add(name) }
+        }
+    }
+    return GateLocks(appsByItem.mapValues { (_, names) -> names.sorted() }, lockedApps)
+}

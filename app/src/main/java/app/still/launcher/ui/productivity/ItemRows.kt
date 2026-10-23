@@ -37,18 +37,23 @@ import app.still.launcher.ui.components.formatTime
 import java.math.RoundingMode
 import java.time.LocalDate
 
-/** Tapping anywhere on the row ticks the task off; editing is in the long-press menu. */
+/**
+ * Tapping anywhere on the row ticks the task off; editing is in the long-press menu. [locks]
+ * names the apps a task gate keeps closed until it's done.
+ */
 @Composable
 fun TaskRow(
     entry: TaskEntry,
     today: LocalDate,
     onToggle: () -> Unit,
     onLongClick: () -> Unit,
+    locks: List<String> = emptyList(),
 ) {
     val details = listOfNotNull(
         entry.occurrence?.takeIf { entry.isOverdue }?.let { relativeDate(it.date, today) },
         entry.occurrence?.time?.let { formatTime(it) },
         stringResource(R.string.today_skipped).takeIf { entry.isSkipped },
+        locksText(locks),
     )
     ItemRow(
         title = entry.task.title,
@@ -86,12 +91,16 @@ fun SubtaskRow(subtask: Task, onToggle: () -> Unit) {
     }
 }
 
-/** Tapping anywhere on the row logs progress; editing and streaks are in the long-press menu. */
+/**
+ * Tapping anywhere on the row logs progress; editing and streaks are in the long-press menu.
+ * [locks] names the apps a task gate keeps closed until it's done.
+ */
 @Composable
 fun HabitRow(
     entry: HabitEntry,
     onToggle: () -> Unit,
     onLongClick: () -> Unit,
+    locks: List<String> = emptyList(),
 ) {
     val habit = entry.habit
     val progress = when (habit.measure) {
@@ -122,6 +131,7 @@ fun HabitRow(
         progress,
         quota,
         stringResource(R.string.today_skipped).takeIf { entry.isSkipped },
+        locksText(locks),
     )
     ItemRow(
         title = habit.title,
@@ -216,6 +226,11 @@ fun CheckCircle(checked: Boolean, skipped: Boolean, onClick: () -> Unit) {
         }
     }
 }
+
+/** "Locks Instagram, YouTube", or null when the item locks nothing. */
+@Composable
+private fun locksText(locks: List<String>): String? =
+    if (locks.isEmpty()) null else stringResource(R.string.today_locks, locks.joinToString(", "))
 
 private fun priorityMark(priority: Priority): String? = when (priority) {
     Priority.NONE -> null

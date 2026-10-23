@@ -51,6 +51,9 @@ fun HomePage(
     onClockClick: () -> Unit,
     dueTasks: Int,
     overdueTasks: Int,
+    /** Apps task gates keep closed right now, and how many items they wait for. */
+    lockedApps: Int,
+    itemsToGo: Int,
     onDueTasksClick: () -> Unit,
     reminders: List<Reminder>,
     today: LocalDate,
@@ -90,6 +93,7 @@ fun HomePage(
         }
         Clock(onClick = onClockClick)
         if (dueTasks > 0) DueTasks(dueTasks, overdueTasks, onDueTasksClick)
+        if (lockedApps > 0) LockedApps(lockedApps, itemsToGo, onDueTasksClick)
         if (reminders.isNotEmpty()) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -225,6 +229,23 @@ private fun DueTasks(dueTasks: Int, overdueTasks: Int, onClick: () -> Unit) {
         text = text,
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+    )
+}
+
+/** "3 apps locked · 2 to go" under the due count; tapping it opens the Today page. */
+@Composable
+private fun LockedApps(lockedApps: Int, itemsToGo: Int, onClick: () -> Unit) {
+    val text = listOf(
+        pluralStringResource(R.plurals.home_apps_locked, lockedApps, lockedApps),
+        pluralStringResource(R.plurals.home_items_to_go, itemsToGo, itemsToGo),
+    ).joinToString(" · ")
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp),

@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.still.launcher.R
+import app.still.launcher.data.gates.GateItem
+import app.still.launcher.data.productivity.ItemType
 import app.still.launcher.data.productivity.HabitMeasure
 import app.still.launcher.data.productivity.Task
 import app.still.launcher.productivity.HabitEntry
@@ -33,12 +35,16 @@ import app.still.launcher.productivity.TodayAgenda
 import app.still.launcher.ui.components.AddButton
 import app.still.launcher.ui.editor.EditorTarget
 
-/** Left page, Today tab: what's due today, overdue tasks, today's habits, and tasks without a date. */
+/**
+ * Left page, Today tab: what's due today, overdue tasks, today's habits, and tasks without a
+ * date. [locks] names, for each item a task gate is waiting for, the apps it keeps closed.
+ */
 @Composable
 fun TodayPage(
     tabs: @Composable () -> Unit,
     onOpenEditor: (EditorTarget) -> Unit,
     modifier: Modifier = Modifier,
+    locks: Map<GateItem, List<String>> = emptyMap(),
     viewModel: TodayViewModel = viewModel(factory = TodayViewModel.Factory),
 ) {
     val agenda by viewModel.agenda.collectAsStateWithLifecycle()
@@ -65,6 +71,8 @@ fun TodayPage(
     }
 
     fun openTask(entry: TaskEntry) = onOpenEditor(EditorTarget.EditTask(entry.task.id))
+    fun TaskEntry.appsLocked(): List<String> = locks[GateItem(ItemType.TASK, task.id)].orEmpty()
+    fun HabitEntry.appsLocked(): List<String> = locks[GateItem(ItemType.HABIT, habit.id)].orEmpty()
 
     Box(modifier.fillMaxSize().systemBarsPadding()) {
         LazyColumn(
@@ -89,19 +97,19 @@ fun TodayPage(
                 // A recurring task can be both overdue and due today; list its subtasks only once.
                 val subtasksShown = mutableSetOf<Long>()
                 val onSubtaskClick = { subtask: Task -> viewModel.setSubtaskDone(subtask, subtask.completedAt == null) }
-                taskSection(R.string.today_section_overdue, current.overdue, current, subtasksShown, ::onTaskClick, onSubtaskClick) {
+                taskSection(R.string.today_section_overdue, current.overdue, current, locks, subtasksShown, ::onTaskClick, onSubtaskClick) {
                     taskMenu = it
                 }
-                taskSection(R.string.today_section_today, current.today, current, subtasksShown, ::onTaskClick, onSubtaskClick) {
+                taskSection(R.string.today_section_today, current.today, current, locks, subtasksShown, ::onTaskClick, onSubtaskClick) {
                     taskMenu = it
                 }
                 if (current.habits.isNotEmpty()) {
                     item(key = "habits-title") { SectionTitle(R.string.today_section_habits) }
                     items(current.habits, key = { "habit:${it.habit.id}:${it.occurrence.time}" }) { entry ->
-                        HabitRow(entry, onToggle = { onHabitClick(entry) }, onLongClick = { habitMenu = entry })
+                        HabitRow(entry, onToggle = { onHabitClick(entry) }, onLongClick = { habitMenu = entry }, locks = entry.appsLocked())
                     }
                 }
-                taskSection(R.string.today_section_undated, current.undated, current, subtasksShown, ::onTaskClick, onSubtaskClick) {
+                taskSection(R.string.today_section_undated, current.undated, current, locks, subtasksShown, ::onTaskClick, onSubtaskClick) {
                     taskMenu = it
                 }
             }
@@ -150,6 +158,7 @@ fun TodayPage(
                 viewModel.deleteTask(entry.task)
                 taskMenu = null
             },
+            locks = entry.appsLocked(),
         )
     }
 
@@ -173,6 +182,7 @@ fun TodayPage(
                 viewModel.deleteHabit(entry.habit)
                 habitMenu = null
             },
+            locks = entry.appsLocked(),
         )
     }
 
@@ -220,6 +230,7 @@ private fun LazyListScope.taskSection(
     title: Int,
     entries: List<TaskEntry>,
     agenda: TodayAgenda,
+    locks: Map<GateItem, List<String>>,
     subtasksShown: MutableSet<Long>,
     onToggle: (TaskEntry) -> Unit,
     onToggleSubtask: (Task) -> Unit,
@@ -234,6 +245,7 @@ private fun LazyListScope.taskSection(
                 today = agenda.date,
                 onToggle = { onToggle(entry) },
                 onLongClick = { onLongClick(entry) },
+                locks = locks[GateItem(ItemType.TASK, entry.task.id)].orEmpty(),
             )
         }
         // Subtasks stay visible under an unfinished task so they can be ticked off here.

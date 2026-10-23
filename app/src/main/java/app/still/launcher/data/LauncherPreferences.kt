@@ -30,6 +30,8 @@ data class LauncherSettings(
     val doubleTapToLock: Boolean = true,
     /** Precision mode was on; if Android turns it off, home offers to turn it back on. */
     val precisionWanted: Boolean = false,
+    /** Apps task gates never close, on top of the essential ones. */
+    val gateAlwaysOpenPackages: Set<String> = emptySet(),
 ) {
     companion object {
         const val DEFAULT_LAUNCH_DELAY_SECONDS = 15
@@ -53,6 +55,7 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
                 timeUpBlockMinutes = prefs[TIME_UP_BLOCK_MINUTES] ?: 0,
                 doubleTapToLock = prefs[DOUBLE_TAP_TO_LOCK] ?: true,
                 precisionWanted = prefs[PRECISION_WANTED] ?: false,
+                gateAlwaysOpenPackages = prefs[GATE_ALWAYS_OPEN_PACKAGES] ?: emptySet(),
             )
         }
 
@@ -103,6 +106,10 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs -> prefs[PRECISION_WANTED] = wanted }
     }
 
+    suspend fun setGateAlwaysOpen(packages: Set<String>) {
+        dataStore.edit { prefs -> prefs[GATE_ALWAYS_OPEN_PACKAGES] = packages }
+    }
+
     private fun Preferences.favorites(): List<String> =
         this[FAVORITES]?.split(SEPARATOR)?.filter { it.isNotEmpty() } ?: emptyList()
 
@@ -117,6 +124,7 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val TIME_UP_BLOCK_MINUTES = intPreferencesKey("timeUpBlockMinutes")
         val DOUBLE_TAP_TO_LOCK = booleanPreferencesKey("doubleTapToLock")
         val PRECISION_WANTED = booleanPreferencesKey("precisionWanted")
+        val GATE_ALWAYS_OPEN_PACKAGES = stringSetPreferencesKey("gateAlwaysOpenPackages")
         const val RENAME_PREFIX = "rename:"
         const val SEPARATOR = "\n"
     }

@@ -6,7 +6,7 @@ Status: design agreed 2026-10-23 (see §8 for the confirmed defaults).
 
 Build plan:
 1. **Gates** (built 2026-10-23): `task_gates` and `gate_events` tables (DB v6), the gate rules in `gates/TaskGates.kt`, enforcement from STILL and through Precision mode, the gate screen with tickable items, emergency opens, and Settings > Task gates with a list and an editor. Apps gates never close are the essential ones plus the default messages, contacts, clock, camera and maps apps.
-2. **Markers and exceptions**: "unlocks Instagram" on the Today page, which gate blocks an app in its long-press menu, a home line like "3 apps locked · 2 to go", apps the user marks as always allowed, and friction on "skip today".
+2. **Markers and exceptions** (built 2026-10-23): "Locks Instagram" on Today page items, "Locked by <gate>" in an app's long-press menu, a home line like "3 apps locked · 2 to go", Always open apps in Settings > Task gates, and a 10 s wait plus slide to confirm before skipping or deleting an item that locks apps. Still open: lowering an item's priority or moving its date in the editor opens a gate without friction.
 3. **Focus timer** for duration habits, with timer-completed unlocks counted separately in Insights.
 
 ---

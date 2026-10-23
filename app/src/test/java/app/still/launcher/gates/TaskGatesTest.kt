@@ -218,6 +218,28 @@ class TaskGatesTest {
     }
 
     @Test
+    fun `each pending item names the apps it keeps locked`() {
+        val study = dueToday(task(1, Priority.HIGH))
+        val gym = habit(2, Priority.HIGH)
+        val first = GateCheck(gate(id = 1), tasks = listOf(study), habits = listOf(gym))
+        val second = GateCheck(gate(id = 2), tasks = listOf(study))
+        val closed = mapOf(
+            "insta" to listOf(first, second),
+            "youtube" to listOf(second),
+            "gone" to listOf(first),
+        )
+        val labels = mapOf("insta" to "Instagram", "youtube" to "YouTube")
+
+        val locks = gateLocks(closed) { labels[it] }
+
+        assertEquals(listOf("Instagram", "YouTube"), locks.appsByItem[GateItem(ItemType.TASK, 1)])
+        assertEquals(listOf("Instagram"), locks.appsByItem[GateItem(ItemType.HABIT, 2)])
+        // An uninstalled app neither counts nor shows up.
+        assertEquals(2, locks.lockedAppCount)
+        assertEquals(2, locks.itemsToGo)
+    }
+
+    @Test
     fun `no gates, no emergency open needed`() {
         assertNull(emergencyOpenFor(emptyList(), emptyList(), today, zone))
     }

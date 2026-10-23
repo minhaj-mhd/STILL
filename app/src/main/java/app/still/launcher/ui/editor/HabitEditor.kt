@@ -33,7 +33,10 @@ import app.still.launcher.ui.components.TimePickerDialog
 import app.still.launcher.ui.components.WeekdayPicker
 import app.still.launcher.ui.components.formatShortDate
 import app.still.launcher.ui.components.formatTime
-import app.still.launcher.ui.productivity.DeleteConfirmDialog
+import app.still.launcher.data.gates.GateItem
+import app.still.launcher.data.productivity.ItemType
+import app.still.launcher.ui.LauncherViewModel
+import app.still.launcher.ui.productivity.DeleteItemConfirm
 import app.still.launcher.ui.productivity.PriorityChips
 import java.time.LocalDate
 import java.time.LocalTime
@@ -43,6 +46,7 @@ fun HabitEditor(
     target: EditorTarget.EditHabit,
     onClose: () -> Unit,
     viewModel: HabitEditorViewModel = viewModel(factory = HabitEditorViewModel.Factory),
+    launcherViewModel: LauncherViewModel = viewModel(factory = LauncherViewModel.Factory),
 ) {
     LaunchedEffect(target) { viewModel.open(target) }
     DisposableEffect(Unit) { onDispose { viewModel.save() } }
@@ -149,9 +153,10 @@ fun HabitEditor(
         )
     }
     if (confirmDelete && draft != null) {
-        DeleteConfirmDialog(
+        DeleteItemConfirm(
             name = draft.title,
             detail = stringResource(R.string.item_delete_habit_detail),
+            locks = launcherViewModel.uiState.collectAsStateWithLifecycle().value.gateLocks.appsByItem[GateItem(ItemType.HABIT, target.habitId ?: 0)].orEmpty(),
             onDismiss = { confirmDelete = false },
             onConfirm = {
                 viewModel.delete()

@@ -21,7 +21,10 @@ import app.still.launcher.ui.components.FieldLabel
 import app.still.launcher.ui.components.TimePickerDialog
 import app.still.launcher.ui.components.formatShortDate
 import app.still.launcher.ui.components.formatTime
-import app.still.launcher.ui.productivity.DeleteConfirmDialog
+import app.still.launcher.data.gates.GateItem
+import app.still.launcher.data.productivity.ItemType
+import app.still.launcher.ui.LauncherViewModel
+import app.still.launcher.ui.productivity.DeleteItemConfirm
 import app.still.launcher.ui.productivity.PriorityChips
 import java.time.LocalDate
 import java.time.LocalTime
@@ -31,6 +34,7 @@ fun TaskEditor(
     target: EditorTarget.EditTask,
     onClose: () -> Unit,
     viewModel: TaskEditorViewModel = viewModel(factory = TaskEditorViewModel.Factory),
+    launcherViewModel: LauncherViewModel = viewModel(factory = LauncherViewModel.Factory),
 ) {
     LaunchedEffect(target) { viewModel.open(target) }
     DisposableEffect(Unit) { onDispose { viewModel.save() } }
@@ -132,9 +136,10 @@ fun TaskEditor(
         )
     }
     if (confirmDelete && draft != null) {
-        DeleteConfirmDialog(
+        DeleteItemConfirm(
             name = draft.title,
             detail = stringResource(R.string.item_delete_task_detail),
+            locks = launcherViewModel.uiState.collectAsStateWithLifecycle().value.gateLocks.appsByItem[GateItem(ItemType.TASK, target.taskId ?: 0)].orEmpty(),
             onDismiss = { confirmDelete = false },
             onConfirm = {
                 viewModel.delete()

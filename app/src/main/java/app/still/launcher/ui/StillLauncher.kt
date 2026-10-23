@@ -285,7 +285,12 @@ fun StillLauncher(
                 Page.Productivity -> {
                     val tabs = @Composable { LeftPageTabs(leftTab) { leftTab = it } }
                     when (leftTab) {
-                        LeftTab.TODAY -> TodayPage(tabs = tabs, onOpenEditor = { editor = it }, viewModel = todayViewModel)
+                        LeftTab.TODAY -> TodayPage(
+                            tabs = tabs,
+                            onOpenEditor = { editor = it },
+                            locks = state.gateLocks.appsByItem,
+                            viewModel = todayViewModel,
+                        )
                         LeftTab.NOTES -> NotesPage(tabs = tabs, onOpenEditor = { editor = it })
                     }
                 }
@@ -302,6 +307,8 @@ fun StillLauncher(
                     },
                     dueTasks = agenda?.dueTaskCount ?: 0,
                     overdueTasks = agenda?.overdueTaskCount ?: 0,
+                    lockedApps = state.gateLocks.lockedAppCount,
+                    itemsToGo = state.gateLocks.itemsToGo,
                     onDueTasksClick = {
                         leftTab = LeftTab.TODAY
                         scope.launch { pagerState.animateScrollToPage(Page.Productivity.ordinal) }

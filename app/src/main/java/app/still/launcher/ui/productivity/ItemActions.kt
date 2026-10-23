@@ -32,6 +32,10 @@ import app.still.launcher.data.productivity.HabitMeasure
 import app.still.launcher.productivity.HabitEntry
 import app.still.launcher.productivity.TaskEntry
 
+/**
+ * A task's long-press menu. When the task keeps apps closed ([locks]), skipping or deleting it
+ * goes through [BypassConfirmSheet] first.
+ */
 @Composable
 fun TaskActionsSheet(
     entry: TaskEntry,
@@ -39,27 +43,40 @@ fun TaskActionsSheet(
     onEdit: () -> Unit,
     onSetSkipped: (Boolean) -> Unit,
     onDelete: () -> Unit,
+    locks: List<String> = emptyList(),
 ) {
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
-    ActionsSheet(title = entry.task.title, onDismiss = onDismiss) {
-        ActionRow(stringResource(R.string.item_edit), onEdit)
-        // Only recurring occurrences can be skipped; a one-time task is either done or still due.
-        if (entry.occurrence != null && entry.task.schedule?.isRecurring == true && !entry.isDone) {
-            if (entry.isSkipped) ActionRow(stringResource(R.string.item_unskip)) { onSetSkipped(false) }
-            else ActionRow(stringResource(R.string.item_skip_today)) { onSetSkipped(true) }
+    var confirmSkip by rememberSaveable { mutableStateOf(false) }
+    // The friction sheet replaces the menu rather than stacking on it.
+    if (!confirmSkip && !(confirmDelete && locks.isNotEmpty())) {
+        ActionsSheet(title = entry.task.title, onDismiss = onDismiss) {
+            ActionRow(stringResource(R.string.item_edit), onEdit)
+            // Only recurring occurrences can be skipped; a one-time task is either done or still due.
+            if (entry.occurrence != null && entry.task.schedule?.isRecurring == true && !entry.isDone) {
+                if (entry.isSkipped) ActionRow(stringResource(R.string.item_unskip)) { onSetSkipped(false) }
+                else ActionRow(stringResource(R.string.item_skip_today)) { if (locks.isEmpty()) onSetSkipped(true) else confirmSkip = true }
+            }
+            ActionRow(stringResource(R.string.item_delete_task)) { confirmDelete = true }
         }
-        ActionRow(stringResource(R.string.item_delete_task)) { confirmDelete = true }
+    }
+    if (confirmSkip) {
+        SkipItemConfirm(name = entry.task.title, locks = locks, onDismiss = onDismiss, onConfirm = { onSetSkipped(true) })
     }
     if (confirmDelete) {
-        DeleteConfirmDialog(
+        DeleteItemConfirm(
             name = entry.task.title,
             detail = stringResource(R.string.item_delete_task_detail),
+            locks = locks,
             onDismiss = { confirmDelete = false },
             onConfirm = onDelete,
         )
     }
 }
 
+/**
+ * A habit's long-press menu. When the habit keeps apps closed ([locks]), skipping or deleting it
+ * goes through [BypassConfirmSheet] first.
+ */
 @Composable
 fun HabitActionsSheet(
     entry: HabitEntry,
@@ -68,23 +85,32 @@ fun HabitActionsSheet(
     onLogAmount: () -> Unit,
     onSetSkipped: (Boolean) -> Unit,
     onDelete: () -> Unit,
+    locks: List<String> = emptyList(),
 ) {
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
-    ActionsSheet(title = entry.habit.title, onDismiss = onDismiss) {
-        ActionRow(stringResource(R.string.item_edit), onEdit)
-        if (entry.habit.measure != HabitMeasure.CHECK) {
-            ActionRow(stringResource(R.string.item_log_amount), onLogAmount)
+    var confirmSkip by rememberSaveable { mutableStateOf(false) }
+    // The friction sheet replaces the menu rather than stacking on it.
+    if (!confirmSkip && !(confirmDelete && locks.isNotEmpty())) {
+        ActionsSheet(title = entry.habit.title, onDismiss = onDismiss) {
+            ActionRow(stringResource(R.string.item_edit), onEdit)
+            if (entry.habit.measure != HabitMeasure.CHECK) {
+                ActionRow(stringResource(R.string.item_log_amount), onLogAmount)
+            }
+            if (!entry.isDone) {
+                if (entry.isSkipped) ActionRow(stringResource(R.string.item_unskip)) { onSetSkipped(false) }
+                else ActionRow(stringResource(R.string.item_skip_today)) { if (locks.isEmpty()) onSetSkipped(true) else confirmSkip = true }
+            }
+            ActionRow(stringResource(R.string.item_delete_habit)) { confirmDelete = true }
         }
-        if (!entry.isDone) {
-            if (entry.isSkipped) ActionRow(stringResource(R.string.item_unskip)) { onSetSkipped(false) }
-            else ActionRow(stringResource(R.string.item_skip_today)) { onSetSkipped(true) }
-        }
-        ActionRow(stringResource(R.string.item_delete_habit)) { confirmDelete = true }
+    }
+    if (confirmSkip) {
+        SkipItemConfirm(name = entry.habit.title, locks = locks, onDismiss = onDismiss, onConfirm = { onSetSkipped(true) })
     }
     if (confirmDelete) {
-        DeleteConfirmDialog(
+        DeleteItemConfirm(
             name = entry.habit.title,
             detail = stringResource(R.string.item_delete_habit_detail),
+            locks = locks,
             onDismiss = { confirmDelete = false },
             onConfirm = onDelete,
         )

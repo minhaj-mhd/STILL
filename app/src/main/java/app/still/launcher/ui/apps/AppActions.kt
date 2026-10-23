@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -84,6 +85,14 @@ fun AppActionsSheet(
                     )
                     TextButton(onClick = onAllowUsageAccess) { Text(stringResource(R.string.screen_time_allow)) }
                 }
+            }
+            if (app.isGated) {
+                val toGo = app.gates.flatMap { check -> check.tasks.map { it.task.id to false } + check.habits.map { it.habit.id to true } }.distinct().size
+                Text(
+                    text = pluralStringResource(R.plurals.app_locked_by, toGo, app.gates.joinToString(", ") { it.gate.name }, toGo),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Spacer(Modifier.height(8.dp))
             if (app.canBlock && !app.isBlocked) {

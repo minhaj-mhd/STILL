@@ -20,9 +20,11 @@ import app.still.launcher.data.LauncherSettings
 import app.still.launcher.data.ScreenTimeRepository
 import app.still.launcher.gates.EmergencyOpen
 import app.still.launcher.gates.GateCheck
+import app.still.launcher.gates.GateLocks
 import app.still.launcher.gates.TaskGateMonitor
 import app.still.launcher.gates.closedGates
 import app.still.launcher.gates.emergencyOpenFor
+import app.still.launcher.gates.gateLocks
 import app.still.launcher.precision.Intervention
 import app.still.launcher.precision.PrecisionMode
 import app.still.launcher.reminders.AppTimeReminders
@@ -90,6 +92,10 @@ data class LauncherUiState(
     val doubleTapToLock: Boolean = true,
     /** Precision mode was turned on, so home says so if it goes off. */
     val precisionWanted: Boolean = false,
+    /** What task gates keep closed right now, and which items keep them closed. */
+    val gateLocks: GateLocks = GateLocks(),
+    /** Apps the user keeps open whatever the gates say. */
+    val gateAlwaysOpen: Set<String> = emptySet(),
 )
 
 class LauncherViewModel(
@@ -118,7 +124,9 @@ class LauncherViewModel(
             val collator = Collator.getInstance()
             val zone = ZoneId.systemDefault()
             val scheduled = scheduledBlocks(schedules, LocalDateTime.ofInstant(now, zone))
-            val closed = gateInputs?.let { closedGates(it, now, zone, essentialApps::canGate) }.orEmpty()
+            val alwaysOpen = settings.gateAlwaysOpenPackages
+            val canGate = { packageName: String -> essentialApps.canGate(packageName, alwaysOpen) }
+            val closed = gateInputs?.let { closedGates(it, now, zone, canGate) }.orEmpty()
             val today = now.atZone(zone).toLocalDate()
             val apps = installed
                 .map { app ->
@@ -142,13 +150,16 @@ class LauncherViewModel(
                         blockedBySchedule = block?.scheduleName,
                         hasLaunchDelay = canBlock && packageName in settings.launchDelayPackages,
                         hasTimeReminder = canBlock && packageName in settings.timeReminderPackages,
-                        canGate = canBlock && essentialApps.canGate(packageName),
+                        canGate = canBlock && canGate(packageName),
                         gates = gates,
                         emergencyOpen = gateInputs?.let { emergencyOpenFor(gates, it.events, today, zone) },
                     )
                 }
                 .sortedWith(compareBy(collator) { it.label })
             val byKey = apps.associateBy { it.key }
+            // Gates cover a package in every profile; name it after the personal app, which comes
+            // last here so it wins.
+            val labels = apps.sortedByDescending { it.isWorkProfile }.associate { it.component.packageName to it.label }
             LauncherUiState(
                 apps = apps,
                 favorites = settings.favorites.mapNotNull { byKey[it] }.filterNot { it.isHidden },
@@ -156,6 +167,8 @@ class LauncherViewModel(
                 timeUpBlockMinutes = settings.timeUpBlockMinutes,
                 doubleTapToLock = settings.doubleTapToLock,
                 precisionWanted = settings.precisionWanted,
+                gateLocks = gateLocks(closed) { labels[it] },
+                gateAlwaysOpen = alwaysOpen,
             )
         }
             .flowOn(Dispatchers.Default)
@@ -250,6 +263,10 @@ class LauncherViewModel(
 
     /** Locks the screen; false when Precision mode is off. */
     fun lockScreen(): Boolean = precision.lockScreen()
+
+    fun setGateAlwaysOpen(packages: Set<String>) {
+        viewModelScope.launch { preferences.setGateAlwaysOpen(packages) }
+    }
 
     fun setDoubleTapToLock(on: Boolean) {
         viewModelScope.launch { preferences.setDoubleTapToLock(on) }

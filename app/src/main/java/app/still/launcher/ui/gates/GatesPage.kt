@@ -1,6 +1,7 @@
 package app.still.launcher.ui.gates
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,8 +38,11 @@ import app.still.launcher.gates.GateCheck
 import app.still.launcher.gates.GateInputs
 import app.still.launcher.gates.appliesAt
 import app.still.launcher.gates.check
+import app.still.launcher.ui.LauncherViewModel
+import app.still.launcher.ui.blocking.AppPickerSheet
 import app.still.launcher.ui.blocking.daysLabel
 import app.still.launcher.ui.blocking.minuteToTime
+import app.still.launcher.ui.components.FieldLabel
 import app.still.launcher.ui.components.formatTime
 import app.still.launcher.ui.components.rememberCurrentMinute
 import app.still.launcher.ui.editor.EditorScaffold
@@ -66,6 +70,7 @@ class GatesViewModel(private val repository: GateRepository, val inputs: StateFl
 /**
  * Settings > Task gates. Each gate shows whether it's closed and how much is left; switching
  * off or editing a gate that's closed right now asks first, since it would let the apps open.
+ * Below the gates, the apps no gate ever closes; adding one while a gate is closed asks too.
  */
 @Composable
 fun GatesPage(
@@ -73,11 +78,20 @@ fun GatesPage(
     onBack: () -> Unit,
     onOpenEditor: (EditorTarget.EditGate) -> Unit,
     viewModel: GatesViewModel = viewModel(factory = GatesViewModel.Factory),
+    launcherViewModel: LauncherViewModel = viewModel(factory = LauncherViewModel.Factory),
 ) {
     val inputs by viewModel.inputs.collectAsStateWithLifecycle()
+    val launcher by launcherViewModel.uiState.collectAsStateWithLifecycle()
     val now = rememberCurrentMinute().value.toLocalDateTime()
     var turningOff by remember { mutableStateOf<TaskGate?>(null) }
     var confirmingEdit by remember { mutableStateOf<TaskGate?>(null) }
+    var confirmingAlwaysOpen by remember { mutableStateOf(false) }
+    var pickingAlwaysOpen by remember { mutableStateOf(false) }
+    // Apps a gate could close, plus the ones already kept open; one row per package.
+    val alwaysOpenCandidates = remember(launcher.apps, launcher.gateAlwaysOpen) {
+        launcher.apps.filter { it.canGate || it.component.packageName in launcher.gateAlwaysOpen }.distinctBy { it.component.packageName }
+    }
+    val anyClosed = inputs?.let { current -> current.gates.any { it.check(current.agenda, now).isClosed } } == true
 
     EditorScaffold(title = stringResource(R.string.gates_title), onDone = onBack) {
         val current = inputs ?: return@EditorScaffold
@@ -106,6 +120,46 @@ fun GatesPage(
             )
         }
         TextButton(onClick = { onOpenEditor(EditorTarget.EditGate(null)) }) { Text(stringResource(R.string.gates_new)) }
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            FieldLabel(stringResource(R.string.gates_always_open))
+            Text(
+                text = stringResource(R.string.gates_always_open_detail),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            alwaysOpenCandidates.filter { it.component.packageName in launcher.gateAlwaysOpen }.forEach { app ->
+                Text(app.label, style = MaterialTheme.typography.titleMedium)
+            }
+            TextButton(onClick = { if (anyClosed) confirmingAlwaysOpen = true else pickingAlwaysOpen = true }) {
+                Text(stringResource(R.string.schedules_choose_apps))
+            }
+        }
+    }
+
+    if (pickingAlwaysOpen) {
+        AppPickerSheet(
+            apps = alwaysOpenCandidates,
+            usage = emptyMap(),
+            selected = launcher.gateAlwaysOpen,
+            onChange = launcherViewModel::setGateAlwaysOpen,
+            onDismiss = { pickingAlwaysOpen = false },
+        )
+    }
+
+    if (confirmingAlwaysOpen) {
+        AlertDialog(
+            onDismissRequest = { confirmingAlwaysOpen = false },
+            title = { Text(stringResource(R.string.gates_always_open_closed_title)) },
+            text = { Text(stringResource(R.string.gates_closed_now_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingAlwaysOpen = false
+                    pickingAlwaysOpen = true
+                }) { Text(stringResource(R.string.schedules_choose_apps)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmingAlwaysOpen = false }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 
     turningOff?.let { gate ->

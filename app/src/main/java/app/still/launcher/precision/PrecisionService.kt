@@ -111,7 +111,8 @@ class PrecisionService : AccessibilityService() {
         if (container.essentialApps.isEssential(packageName)) return ForegroundRule.NONE
         val zone = ZoneId.systemDefault()
         val scheduled = scheduledBlocks(rules.schedules, LocalDateTime.ofInstant(now, zone))
-        val gates = container.taskGates.closedGates(now) { it == packageName && container.essentialApps.canGate(it) }
+        val alwaysOpen = rules.settings.gateAlwaysOpenPackages
+        val gates = container.taskGates.closedGates(now) { it == packageName && container.essentialApps.canGate(it, alwaysOpen) }
         return ForegroundRule(
             blocked = activeBlock(packageName, rules.blocks, scheduled, now, zone) != null,
             gated = gates.isNotEmpty(),

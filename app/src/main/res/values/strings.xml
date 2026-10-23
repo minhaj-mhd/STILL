@@ -194,6 +194,28 @@
     <string name="gates_turn_off_title">Turn off “%1$s”?</string>
     <string name="gates_edit_closed_title">“%1$s” is closed right now</string>
     <string name="gates_closed_now_body">It\'s keeping apps closed until you finish. Changing it now could open them early.</string>
+    <string name="gates_always_open">Always open</string>
+    <string name="gates_always_open_detail">Gates never close Phone, Settings, STILL, or your default messages, contacts, clock, camera and maps apps. Add others you can\'t do without, like banking or an authenticator.</string>
+    <string name="gates_always_open_closed_title">A gate is closed right now</string>
+    <string name="today_locks">Locks %1$s</string>
+    <plurals name="home_apps_locked">
+        <item quantity="one">%d app locked</item>
+        <item quantity="other">%d apps locked</item>
+    </plurals>
+    <plurals name="home_items_to_go">
+        <item quantity="one">%d to go</item>
+        <item quantity="other">%d to go</item>
+    </plurals>
+    <plurals name="app_locked_by">
+        <item quantity="one">Locked by %1$s · %2$d to go</item>
+        <item quantity="other">Locked by %1$s · %2$d to go</item>
+    </plurals>
+    <string name="bypass_skip_title">Skip “%1$s” today?</string>
+    <string name="bypass_skip_body">It\'s keeping %1$s locked. Skipping it opens them without doing it.</string>
+    <string name="bypass_delete_body">It\'s keeping %1$s locked. Deleting it opens them without doing it, and its history goes too.</string>
+    <string name="bypass_wait">You can confirm in %1$d s</string>
+    <string name="bypass_slide_skip">Slide to skip</string>
+    <string name="bypass_slide_delete">Slide to delete</string>
     <plurals name="settings_gate_count">
         <item quantity="one">%d gate</item>
         <item quantity="other">%d gates</item>

@@ -34,6 +34,9 @@ class EssentialApps(context: Context) {
      */
     fun canGate(packageName: String): Boolean = !isEssential(packageName) && packageName !in gateExemptApps()
 
+    /** [canGate], and not one of the apps the user keeps [alwaysOpen]. */
+    fun canGate(packageName: String, alwaysOpen: Set<String>): Boolean = packageName !in alwaysOpen && canGate(packageName)
+
     /** The defaults can change, so they're looked up again now and then rather than once. */
     @Synchronized
     private fun gateExemptApps(): Set<String> {
