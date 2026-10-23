@@ -1,0 +1,133 @@
+package app.still.launcher.ui.apps
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
+import app.still.launcher.R
+import app.still.launcher.ui.LauncherApp
+
+/** Things you can do with an app; opened by long-pressing it on home or in the app list. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppActionsSheet(
+    app: LauncherApp,
+    onDismiss: () -> Unit,
+    onSetFavorite: (Boolean) -> Unit,
+    onRename: () -> Unit,
+    onSetHidden: (Boolean) -> Unit,
+    onAppInfo: () -> Unit,
+    onUninstall: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            Modifier
+                .navigationBarsPadding()
+                .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+        ) {
+            Text(
+                text = app.label,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            if (!app.isHidden) {
+                if (app.isFavorite) {
+                    ActionRow(stringResource(R.string.action_remove_favorite)) { onSetFavorite(false) }
+                } else {
+                    ActionRow(stringResource(R.string.action_add_favorite)) { onSetFavorite(true) }
+                }
+            }
+            ActionRow(stringResource(R.string.action_rename), onRename)
+            if (app.isHidden) {
+                ActionRow(stringResource(R.string.action_unhide)) { onSetHidden(false) }
+            } else {
+                ActionRow(stringResource(R.string.action_hide)) { onSetHidden(true) }
+            }
+            ActionRow(stringResource(R.string.action_app_info), onAppInfo)
+            if (app.canUninstall) {
+                ActionRow(stringResource(R.string.action_uninstall), onUninstall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionRow(text: String, onClick: () -> Unit) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 14.dp),
+    )
+}
+
+@Composable
+fun RenameAppDialog(
+    app: LauncherApp,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var text by remember {
+        mutableStateOf(TextFieldValue(app.label, selection = TextRange(0, app.label.length)))
+    }
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.rename_title, app.originalLabel)) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester),
+                )
+                if (app.isRenamed) {
+                    TextButton(onClick = { onSave(app.originalLabel) }) {
+                        Text(stringResource(R.string.rename_restore))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(text.text) }) { Text(stringResource(R.string.rename_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.rename_cancel)) }
+        },
+    )
+}

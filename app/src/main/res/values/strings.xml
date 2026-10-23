@@ -1,0 +1,35 @@
+<resources>
+    <string name="app_name">STILL</string>
+
+    <!-- Home -->
+    <string name="home_not_default_title">STILL isn\'t your home app yet</string>
+    <string name="home_not_default_action">Set as home app</string>
+    <string name="home_favorites_empty">Long-press an app in the app list to add it here.\nSwipe left to see all apps.</string>
+
+    <!-- Apps page -->
+    <string name="apps_search_placeholder">Search apps</string>
+    <string name="apps_no_results">No apps match “%1$s”</string>
+    <string name="apps_hidden_section">Hidden apps (%1$d)</string>
+    <string name="apps_work_label">work</string>
+
+    <!-- Long-press menu -->
+    <string name="action_add_favorite">Add to home</string>
+    <string name="action_remove_favorite">Remove from home</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_hide">Hide</string>
+    <string name="action_unhide">Unhide</string>
+    <string name="action_app_info">App info</string>
+    <string name="action_uninstall">Uninstall</string>
+
+    <!-- Rename dialog -->
+    <string name="rename_title">Rename %1$s</string>
+    <string name="rename_restore">Restore name</string>
+    <string name="rename_save">Save</string>
+    <string name="rename_cancel">Cancel</string>
+
+    <string name="launch_failed">Couldn\'t open %1$s</string>
+
+    <!-- Productivity page (stage 2) -->
+    <string name="productivity_title">Today</string>
+    <string name="productivity_placeholder">Tasks, habits and notes arrive in stage 2.</string>
+</resources>
