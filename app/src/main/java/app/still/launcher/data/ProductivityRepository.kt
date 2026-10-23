@@ -20,7 +20,24 @@ class ProductivityRepository(private val dao: ProductivityDao) {
     /** Occurrence records from [from] to [to], both inclusive. */
     fun records(from: LocalDate, to: LocalDate): Flow<List<OccurrenceRecord>> = dao.observeRecords(from, to)
 
+    /** Every record of one habit, for streaks and history. */
+    fun habitRecords(habitId: Long): Flow<List<OccurrenceRecord>> = dao.observeRecordsFor(ItemType.HABIT, habitId)
+
+    suspend fun getTask(taskId: Long): Task? = dao.getTask(taskId)
+
+    suspend fun getSubtasks(taskId: Long): List<Task> = dao.getSubtasks(taskId)
+
+    suspend fun getHabit(habitId: Long): Habit? = dao.getHabit(habitId)
+
     suspend fun addTask(task: Task): Long = dao.insertTask(task)
+
+    /** Saves a new or edited task and its subtasks in one transaction; returns the task's id. */
+    suspend fun saveTask(task: Task, subtasks: List<Task>, removedSubtaskIds: List<Long>): Long =
+        dao.saveTaskWithSubtasks(task, subtasks, removedSubtaskIds)
+
+    /** Saves a new or edited habit; returns its id. */
+    suspend fun saveHabit(habit: Habit): Long =
+        if (habit.id == 0L) dao.insertHabit(habit) else habit.id.also { dao.updateHabit(habit) }
 
     suspend fun updateTask(task: Task) = dao.updateTask(task)
 

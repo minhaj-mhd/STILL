@@ -66,6 +66,10 @@ class TodayViewModel(private val repository: ProductivityRepository) : ViewModel
         viewModelScope.launch { repository.setTaskDone(entry.task, entry.occurrence, done) }
     }
 
+    fun setSubtaskDone(subtask: Task, done: Boolean) {
+        viewModelScope.launch { repository.setTaskDone(subtask, occurrence = null, done = done) }
+    }
+
     fun setHabitProgress(entry: HabitEntry, value: Double) {
         viewModelScope.launch { repository.setHabitProgress(entry.habit, entry.occurrence, value) }
     }

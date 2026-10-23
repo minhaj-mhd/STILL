@@ -75,6 +75,7 @@
     <string name="add_often_daily">Every day</string>
     <string name="add_often_weekly">%d× a week</string>
     <string name="add_confirm">Add</string>
+    <string name="add_more_options">More options</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
 
@@ -90,4 +91,95 @@
     <string name="item_delete_confirm">Delete</string>
     <string name="item_amount_title">How much for “%1$s”?</string>
     <string name="item_amount_save">Save</string>
+    <string name="item_edit">Edit</string>
+
+    <!-- Editors -->
+    <string name="editor_done">Done</string>
+    <string name="editor_new_task">New task</string>
+    <string name="editor_task">Task</string>
+    <string name="editor_new_habit">New habit</string>
+    <string name="editor_habit">Habit</string>
+    <string name="editor_title_hint">Title</string>
+    <string name="editor_notes_hint">Notes</string>
+    <string name="editor_date">Date</string>
+    <string name="editor_no_date">No date</string>
+    <string name="editor_time">Time</string>
+    <string name="editor_no_time">Any time</string>
+    <string name="editor_keep_overdue">Keep overdue until done</string>
+    <string name="editor_keep_overdue_detail">Turn off to let a missed day simply count as missed.</string>
+    <string name="editor_subtasks">Subtasks</string>
+    <string name="editor_add_subtask">Add subtask</string>
+    <string name="editor_remove_subtask">Remove subtask</string>
+    <string name="editor_starts">Starts</string>
+    <string name="editor_times">Times of day</string>
+    <string name="editor_add_time">Add time</string>
+    <string name="editor_unit">Unit</string>
+    <string name="measure_amount">Amount</string>
+
+    <!-- Repeat -->
+    <string name="repeat_title">Repeat</string>
+    <string name="repeat_never">Never</string>
+    <string name="repeat_daily">Daily</string>
+    <string name="repeat_weekly">Weekly</string>
+    <string name="repeat_monthly">Monthly</string>
+    <string name="repeat_yearly">Yearly</string>
+    <plurals name="repeat_every_days">
+        <item quantity="one">Every day</item>
+        <item quantity="other">Every %d days</item>
+    </plurals>
+    <plurals name="repeat_every_weeks">
+        <item quantity="one">Every week</item>
+        <item quantity="other">Every %d weeks</item>
+    </plurals>
+    <plurals name="repeat_every_months">
+        <item quantity="one">Every month</item>
+        <item quantity="other">Every %d months</item>
+    </plurals>
+    <string name="repeat_on_day">On day %1$d</string>
+    <string name="repeat_on_ordinal">On the %1$s %2$s</string>
+    <string-array name="repeat_ordinals">
+        <item>first</item>
+        <item>second</item>
+        <item>third</item>
+        <item>fourth</item>
+    </string-array>
+    <string name="repeat_ordinal_last">last</string>
+    <string name="repeat_ends">Ends</string>
+    <string name="repeat_ends_never">Never</string>
+    <string name="repeat_ends_on">On %1$s</string>
+    <string name="repeat_ends_pick">On a date</string>
+
+    <!-- Habit frequency -->
+    <string name="often_specific_days">Specific days</string>
+    <string name="often_every_few_days">Every few days</string>
+    <string name="often_per_week">Times a week</string>
+    <string name="often_per_month">Times a month</string>
+    <string name="often_custom">Custom</string>
+    <plurals name="often_per_week_count">
+        <item quantity="one">%d time a week</item>
+        <item quantity="other">%d times a week</item>
+    </plurals>
+    <plurals name="often_per_month_count">
+        <item quantity="one">%d time a month</item>
+        <item quantity="other">%d times a month</item>
+    </plurals>
+
+    <!-- Habit stats -->
+    <string name="stats_current">Current streak</string>
+    <string name="stats_best">Best</string>
+    <string name="stats_recent">Last 30 days</string>
+    <string name="stats_percent">%1$d%%</string>
+    <string name="stats_history">Last 16 weeks</string>
+    <plurals name="streak_occurrences">
+        <item quantity="one">%d in a row</item>
+        <item quantity="other">%d in a row</item>
+    </plurals>
+    <plurals name="streak_weeks">
+        <item quantity="one">%d week</item>
+        <item quantity="other">%d weeks</item>
+    </plurals>
+    <plurals name="streak_months">
+        <item quantity="one">%d month</item>
+        <item quantity="other">%d months</item>
+    </plurals>
 </resources>

@@ -1,6 +1,5 @@
 package app.still.launcher.ui.productivity
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,19 +9,13 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -45,20 +37,26 @@ import androidx.compose.ui.unit.dp
 import app.still.launcher.R
 import app.still.launcher.data.productivity.HabitMeasure
 import app.still.launcher.data.productivity.Priority
-import java.time.Instant
+import app.still.launcher.ui.components.Chip
+import app.still.launcher.ui.components.ChipRow
+import app.still.launcher.ui.components.DatePickerDialog
+import app.still.launcher.ui.components.FieldLabel
+import app.still.launcher.ui.components.formatShortDate
 import java.time.LocalDate
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 
 private enum class Due { NONE, TODAY, TOMORROW, PICKED }
 
-/** Quick add from the Today page: a title and the few choices that matter most. */
+/**
+ * Quick add from the Today page: a title and the few choices that matter most.
+ * "More options" hands the title over to the full editor.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddItemSheet(
     onDismiss: () -> Unit,
     onAddTask: (title: String, due: LocalDate?, priority: Priority) -> Unit,
     onAddHabit: (title: String, measure: HabitMeasure, target: Double, frequency: QuickFrequency) -> Unit,
+    onMoreOptions: (isHabit: Boolean, title: String) -> Unit,
 ) {
     var isHabit by rememberSaveable { mutableStateOf(false) }
     var title by rememberSaveable { mutableStateOf("") }
@@ -127,7 +125,7 @@ fun AddItemSheet(
             )
 
             if (isHabit) {
-                Label(R.string.add_track)
+                FieldLabel(stringResource(R.string.add_track))
                 ChipRow {
                     Chip(stringResource(R.string.measure_check), measure == HabitMeasure.CHECK) { measure = HabitMeasure.CHECK }
                     Chip(stringResource(R.string.measure_count), measure == HabitMeasure.COUNT) {
@@ -149,7 +147,7 @@ fun AddItemSheet(
                         modifier = Modifier.width(160.dp),
                     )
                 }
-                Label(R.string.add_how_often)
+                FieldLabel(stringResource(R.string.add_how_often))
                 ChipRow {
                     Chip(stringResource(R.string.add_often_daily), timesPerWeek == 0) { timesPerWeek = 0 }
                     (1..6).forEach { count ->
@@ -157,7 +155,7 @@ fun AddItemSheet(
                     }
                 }
             } else {
-                Label(R.string.add_when)
+                FieldLabel(stringResource(R.string.add_when))
                 ChipRow {
                     Chip(stringResource(R.string.add_when_today), due == Due.TODAY) { due = Due.TODAY }
                     Chip(stringResource(R.string.add_when_tomorrow), due == Due.TOMORROW) { due = Due.TOMORROW }
@@ -165,16 +163,12 @@ fun AddItemSheet(
                     val pickedLabel = pickedDate?.takeIf { due == Due.PICKED }?.let { formatShortDate(it) }
                     Chip(pickedLabel ?: stringResource(R.string.add_when_pick), due == Due.PICKED) { showDatePicker = true }
                 }
-                Label(R.string.add_priority)
-                ChipRow {
-                    Chip(stringResource(R.string.priority_none), priority == Priority.NONE) { priority = Priority.NONE }
-                    Chip(stringResource(R.string.priority_low), priority == Priority.LOW) { priority = Priority.LOW }
-                    Chip(stringResource(R.string.priority_medium), priority == Priority.MEDIUM) { priority = Priority.MEDIUM }
-                    Chip(stringResource(R.string.priority_high), priority == Priority.HIGH) { priority = Priority.HIGH }
-                }
+                FieldLabel(stringResource(R.string.add_priority))
+                PriorityChips(priority) { priority = it }
             }
 
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = { onMoreOptions(isHabit, title) }) { Text(stringResource(R.string.add_more_options)) }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
                 TextButton(onClick = ::submit, enabled = canAdd) { Text(stringResource(R.string.add_confirm)) }
@@ -183,56 +177,24 @@ fun AddItemSheet(
     }
 
     if (showDatePicker) {
-        val initial = (pickedDate ?: LocalDate.now()).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
-        val pickerState = rememberDatePickerState(initialSelectedDateMillis = initial)
         DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    // The picker works in UTC midnight milliseconds.
-                    pickerState.selectedDateMillis?.let { millis ->
-                        pickedDate = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
-                        due = Due.PICKED
-                    }
-                    showDatePicker = false
-                }) { Text(stringResource(R.string.ok)) }
+            initial = pickedDate ?: LocalDate.now(),
+            onDismiss = { showDatePicker = false },
+            onPick = { date ->
+                pickedDate = date
+                due = Due.PICKED
+                showDatePicker = false
             },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.cancel)) }
-            },
-        ) {
-            DatePicker(state = pickerState)
-        }
+        )
     }
 }
 
 @Composable
-private fun Label(text: Int) {
-    Text(
-        text = stringResource(text),
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
-
-@Composable
-private fun ChipRow(content: @Composable () -> Unit) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-    ) {
-        content()
+fun PriorityChips(selected: Priority, onSelect: (Priority) -> Unit) {
+    ChipRow {
+        Chip(stringResource(R.string.priority_none), selected == Priority.NONE) { onSelect(Priority.NONE) }
+        Chip(stringResource(R.string.priority_low), selected == Priority.LOW) { onSelect(Priority.LOW) }
+        Chip(stringResource(R.string.priority_medium), selected == Priority.MEDIUM) { onSelect(Priority.MEDIUM) }
+        Chip(stringResource(R.string.priority_high), selected == Priority.HIGH) { onSelect(Priority.HIGH) }
     }
-}
-
-@Composable
-private fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(selected = selected, onClick = onClick, label = { Text(text) })
-}
-
-@Composable
-private fun formatShortDate(date: LocalDate): String {
-    val locale = LocalLocale.current.platformLocale
-    val pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEdMMM")
-    return date.format(DateTimeFormatter.ofPattern(pattern, locale))
 }

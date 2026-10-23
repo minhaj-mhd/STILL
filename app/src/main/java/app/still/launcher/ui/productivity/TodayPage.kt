@@ -30,14 +30,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.still.launcher.R
 import app.still.launcher.data.productivity.HabitMeasure
+import app.still.launcher.data.productivity.Task
 import app.still.launcher.productivity.HabitEntry
 import app.still.launcher.productivity.TaskEntry
 import app.still.launcher.productivity.TodayAgenda
 import app.still.launcher.ui.components.rememberCurrentMinute
+import app.still.launcher.ui.editor.EditorTarget
 
 /** Left page: what's due today, overdue tasks, today's habits, and tasks without a date. */
 @Composable
 fun TodayPage(
+    onOpenEditor: (EditorTarget) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: TodayViewModel = viewModel(factory = TodayViewModel.Factory),
 ) {
@@ -66,6 +69,8 @@ fun TodayPage(
         else viewModel.setTaskDone(entry, done = !entry.isDone)
     }
 
+    fun openTask(entry: TaskEntry) = onOpenEditor(EditorTarget.EditTask(entry.task.id))
+
     Box(modifier.fillMaxSize().systemBarsPadding()) {
         LazyColumn(
             contentPadding = PaddingValues(start = 32.dp, top = 48.dp, end = 32.dp, bottom = 112.dp),
@@ -83,15 +88,24 @@ fun TodayPage(
                         )
                     }
                 }
-                taskSection(R.string.today_section_overdue, current.overdue, current, ::onTaskClick) { taskMenu = it }
-                taskSection(R.string.today_section_today, current.today, current, ::onTaskClick) { taskMenu = it }
+                // A recurring task can be both overdue and due today; list its subtasks only once.
+                val subtasksShown = mutableSetOf<Long>()
+                val onSubtaskClick = { subtask: Task -> viewModel.setSubtaskDone(subtask, subtask.completedAt == null) }
+                taskSection(R.string.today_section_overdue, current.overdue, current, subtasksShown, ::onTaskClick, onSubtaskClick) {
+                    taskMenu = it
+                }
+                taskSection(R.string.today_section_today, current.today, current, subtasksShown, ::onTaskClick, onSubtaskClick) {
+                    taskMenu = it
+                }
                 if (current.habits.isNotEmpty()) {
                     item(key = "habits-title") { SectionTitle(R.string.today_section_habits) }
                     items(current.habits, key = { "habit:${it.habit.id}:${it.occurrence.time}" }) { entry ->
-                        HabitRow(entry, onClick = { onHabitClick(entry) }, onLongClick = { habitMenu = entry })
+                        HabitRow(entry, onToggle = { onHabitClick(entry) }, onLongClick = { habitMenu = entry })
                     }
                 }
-                taskSection(R.string.today_section_undated, current.undated, current, ::onTaskClick) { taskMenu = it }
+                taskSection(R.string.today_section_undated, current.undated, current, subtasksShown, ::onTaskClick, onSubtaskClick) {
+                    taskMenu = it
+                }
             }
         }
 
@@ -120,6 +134,10 @@ fun TodayPage(
                 viewModel.addHabit(title, measure, target, frequency)
                 adding = false
             },
+            onMoreOptions = { isHabit, title ->
+                adding = false
+                onOpenEditor(if (isHabit) EditorTarget.EditHabit(null, title) else EditorTarget.EditTask(null, title))
+            },
         )
     }
 
@@ -127,6 +145,10 @@ fun TodayPage(
         TaskActionsSheet(
             entry = entry,
             onDismiss = { taskMenu = null },
+            onEdit = {
+                taskMenu = null
+                openTask(entry)
+            },
             onSetSkipped = { skipped ->
                 viewModel.setSkipped(entry, skipped)
                 taskMenu = null
@@ -142,6 +164,10 @@ fun TodayPage(
         HabitActionsSheet(
             entry = entry,
             onDismiss = { habitMenu = null },
+            onEdit = {
+                habitMenu = null
+                onOpenEditor(EditorTarget.EditHabit(entry.habit.id))
+            },
             onLogAmount = {
                 habitMenu = null
                 amountFor = entry
@@ -204,12 +230,27 @@ private fun LazyListScope.taskSection(
     title: Int,
     entries: List<TaskEntry>,
     agenda: TodayAgenda,
-    onClick: (TaskEntry) -> Unit,
+    subtasksShown: MutableSet<Long>,
+    onToggle: (TaskEntry) -> Unit,
+    onToggleSubtask: (Task) -> Unit,
     onLongClick: (TaskEntry) -> Unit,
 ) {
     if (entries.isEmpty()) return
     item(key = "title:$title") { SectionTitle(title) }
-    items(entries, key = { "task:$title:${it.task.id}:${it.occurrence}" }) { entry ->
-        TaskRow(entry, agenda.date, onClick = { onClick(entry) }, onLongClick = { onLongClick(entry) })
+    entries.forEach { entry ->
+        item(key = "task:$title:${entry.task.id}:${entry.occurrence}") {
+            TaskRow(
+                entry = entry,
+                today = agenda.date,
+                onToggle = { onToggle(entry) },
+                onLongClick = { onLongClick(entry) },
+            )
+        }
+        // Subtasks stay visible under an unfinished task so they can be ticked off here.
+        if (entry.isPending && subtasksShown.add(entry.task.id)) {
+            items(entry.subtasks, key = { "subtask:${it.id}" }) { subtask ->
+                SubtaskRow(subtask, onToggle = { onToggleSubtask(subtask) })
+            }
+        }
     }
 }

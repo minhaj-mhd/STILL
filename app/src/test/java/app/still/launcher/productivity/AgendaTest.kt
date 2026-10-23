@@ -108,6 +108,16 @@ class AgendaTest {
     }
 
     @Test
+    fun `parent rows carry their subtasks, oldest first`() {
+        val parent = Task(id = 1, title = "Move house", schedule = Schedule(today))
+        val open = Task(id = 3, title = "Book van", parentId = 1, createdAt = at("2026-10-21T10:00:00Z"))
+        val packed = Task(id = 2, title = "Pack books", parentId = 1, createdAt = at("2026-10-20T10:00:00Z"))
+        val other = Task(id = 4, title = "Unrelated", parentId = 9)
+        val entry = agenda(tasks = listOf(parent, open, packed, other)).today.single()
+        assertEquals(listOf(2L, 3L), entry.subtasks.map { it.id })
+    }
+
+    @Test
     fun `habits track progress against their target`() {
         val water = Habit(
             id = 1, title = "Water", measure = HabitMeasure.COUNT, target = 8.0,

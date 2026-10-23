@@ -21,6 +21,8 @@ data class TaskEntry(
     val isDone: Boolean,
     val isSkipped: Boolean = false,
     val isOverdue: Boolean = false,
+    /** The task's subtasks, oldest first; ticked off right under it on the Today page. */
+    val subtasks: List<Task> = emptyList(),
 ) {
     val isPending: Boolean get() = !isDone && !isSkipped
 }
@@ -67,10 +69,17 @@ fun buildAgenda(
     zone: ZoneId = ZoneId.systemDefault(),
 ): TodayAgenda {
     val recordsByItem = records.groupBy { it.itemType to it.itemId }
+    val subtasksByParent = tasks
+        .filter { it.parentId != null && !it.archived }
+        .sortedBy { it.createdAt }
+        .groupBy { it.parentId }
 
     val taskEntries = tasks
         .filter { it.parentId == null && !it.archived }
-        .flatMap { taskEntries(it, date, recordsByItem[ItemType.TASK to it.id].orEmpty(), zone) }
+        .flatMap { task ->
+            val subtasks = subtasksByParent[task.id].orEmpty()
+            taskEntries(task, date, recordsByItem[ItemType.TASK to task.id].orEmpty(), zone).map { it.copy(subtasks = subtasks) }
+        }
 
     val habitEntries = habits
         .filterNot { it.archived }

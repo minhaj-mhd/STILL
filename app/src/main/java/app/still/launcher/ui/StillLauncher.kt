@@ -29,6 +29,9 @@ import app.still.launcher.R
 import app.still.launcher.ui.apps.AppActionsSheet
 import app.still.launcher.ui.apps.AppsPage
 import app.still.launcher.ui.apps.RenameAppDialog
+import app.still.launcher.ui.editor.EditorHost
+import app.still.launcher.ui.editor.EditorTarget
+import app.still.launcher.ui.editor.EditorTargetSaver
 import app.still.launcher.ui.home.HomePage
 import app.still.launcher.ui.productivity.TodayPage
 import app.still.launcher.util.defaultLauncherRequestIntent
@@ -54,6 +57,7 @@ fun StillLauncher(
     var query by rememberSaveable { mutableStateOf("") }
     var menuAppKey by rememberSaveable { mutableStateOf<String?>(null) }
     var renameAppKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var editor by rememberSaveable(stateSaver = EditorTargetSaver) { mutableStateOf<EditorTarget?>(null) }
     // Look apps up by key so an open menu reflects changes (e.g. favorite toggled) immediately.
     val menuApp = state.apps.firstOrNull { it.key == menuAppKey }
     val renameApp = state.apps.firstOrNull { it.key == renameAppKey }
@@ -92,6 +96,7 @@ fun StillLauncher(
             query = ""
             menuAppKey = null
             renameAppKey = null
+            editor = null
             goHome(animate = true)
         }
     }
@@ -108,7 +113,7 @@ fun StillLauncher(
             modifier = Modifier.fillMaxSize(),
         ) { page ->
             when (Page.entries[page]) {
-                Page.Productivity -> TodayPage()
+                Page.Productivity -> TodayPage(onOpenEditor = { editor = it })
                 Page.Home -> HomePage(
                     favorites = state.favorites,
                     isDefaultLauncher = isDefaultLauncher,
@@ -140,6 +145,9 @@ fun StillLauncher(
             }
         }
     }
+
+    // Task and habit editors cover the pages; their own Back handler takes priority over the pager's.
+    editor?.let { target -> EditorHost(target, onClose = { editor = null }) }
 
     menuApp?.let { app ->
         AppActionsSheet(

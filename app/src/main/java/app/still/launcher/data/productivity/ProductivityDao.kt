@@ -21,6 +21,18 @@ abstract class ProductivityDao {
     @Query("SELECT * FROM occurrence_records WHERE date BETWEEN :from AND :to")
     abstract fun observeRecords(from: LocalDate, to: LocalDate): Flow<List<OccurrenceRecord>>
 
+    @Query("SELECT * FROM occurrence_records WHERE itemType = :type AND itemId = :itemId")
+    abstract fun observeRecordsFor(type: ItemType, itemId: Long): Flow<List<OccurrenceRecord>>
+
+    @Query("SELECT * FROM tasks WHERE id = :taskId")
+    abstract suspend fun getTask(taskId: Long): Task?
+
+    @Query("SELECT * FROM tasks WHERE parentId = :parentId ORDER BY createdAt")
+    abstract suspend fun getSubtasks(parentId: Long): List<Task>
+
+    @Query("SELECT * FROM habits WHERE id = :habitId")
+    abstract suspend fun getHabit(habitId: Long): Habit?
+
     @Insert
     abstract suspend fun insertTask(task: Task): Long
 
@@ -47,6 +59,22 @@ abstract class ProductivityDao {
             "WHERE itemType = :type AND itemId = :itemId AND date = :date AND slotMinute = :slotMinute",
     )
     abstract suspend fun deleteRecord(type: ItemType, itemId: Long, date: LocalDate, slotMinute: Int)
+
+    /**
+     * Inserts or updates a task together with its subtasks, all or nothing.
+     * Subtasks with id 0 are new; [removedSubtaskIds] are deleted with their history.
+     * Returns the task's id.
+     */
+    @Transaction
+    open suspend fun saveTaskWithSubtasks(task: Task, subtasks: List<Task>, removedSubtaskIds: List<Long>): Long {
+        val taskId = if (task.id == 0L) insertTask(task) else task.id.also { updateTask(task) }
+        removedSubtaskIds.forEach { deleteTaskTree(it) }
+        subtasks.forEach { subtask ->
+            val child = subtask.copy(parentId = taskId)
+            if (child.id == 0L) insertTask(child) else updateTask(child)
+        }
+        return taskId
+    }
 
     /** Deletes a task, its subtasks, and their history. */
     @Transaction

@@ -2,6 +2,7 @@ package app.still.launcher.ui.productivity
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,9 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,20 +28,21 @@ import androidx.compose.ui.unit.dp
 import app.still.launcher.R
 import app.still.launcher.data.productivity.HabitMeasure
 import app.still.launcher.data.productivity.Priority
+import app.still.launcher.data.productivity.Task
 import app.still.launcher.productivity.HabitEntry
 import app.still.launcher.productivity.TaskEntry
 import app.still.launcher.schedule.QuotaPeriod
+import app.still.launcher.ui.components.formatShortDate
+import app.still.launcher.ui.components.formatTime
 import java.math.RoundingMode
 import java.time.LocalDate
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
+/** Tapping anywhere on the row ticks the task off; editing is in the long-press menu. */
 @Composable
 fun TaskRow(
     entry: TaskEntry,
     today: LocalDate,
-    onClick: () -> Unit,
+    onToggle: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     val details = listOfNotNull(
@@ -54,16 +56,41 @@ fun TaskRow(
         priority = entry.task.priority,
         finished = !entry.isPending,
         struckThrough = entry.isDone,
-        leading = { CheckCircle(checked = entry.isDone, skipped = entry.isSkipped) },
-        onClick = onClick,
+        leading = { CheckCircle(checked = entry.isDone, skipped = entry.isSkipped, onClick = onToggle) },
+        onClick = onToggle,
         onLongClick = onLongClick,
     )
 }
 
+/** A subtask, indented under its task; tapping it ticks it off. */
+@Composable
+fun SubtaskRow(subtask: Task, onToggle: () -> Unit) {
+    val done = subtask.completedAt != null
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(start = 32.dp),
+    ) {
+        CheckCircle(checked = done, skipped = false, onClick = onToggle)
+        Text(
+            text = subtask.title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground,
+            textDecoration = if (done) TextDecoration.LineThrough else null,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 4.dp),
+        )
+    }
+}
+
+/** Tapping anywhere on the row logs progress; editing and streaks are in the long-press menu. */
 @Composable
 fun HabitRow(
     entry: HabitEntry,
-    onClick: () -> Unit,
+    onToggle: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     val habit = entry.habit
@@ -102,8 +129,8 @@ fun HabitRow(
         priority = habit.priority,
         finished = entry.isDone || entry.isSkipped,
         struckThrough = false,
-        leading = { CheckCircle(checked = entry.isDone, skipped = entry.isSkipped) },
-        onClick = onClick,
+        leading = { CheckCircle(checked = entry.isDone, skipped = entry.isSkipped, onClick = onToggle) },
+        onClick = onToggle,
         onLongClick = onLongClick,
     )
 }
@@ -132,10 +159,10 @@ private fun ItemRow(
                     onLongClick()
                 },
             )
-            .padding(vertical = 10.dp),
+            .padding(vertical = 4.dp),
     ) {
         leading()
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(4.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -164,20 +191,28 @@ private fun ItemRow(
     }
 }
 
-/** Round tick box: filled with a check when done, a dash when skipped. */
+/** Round tick box with a full-size touch target: filled with a check when done, a dash when skipped. */
 @Composable
-private fun CheckCircle(checked: Boolean, skipped: Boolean) {
+fun CheckCircle(checked: Boolean, skipped: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(24.dp)
-            .border(1.5.dp, if (checked) colors.onBackground else colors.outline, CircleShape)
-            .then(if (checked) Modifier.background(colors.onBackground, CircleShape) else Modifier),
+            .size(48.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
     ) {
-        when {
-            checked -> Text("✓", style = MaterialTheme.typography.labelLarge, color = colors.background)
-            skipped -> Text("–", style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(24.dp)
+                .border(1.5.dp, if (checked) colors.onBackground else colors.outline, CircleShape)
+                .then(if (checked) Modifier.background(colors.onBackground, CircleShape) else Modifier),
+        ) {
+            when {
+                checked -> Text("✓", style = MaterialTheme.typography.labelLarge, color = colors.background)
+                skipped -> Text("–", style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+            }
         }
     }
 }
@@ -194,13 +229,5 @@ fun formatAmount(value: Double): String =
     value.toBigDecimal().setScale(1, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
 
 @Composable
-private fun formatTime(time: LocalTime): String =
-    time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(LocalLocale.current.platformLocale))
-
-@Composable
-private fun relativeDate(date: LocalDate, today: LocalDate): String {
-    if (date == today.minusDays(1)) return stringResource(R.string.today_yesterday)
-    val locale = LocalLocale.current.platformLocale
-    val pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEdMMM")
-    return date.format(DateTimeFormatter.ofPattern(pattern, locale))
-}
+private fun relativeDate(date: LocalDate, today: LocalDate): String =
+    if (date == today.minusDays(1)) stringResource(R.string.today_yesterday) else formatShortDate(date)

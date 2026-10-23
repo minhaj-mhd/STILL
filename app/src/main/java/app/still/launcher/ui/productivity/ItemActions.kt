@@ -36,11 +36,13 @@ import app.still.launcher.productivity.TaskEntry
 fun TaskActionsSheet(
     entry: TaskEntry,
     onDismiss: () -> Unit,
+    onEdit: () -> Unit,
     onSetSkipped: (Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     ActionsSheet(title = entry.task.title, onDismiss = onDismiss) {
+        ActionRow(stringResource(R.string.item_edit), onEdit)
         // Only recurring occurrences can be skipped; a one-time task is either done or still due.
         if (entry.occurrence != null && entry.task.schedule?.isRecurring == true && !entry.isDone) {
             if (entry.isSkipped) ActionRow(stringResource(R.string.item_unskip)) { onSetSkipped(false) }
@@ -49,7 +51,7 @@ fun TaskActionsSheet(
         ActionRow(stringResource(R.string.item_delete_task)) { confirmDelete = true }
     }
     if (confirmDelete) {
-        DeleteDialog(
+        DeleteConfirmDialog(
             name = entry.task.title,
             detail = stringResource(R.string.item_delete_task_detail),
             onDismiss = { confirmDelete = false },
@@ -62,12 +64,14 @@ fun TaskActionsSheet(
 fun HabitActionsSheet(
     entry: HabitEntry,
     onDismiss: () -> Unit,
+    onEdit: () -> Unit,
     onLogAmount: () -> Unit,
     onSetSkipped: (Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     ActionsSheet(title = entry.habit.title, onDismiss = onDismiss) {
+        ActionRow(stringResource(R.string.item_edit), onEdit)
         if (entry.habit.measure != HabitMeasure.CHECK) {
             ActionRow(stringResource(R.string.item_log_amount), onLogAmount)
         }
@@ -78,7 +82,7 @@ fun HabitActionsSheet(
         ActionRow(stringResource(R.string.item_delete_habit)) { confirmDelete = true }
     }
     if (confirmDelete) {
-        DeleteDialog(
+        DeleteConfirmDialog(
             name = entry.habit.title,
             detail = stringResource(R.string.item_delete_habit_detail),
             onDismiss = { confirmDelete = false },
@@ -165,8 +169,9 @@ private fun ActionRow(text: String, onClick: () -> Unit) {
     )
 }
 
+/** Asks before deleting something whose history goes with it. */
 @Composable
-private fun DeleteDialog(name: String, detail: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+fun DeleteConfirmDialog(name: String, detail: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.item_delete_title, name)) },
