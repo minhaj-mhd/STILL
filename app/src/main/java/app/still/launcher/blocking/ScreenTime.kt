@@ -15,6 +15,23 @@ data class AppUsageEvent(val packageName: String, val timeMillis: Long, val kind
 }
 
 /**
+ * The app in front after these events, or null when the screen went off (or nothing came to
+ * the front) after the last one. Leaving an app only clears it if nothing else has come to the
+ * front since, which is how Android orders them when switching apps.
+ */
+fun foregroundAppAfter(events: List<AppUsageEvent>): String? {
+    var current: String? = null
+    for (event in events.sortedBy { it.timeMillis }) {
+        when (event.kind) {
+            AppUsageEvent.Kind.FOREGROUND -> current = event.packageName
+            AppUsageEvent.Kind.BACKGROUND -> if (current == event.packageName) current = null
+            AppUsageEvent.Kind.SCREEN_OFF -> current = null
+        }
+    }
+    return current
+}
+
+/**
  * Milliseconds each app spent in front between [fromMillis] and [toMillis].
  *
  * An app counts from coming to the front until it leaves, the screen goes off, or [toMillis].

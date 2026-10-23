@@ -14,7 +14,9 @@ import app.still.launcher.data.AppRepository
 import app.still.launcher.data.AppScreenTime
 import app.still.launcher.data.BlockingRepository
 import app.still.launcher.data.LauncherPreferences
+import app.still.launcher.data.LauncherSettings
 import app.still.launcher.data.ScreenTimeRepository
+import app.still.launcher.reminders.AppTimeReminders
 import app.still.launcher.util.EssentialApps
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +49,10 @@ data class LauncherApp(
     val blockedUntil: Instant? = null,
     /** The blocking schedule behind [blockedUntil], or null for a block set by hand. */
     val blockedBySchedule: String? = null,
+    /** Opening it from STILL waits through a countdown first. */
+    val hasLaunchDelay: Boolean = false,
+    /** Opening it from STILL asks how long you'll use it, then reminds you. */
+    val hasTimeReminder: Boolean = false,
 ) {
     val isRenamed: Boolean get() = label != originalLabel
     val isBlocked: Boolean get() = blockedUntil != null
@@ -57,6 +63,9 @@ data class LauncherUiState(
     val apps: List<LauncherApp> = emptyList(),
     /** Home screen apps in the order the user added them. */
     val favorites: List<LauncherApp> = emptyList(),
+    val launchDelaySeconds: Int = LauncherSettings.DEFAULT_LAUNCH_DELAY_SECONDS,
+    /** 0 only reminds when time's up; otherwise the app is blocked this many minutes. */
+    val timeUpBlockMinutes: Int = 0,
 )
 
 class LauncherViewModel(
@@ -65,6 +74,7 @@ class LauncherViewModel(
     private val blocking: BlockingRepository,
     private val screenTime: ScreenTimeRepository,
     private val essentialApps: EssentialApps,
+    private val appTimeReminders: AppTimeReminders,
 ) : ViewModel() {
 
     /** The current minute, so blocks end on time without anything else changing. */
@@ -104,6 +114,8 @@ class LauncherViewModel(
                         canBlock = canBlock,
                         blockedUntil = if (bySchedule) scheduleUntil else manualUntil,
                         blockedBySchedule = schedule?.scheduleName?.takeIf { bySchedule },
+                        hasLaunchDelay = canBlock && packageName in settings.launchDelayPackages,
+                        hasTimeReminder = canBlock && packageName in settings.timeReminderPackages,
                     )
                 }
                 .sortedWith(compareBy(collator) { it.label })
@@ -111,6 +123,8 @@ class LauncherViewModel(
             LauncherUiState(
                 apps = apps,
                 favorites = settings.favorites.mapNotNull { byKey[it] }.filterNot { it.isHidden },
+                launchDelaySeconds = settings.launchDelaySeconds,
+                timeUpBlockMinutes = settings.timeUpBlockMinutes,
             )
         }
             .flowOn(Dispatchers.Default)
@@ -152,6 +166,27 @@ class LauncherViewModel(
     /** Today's and the last week's time in [app]; null without Usage access. */
     suspend fun screenTime(app: LauncherApp): AppScreenTime? = screenTime.screenTime(app.component.packageName)
 
+    fun setLaunchDelay(app: LauncherApp, on: Boolean) {
+        viewModelScope.launch { preferences.setLaunchDelay(app.component.packageName, on) }
+    }
+
+    fun setTimeReminder(app: LauncherApp, on: Boolean) {
+        viewModelScope.launch { preferences.setTimeReminder(app.component.packageName, on) }
+    }
+
+    fun setLaunchDelaySeconds(seconds: Int) {
+        viewModelScope.launch { preferences.setLaunchDelaySeconds(seconds) }
+    }
+
+    fun setTimeUpBlockMinutes(minutes: Int) {
+        viewModelScope.launch { preferences.setTimeUpBlockMinutes(minutes) }
+    }
+
+    /** Starts the time reminder for [app], which is about to open, for [minutes]. */
+    fun startTimeSession(app: LauncherApp, minutes: Int) {
+        appTimeReminders.start(app.component.packageName, app.label, minutes)
+    }
+
     /** Blocks [app] in every profile for [duration] from now. Essential apps are never blocked. */
     fun block(app: LauncherApp, duration: Duration) {
         if (!app.canBlock) return
@@ -171,6 +206,7 @@ class LauncherViewModel(
                     container.blockingRepository,
                     container.screenTimeRepository,
                     container.essentialApps,
+                    container.appTimeReminders,
                 )
             }
         }

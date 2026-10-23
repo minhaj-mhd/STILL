@@ -38,6 +38,8 @@ import app.still.launcher.ui.apps.AppActionsSheet
 import app.still.launcher.ui.apps.AppsPage
 import app.still.launcher.ui.apps.BlockAppSheet
 import app.still.launcher.ui.apps.BlockedScreen
+import app.still.launcher.ui.apps.LaunchDelayScreen
+import app.still.launcher.ui.apps.TimeIntentSheet
 import app.still.launcher.ui.apps.RenameAppDialog
 import app.still.launcher.ui.components.rememberCurrentMinute
 import app.still.launcher.ui.editor.EditorHost
@@ -95,11 +97,15 @@ fun StillLauncher(
     var overlay by rememberSaveable { mutableStateOf<Overlay?>(null) }
     var blockAppKey by rememberSaveable { mutableStateOf<String?>(null) }
     var blockedScreenKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var launchDelayKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var timeAskKey by rememberSaveable { mutableStateOf<String?>(null) }
     // Look apps up by key so an open menu reflects changes (e.g. favorite toggled) immediately.
     val menuApp = state.apps.firstOrNull { it.key == menuAppKey }
     val renameApp = state.apps.firstOrNull { it.key == renameAppKey }
     val blockApp = state.apps.firstOrNull { it.key == blockAppKey }
     val blockedScreenApp = state.apps.firstOrNull { it.key == blockedScreenKey }
+    val launchDelayApp = state.apps.firstOrNull { it.key == launchDelayKey }
+    val timeAskApp = state.apps.firstOrNull { it.key == timeAskKey }
 
     var isDefaultLauncher by remember { mutableStateOf(context.isDefaultLauncher()) }
     var hasUsageAccess by remember { mutableStateOf(viewModel.hasUsageAccess()) }
@@ -109,7 +115,7 @@ fun StillLauncher(
         onPauseOrDispose { }
     }
     // Screen time for whichever app the menu or block sheet is about.
-    val screenTimeApp = blockApp ?: menuApp
+    val screenTimeApp = blockApp ?: menuApp ?: timeAskApp ?: launchDelayApp
     val screenTime by produceState<AppScreenTime?>(null, screenTimeApp?.key, hasUsageAccess) {
         value = screenTimeApp?.let { viewModel.screenTime(it) }
     }
@@ -134,11 +140,8 @@ fun StillLauncher(
         }
     }
 
-    fun launchApp(app: LauncherApp) {
-        if (app.isBlocked) {
-            blockedScreenKey = app.key
-            return
-        }
+    // Opening an app from STILL goes: blocked? → launch delay → "how long?" → open.
+    fun openApp(app: LauncherApp) {
         if (viewModel.launch(app)) {
             query = ""
             // Coming back to STILL should land on home, not on the list or page you left from.
@@ -146,6 +149,18 @@ fun StillLauncher(
             goHome(animate = false)
         } else {
             Toast.makeText(context, resources.getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun afterLaunchDelay(app: LauncherApp) {
+        if (app.hasTimeReminder) timeAskKey = app.key else openApp(app)
+    }
+
+    fun launchApp(app: LauncherApp) {
+        when {
+            app.isBlocked -> blockedScreenKey = app.key
+            app.hasLaunchDelay -> launchDelayKey = app.key
+            else -> afterLaunchDelay(app)
         }
     }
 
@@ -157,6 +172,8 @@ fun StillLauncher(
             renameAppKey = null
             blockAppKey = null
             blockedScreenKey = null
+            launchDelayKey = null
+            timeAskKey = null
             editor = null
             overlay = null
             goHome(animate = true)
@@ -277,6 +294,10 @@ fun StillLauncher(
                 onLaunch = ::launchApp,
                 onLongPressApp = { menuAppKey = it.key },
                 onOpenScheduleEditor = { editor = it },
+                launchDelaySeconds = state.launchDelaySeconds,
+                onSetLaunchDelaySeconds = viewModel::setLaunchDelaySeconds,
+                timeUpBlockMinutes = state.timeUpBlockMinutes,
+                onSetTimeUpBlockMinutes = viewModel::setTimeUpBlockMinutes,
             )
         }
     }
@@ -295,6 +316,32 @@ fun StillLauncher(
         }
     }
 
+    launchDelayApp?.let { app ->
+        LaunchDelayScreen(
+            appLabel = app.label,
+            seconds = state.launchDelaySeconds,
+            screenTime = screenTime,
+            onOpen = {
+                launchDelayKey = null
+                afterLaunchDelay(app)
+            },
+            onCancel = { launchDelayKey = null },
+        )
+    }
+
+    timeAskApp?.let { app ->
+        TimeIntentSheet(
+            appLabel = app.label,
+            screenTime = screenTime,
+            onStart = { minutes ->
+                timeAskKey = null
+                viewModel.startTimeSession(app, minutes)
+                openApp(app)
+            },
+            onDismiss = { timeAskKey = null },
+        )
+    }
+
     menuApp?.let { app ->
         AppActionsSheet(
             app = app,
@@ -305,6 +352,14 @@ fun StillLauncher(
             onBlock = {
                 menuAppKey = null
                 blockAppKey = app.key
+            },
+            onSetLaunchDelay = { on ->
+                viewModel.setLaunchDelay(app, on)
+                menuAppKey = null
+            },
+            onSetTimeReminder = { on ->
+                viewModel.setTimeReminder(app, on)
+                menuAppKey = null
             },
             onSetFavorite = { favorite ->
                 viewModel.setFavorite(app, favorite)

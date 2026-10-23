@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Process
 import android.provider.Settings
 import app.still.launcher.blocking.AppUsageEvent
+import app.still.launcher.blocking.foregroundAppAfter
 import app.still.launcher.blocking.foregroundTimeByApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -67,6 +68,14 @@ class ScreenTimeRepository(context: Context) {
                 .mapValues { Duration.ofMillis(it.value) }
             ScreenTimeSummary(today = byApp(startOf(today, now.zone)), lastSevenDays = byApp(weekStart))
         }
+    }
+
+    /**
+     * The package in front now, judging by usage events since [sinceMillis]; null when nothing
+     * is (screen off, or back on STILL counts as STILL). Requires [hasAccess].
+     */
+    suspend fun appInFront(sinceMillis: Long): String? = withContext(Dispatchers.IO) {
+        foregroundAppAfter(readEvents(sinceMillis, System.currentTimeMillis()))
     }
 
     private fun readEvents(fromMillis: Long, toMillis: Long): List<AppUsageEvent> {

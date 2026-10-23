@@ -11,5 +11,6 @@ class StillApplication : Application() {
         super.onCreate()
         container = AppContainer(this)
         container.reminderScheduler.start()
+        container.appTimeReminders.createChannel()
     }
 }

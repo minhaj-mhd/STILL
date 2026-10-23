@@ -61,6 +61,11 @@
             android:name=".reminders.ReminderReceiver"
             android:exported="false" />
 
+        <!-- In-app time reminders: "1 minute left" and "time's up". -->
+        <receiver
+            android:name=".reminders.AppTimeReminderReceiver"
+            android:exported="false" />
+
         <!-- Re-arms the next reminder after events that clear or shift alarms. -->
         <receiver
             android:name=".reminders.SystemEventReceiver"

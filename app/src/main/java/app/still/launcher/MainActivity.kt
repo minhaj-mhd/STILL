@@ -42,9 +42,12 @@ class MainActivity : ComponentActivity() {
     }
 
     // singleTask: pressing Home while STILL is the default launcher arrives here, not in onCreate.
+    // A time reminder's "Leave" button lands here too, and should look the same: back on home.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.hasCategory(Intent.CATEGORY_HOME)) homePresses.tryEmit(Unit)
+        if (intent.hasCategory(Intent.CATEGORY_HOME) || intent.getBooleanExtra(EXTRA_GO_HOME, false)) {
+            homePresses.tryEmit(Unit)
+        }
         handleOpenToday(intent)
     }
 
@@ -55,5 +58,6 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_OPEN_TODAY = "app.still.launcher.OPEN_TODAY"
+        const val EXTRA_GO_HOME = "app.still.launcher.GO_HOME"
     }
 }

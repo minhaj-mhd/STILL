@@ -47,6 +47,8 @@ fun AppActionsSheet(
     onDismiss: () -> Unit,
     onAllowUsageAccess: () -> Unit,
     onBlock: () -> Unit,
+    onSetLaunchDelay: (Boolean) -> Unit,
+    onSetTimeReminder: (Boolean) -> Unit,
     onSetFavorite: (Boolean) -> Unit,
     onRename: () -> Unit,
     onSetHidden: (Boolean) -> Unit,
@@ -86,6 +88,12 @@ fun AppActionsSheet(
             Spacer(Modifier.height(8.dp))
             if (app.canBlock && !app.isBlocked) {
                 ActionRow(stringResource(R.string.action_block), onBlock)
+            }
+            if (app.canBlock) {
+                if (app.hasLaunchDelay) ActionRow(stringResource(R.string.action_remove_launch_delay)) { onSetLaunchDelay(false) }
+                else ActionRow(stringResource(R.string.action_add_launch_delay)) { onSetLaunchDelay(true) }
+                if (app.hasTimeReminder) ActionRow(stringResource(R.string.action_remove_time_reminder)) { onSetTimeReminder(false) }
+                else ActionRow(stringResource(R.string.action_add_time_reminder)) { onSetTimeReminder(true) }
             }
             if (!app.isHidden) {
                 if (app.isFavorite) {

@@ -41,6 +41,8 @@ import app.still.launcher.ui.LauncherApp
 import app.still.launcher.ui.blocking.SchedulesPage
 import app.still.launcher.ui.blocking.SchedulesViewModel
 import app.still.launcher.ui.components.AppLabel
+import app.still.launcher.ui.components.Chip
+import app.still.launcher.ui.components.ChipRow
 import app.still.launcher.ui.components.FieldLabel
 import app.still.launcher.ui.components.formatDateTime
 import app.still.launcher.ui.editor.EditorScaffold
@@ -68,6 +70,10 @@ fun SettingsScreen(
     onLaunch: (LauncherApp) -> Unit,
     onLongPressApp: (LauncherApp) -> Unit,
     onOpenScheduleEditor: (EditorTarget.EditSchedule) -> Unit,
+    launchDelaySeconds: Int,
+    onSetLaunchDelaySeconds: (Int) -> Unit,
+    timeUpBlockMinutes: Int,
+    onSetTimeUpBlockMinutes: (Int) -> Unit,
 ) {
     BackHandler { if (page == SettingsPage.MAIN) onClose() else onNavigate(SettingsPage.MAIN) }
     val hidden = apps.filter { it.isHidden }
@@ -78,6 +84,12 @@ fun SettingsScreen(
         SettingsPage.MAIN -> MainSettings(
             hiddenCount = hidden.size,
             blockedCount = blocked.size,
+            launchDelayCount = apps.filter { it.hasLaunchDelay }.distinctBy { it.component.packageName }.size,
+            timeReminderCount = apps.filter { it.hasTimeReminder }.distinctBy { it.component.packageName }.size,
+            launchDelaySeconds = launchDelaySeconds,
+            onSetLaunchDelaySeconds = onSetLaunchDelaySeconds,
+            timeUpBlockMinutes = timeUpBlockMinutes,
+            onSetTimeUpBlockMinutes = onSetTimeUpBlockMinutes,
             onNavigate = onNavigate,
             onClose = onClose,
             isDefaultLauncher = isDefaultLauncher,
@@ -127,6 +139,12 @@ fun SettingsScreen(
 private fun MainSettings(
     hiddenCount: Int,
     blockedCount: Int,
+    launchDelayCount: Int,
+    timeReminderCount: Int,
+    launchDelaySeconds: Int,
+    onSetLaunchDelaySeconds: (Int) -> Unit,
+    timeUpBlockMinutes: Int,
+    onSetTimeUpBlockMinutes: (Int) -> Unit,
     onNavigate: (SettingsPage) -> Unit,
     onClose: () -> Unit,
     isDefaultLauncher: Boolean,
@@ -206,6 +224,32 @@ private fun MainSettings(
             ) { onNavigate(SettingsPage.BLOCKED_APPS) }
         }
 
+        Section(stringResource(R.string.settings_section_mindful)) {
+            Text(
+                text = stringResource(R.string.settings_mindful_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            CountedLabel(stringResource(R.string.settings_launch_delay), launchDelayCount)
+            ChipRow {
+                LAUNCH_DELAY_SECONDS.forEach { seconds ->
+                    Chip(stringResource(R.string.settings_seconds, seconds), seconds == launchDelaySeconds) {
+                        onSetLaunchDelaySeconds(seconds)
+                    }
+                }
+            }
+            CountedLabel(stringResource(R.string.settings_time_reminder), timeReminderCount)
+            Text(stringResource(R.string.settings_time_up), style = MaterialTheme.typography.bodyMedium)
+            ChipRow {
+                Chip(stringResource(R.string.settings_time_up_remind), timeUpBlockMinutes == 0) { onSetTimeUpBlockMinutes(0) }
+                TIME_UP_BLOCK_MINUTES.forEach { minutes ->
+                    Chip(stringResource(R.string.settings_time_up_block, minutes), minutes == timeUpBlockMinutes) {
+                        onSetTimeUpBlockMinutes(minutes)
+                    }
+                }
+            }
+        }
+
         Section(stringResource(R.string.settings_section_about)) {
             Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
             Text(
@@ -259,6 +303,22 @@ private fun NavigationRow(title: String, value: String, onClick: () -> Unit) {
         Text("$value  ›", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
+
+/** A setting's name with how many apps use it, e.g. "Launch delay  ·  3 apps". */
+@Composable
+private fun CountedLabel(title: String, count: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        Text(
+            text = pluralStringResource(R.plurals.settings_app_count, count, count),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private val LAUNCH_DELAY_SECONDS = listOf(5, 10, 15, 30)
+private val TIME_UP_BLOCK_MINUTES = listOf(5, 15, 30)
 
 @Composable
 private fun EmptyText(text: String) {

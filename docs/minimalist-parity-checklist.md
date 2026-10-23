@@ -32,7 +32,7 @@ Android: Compose gesture detectors; status bar expand via `StatusBarManager`/ref
 - [ ] Swipe left → all apps page
 - [ ] Swipe up → open search (toggle)
 - [ ] Swipe down → expand notification shade (toggle; fallback message on phones that don't support it)
-- [ ] Double-tap → lock screen (needs device admin in Minimalist)
+- [ ] Double-tap → lock screen (needs device admin in Minimalist). **STILL: planned for stage 3 step 4**, using the Precision mode Accessibility service's lock action, which keeps fingerprint/face unlock working (device-admin locking forces the PIN on the next unlock).
 
 ## 3. All apps page (STILL right page) — Keep
 
