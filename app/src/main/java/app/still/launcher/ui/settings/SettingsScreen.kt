@@ -87,6 +87,10 @@ fun SettingsScreen(
     onOpenAppInfo: () -> Unit,
     doubleTapToLock: Boolean,
     onSetDoubleTapToLock: (Boolean) -> Unit,
+    appListKeyboard: Boolean,
+    onSetAppListKeyboard: (Boolean) -> Unit,
+    appListFade: Boolean,
+    onSetAppListFade: (Boolean) -> Unit,
     onOpenHeldNotifications: () -> Unit,
 ) {
     BackHandler { if (page == SettingsPage.MAIN) onClose() else onNavigate(SettingsPage.MAIN) }
@@ -115,6 +119,10 @@ fun SettingsScreen(
             precisionOn = precisionOn,
             doubleTapToLock = doubleTapToLock,
             onSetDoubleTapToLock = onSetDoubleTapToLock,
+            appListKeyboard = appListKeyboard,
+            onSetAppListKeyboard = onSetAppListKeyboard,
+            appListFade = appListFade,
+            onSetAppListFade = onSetAppListFade,
         )
         SettingsPage.CUSTOMISE -> CustomisePage(onBack = { onNavigate(SettingsPage.MAIN) })
         SettingsPage.NOTIFICATION_FILTER -> NotificationFilterPage(
@@ -193,6 +201,10 @@ private fun MainSettings(
     precisionOn: Boolean,
     doubleTapToLock: Boolean,
     onSetDoubleTapToLock: (Boolean) -> Unit,
+    appListKeyboard: Boolean,
+    onSetAppListKeyboard: (Boolean) -> Unit,
+    appListFade: Boolean,
+    onSetAppListFade: (Boolean) -> Unit,
     schedulesViewModel: SchedulesViewModel = viewModel(factory = SchedulesViewModel.Factory),
     gatesViewModel: GatesViewModel = viewModel(factory = GatesViewModel.Factory),
     filterViewModel: NotificationFilterViewModel = viewModel(factory = NotificationFilterViewModel.Factory),
@@ -312,6 +324,23 @@ private fun MainSettings(
 
         Section(stringResource(R.string.settings_section_home)) {
             NavigationRow(title = stringResource(R.string.customise_title), value = "") { onNavigate(SettingsPage.CUSTOMISE) }
+        }
+
+        Section(stringResource(R.string.settings_section_app_list)) {
+            SwitchRow(
+                title = stringResource(R.string.settings_app_list_keyboard),
+                detail = stringResource(R.string.settings_app_list_keyboard_detail),
+                checked = appListKeyboard,
+                onCheckedChange = onSetAppListKeyboard,
+            )
+            SwitchRow(
+                title = stringResource(R.string.settings_app_list_fade),
+                detail = stringResource(
+                    if (hasUsageAccess) R.string.settings_app_list_fade_detail else R.string.settings_app_list_fade_needs_usage,
+                ),
+                checked = appListFade,
+                onCheckedChange = onSetAppListFade,
+            )
         }
 
         Section(stringResource(R.string.settings_section_gestures)) {

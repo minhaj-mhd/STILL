@@ -37,7 +37,8 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /**
- * Measures the day's phone time against the daily limit, from Usage access. It looks again when
+ * Measures the day's phone time against the daily limit, from Usage access, and each app's time
+ * for the app list's fading. It looks again when
  * STILL is on screen, when Precision mode checks the app in front, and by alarm at the earliest
  * moment the warning or the limit could arrive, so it can warn and say time's up with STILL in
  * the background.
@@ -61,8 +62,13 @@ class DailyLimitMonitor(
     /** Null while there's no limit, or no Usage access to measure it with. */
     val state: StateFlow<LimitState?> = _state.asStateFlow()
 
+    private val _appUsage = MutableStateFlow<Map<String, Long>>(emptyMap())
+
+    /** Each app's time so far today in milliseconds; empty while the app list doesn't fade, or without Usage access. */
+    val appUsage: StateFlow<Map<String, Long>> = _appUsage.asStateFlow()
+
     init {
-        scope.launch { preferences.settings.map { it.limit }.distinctUntilChanged().collect { refresh() } }
+        scope.launch { preferences.settings.map { it.limit to it.appListFade }.distinctUntilChanged().collect { refresh() } }
     }
 
     fun createChannel() {
@@ -79,14 +85,17 @@ class DailyLimitMonitor(
 
     /** Measures the day so far and acts on it: warns, says time's up, and sets the next check. */
     suspend fun refresh() = mutex.withLock {
-        val limit = preferences.current().limit
+        val settings = preferences.current()
+        val limit = settings.limit
         val zone = ZoneId.systemDefault()
         val now = ZonedDateTime.now(zone)
         val day = limitDay(now.toLocalDateTime(), limit.dayStartHour)
         val minutes = limit.planOn(day).minutesOn(day)
         val start = dayStart(day, limit.dayStartHour).atZone(zone).toInstant().toEpochMilli()
-        val byApp = if (minutes > 0) screenTime.foregroundMillisSince(start) else null
-        if (byApp == null) {
+        // The app list's fading counts the same day, so one reading serves both.
+        val byApp = if (minutes > 0 || settings.appListFade) screenTime.foregroundMillisSince(start) else null
+        _appUsage.value = if (settings.appListFade) byApp.orEmpty() else emptyMap()
+        if (byApp == null || minutes <= 0) {
             _state.value = null
             alarmManager.cancel(checkIntent())
             return@withLock

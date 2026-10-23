@@ -21,6 +21,8 @@
     <!-- Apps page -->
     <string name="apps_search_placeholder">Search apps</string>
     <string name="apps_no_results">No apps match “%1$s”</string>
+    <string name="apps_recently_installed">Recently installed</string>
+    <string name="apps_all">All apps</string>
     <string name="apps_work_label">work</string>
 
     <string name="apps_blocked_label">blocked</string>
@@ -401,6 +403,12 @@
     <string name="precision_lost_dismiss">Dismiss</string>
     <string name="settings_precision">Precision mode</string>
     <string name="settings_precision_detail">So blocks work however you open an app</string>
+    <string name="settings_section_app_list">App list</string>
+    <string name="settings_app_list_keyboard">Open the keyboard</string>
+    <string name="settings_app_list_keyboard_detail">Swiping to the app list starts a search straight away</string>
+    <string name="settings_app_list_fade">Fade with use</string>
+    <string name="settings_app_list_fade_detail">The more time an app takes today, the fainter its name, with the time beside it</string>
+    <string name="settings_app_list_fade_needs_usage">The more time an app takes today, the fainter its name. Needs Usage access.</string>
     <string name="settings_section_gestures">Gestures</string>
     <string name="settings_double_tap_lock">Double-tap to lock</string>
     <string name="settings_double_tap_lock_detail">Double-tap empty space on home</string>

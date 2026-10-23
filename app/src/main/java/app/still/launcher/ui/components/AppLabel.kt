@@ -16,11 +16,17 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.still.launcher.R
+import app.still.launcher.apps.FADE_FROM_MINUTES
+import app.still.launcher.apps.fadeForUse
 import app.still.launcher.ui.LauncherApp
+import app.still.launcher.ui.theme.stillPalette
+import java.time.Duration
 
 /**
  * An app shown as text only, the way both the home screen and the app list draw it. With
- * [clickable] off, taps are left to the caller, e.g. home's drag-to-reorder.
+ * [clickable] off, taps are left to the caller, e.g. home's drag-to-reorder. [highlighted]
+ * draws it in the accent colour, e.g. the search result Enter would open. With [fadeWithUse],
+ * an app that has taken a lot of today fades and says how long.
  */
 @Composable
 fun AppLabel(
@@ -31,6 +37,8 @@ fun AppLabel(
     style: TextStyle = MaterialTheme.typography.headlineSmall,
     dimmed: Boolean = false,
     clickable: Boolean = true,
+    highlighted: Boolean = false,
+    fadeWithUse: Boolean = false,
 ) {
     val haptics = LocalHapticFeedback.current
     Row(
@@ -51,15 +59,21 @@ fun AppLabel(
     ) {
         // Blocked and gated apps stay listed, greyed out, so you can see what's closed.
         val closed = app.isBlocked || app.isGated || app.isLimited
-        val color = if (dimmed || closed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground
+        val color = when {
+            dimmed || closed -> MaterialTheme.colorScheme.onSurfaceVariant
+            highlighted -> stillPalette.accent
+            else -> MaterialTheme.colorScheme.onBackground
+        }
+        val strength = if (fadeWithUse) fadeForUse(app.minutesToday) else 1f
         Text(
             text = app.label,
             style = style,
-            color = color,
+            color = color.copy(alpha = color.alpha * strength),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),
         )
+        if (fadeWithUse && app.minutesToday > FADE_FROM_MINUTES) Tag(formatDuration(Duration.ofMinutes(app.minutesToday.toLong())))
         if (app.isWorkProfile) Tag(stringResource(R.string.apps_work_label))
         if (app.isBlocked) Tag(stringResource(R.string.apps_blocked_label))
         else if (app.isGated || app.isLimited) Tag(stringResource(R.string.apps_locked_label))

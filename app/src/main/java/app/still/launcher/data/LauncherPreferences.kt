@@ -37,6 +37,10 @@ data class LauncherSettings(
     val timeUpBlockMinutes: Int = 0,
     /** Double-tap empty space on home to lock the screen; needs Precision mode. */
     val doubleTapToLock: Boolean = true,
+    /** Swiping to the app list puts the cursor in search and brings up the keyboard. */
+    val appListKeyboard: Boolean = false,
+    /** Apps that have taken a lot of today fade in the app list. */
+    val appListFade: Boolean = true,
     /** Precision mode was on; if Android turns it off, home offers to turn it back on. */
     val precisionWanted: Boolean = false,
     /** Apps task gates never close, on top of the essential ones. */
@@ -81,6 +85,8 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
                 launchDelaySeconds = prefs[LAUNCH_DELAY_SECONDS] ?: LauncherSettings.DEFAULT_LAUNCH_DELAY_SECONDS,
                 timeUpBlockMinutes = prefs[TIME_UP_BLOCK_MINUTES] ?: 0,
                 doubleTapToLock = prefs[DOUBLE_TAP_TO_LOCK] ?: true,
+                appListKeyboard = prefs[APP_LIST_KEYBOARD] ?: false,
+                appListFade = prefs[APP_LIST_FADE] ?: true,
                 precisionWanted = prefs[PRECISION_WANTED] ?: false,
                 gateAlwaysOpenPackages = prefs[GATE_ALWAYS_OPEN_PACKAGES] ?: emptySet(),
                 notificationFilterOn = prefs[NOTIFICATION_FILTER_ON] ?: false,
@@ -268,6 +274,14 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs -> prefs[DOUBLE_TAP_TO_LOCK] = on }
     }
 
+    suspend fun setAppListKeyboard(on: Boolean) {
+        dataStore.edit { prefs -> prefs[APP_LIST_KEYBOARD] = on }
+    }
+
+    suspend fun setAppListFade(on: Boolean) {
+        dataStore.edit { prefs -> prefs[APP_LIST_FADE] = on }
+    }
+
     suspend fun setPrecisionWanted(wanted: Boolean) {
         dataStore.edit { prefs -> prefs[PRECISION_WANTED] = wanted }
     }
@@ -305,6 +319,8 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val LAUNCH_DELAY_SECONDS = intPreferencesKey("launchDelaySeconds")
         val TIME_UP_BLOCK_MINUTES = intPreferencesKey("timeUpBlockMinutes")
         val DOUBLE_TAP_TO_LOCK = booleanPreferencesKey("doubleTapToLock")
+        val APP_LIST_KEYBOARD = booleanPreferencesKey("appListKeyboard")
+        val APP_LIST_FADE = booleanPreferencesKey("appListFade")
         val PRECISION_WANTED = booleanPreferencesKey("precisionWanted")
         val GATE_ALWAYS_OPEN_PACKAGES = stringSetPreferencesKey("gateAlwaysOpenPackages")
         val FOCUS_SESSION = stringPreferencesKey("focusSession")

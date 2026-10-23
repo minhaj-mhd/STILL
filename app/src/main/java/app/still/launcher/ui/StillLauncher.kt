@@ -398,9 +398,13 @@ fun StillLauncher(
                 )
                 Page.Apps -> AppsPage(
                     apps = state.apps,
+                    recentlyInstalled = state.recentlyInstalled,
                     query = query,
                     onQueryChange = { query = it },
                     isCurrentPage = pagerState.currentPage == Page.Apps.ordinal,
+                    // Once the swipe has settled, so the keyboard doesn't rise mid-swipe.
+                    openKeyboard = state.appListKeyboard && pagerState.settledPage == Page.Apps.ordinal,
+                    fadeWithUse = state.appListFade,
                     onLaunch = ::launchApp,
                     onLongPress = { menuAppKey = it.key },
                 )
@@ -493,6 +497,10 @@ fun StillLauncher(
                 onOpenAppInfo = { context.startActivity(viewModel.appInfoIntent()) },
                 doubleTapToLock = state.doubleTapToLock,
                 onSetDoubleTapToLock = viewModel::setDoubleTapToLock,
+                appListKeyboard = state.appListKeyboard,
+                onSetAppListKeyboard = viewModel::setAppListKeyboard,
+                appListFade = state.appListFade,
+                onSetAppListFade = viewModel::setAppListFade,
                 onOpenHeldNotifications = { overlay = Overlay.HELD_NOTIFICATIONS },
             )
         }

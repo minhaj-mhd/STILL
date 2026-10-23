@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.still.launcher.StillApplication
+import app.still.launcher.apps.recentlyInstalled
 import app.still.launcher.blocking.activeBlock
 import app.still.launcher.blocking.scheduledBlocks
 import app.still.launcher.data.AccentColor
@@ -92,6 +93,10 @@ data class LauncherApp(
     val isLimited: Boolean = false,
     /** The home folder it's in, if any. */
     val folderId: String? = null,
+    /** When it was first installed, in epoch milliseconds. */
+    val installedAt: Long = 0L,
+    /** Its time so far today; 0 while the app list doesn't fade, and for apps STILL never blocks. */
+    val minutesToday: Int = 0,
 ) {
     val isRenamed: Boolean get() = label != originalLabel
     val isBlocked: Boolean get() = blockedUntil != null
@@ -104,12 +109,16 @@ data class HomeFolder(val id: String, val name: String, val apps: List<LauncherA
 data class LauncherUiState(
     /** All apps, hidden ones included, sorted by display label. */
     val apps: List<LauncherApp> = emptyList(),
+    /** Apps installed in the last few days, newest first; hidden ones left out. */
+    val recentlyInstalled: List<LauncherApp> = emptyList(),
     /** Home screen apps in the order the user added them. */
     val favorites: List<LauncherApp> = emptyList(),
     val launchDelaySeconds: Int = LauncherSettings.DEFAULT_LAUNCH_DELAY_SECONDS,
     /** 0 only reminds when time's up; otherwise the app is blocked this many minutes. */
     val timeUpBlockMinutes: Int = 0,
     val doubleTapToLock: Boolean = true,
+    val appListKeyboard: Boolean = false,
+    val appListFade: Boolean = true,
     /** Precision mode was turned on, so home says so if it goes off. */
     val precisionWanted: Boolean = false,
     /** What task gates keep closed right now, and which items keep them closed. */
@@ -147,9 +156,9 @@ class LauncherViewModel(
             appRepository.installedApps,
             preferences.settings,
             combine(blocking.blocks, blocking.schedules, ::Pair),
-            combine(taskGates.inputs, dailyLimit.state, ::Pair),
+            combine(taskGates.inputs, dailyLimit.state, dailyLimit.appUsage, ::Triple),
             clock,
-        ) { installed, settings, (blocks, schedules), (gateInputs, limitState), now ->
+        ) { installed, settings, (blocks, schedules), (gateInputs, limitState, usage), now ->
             val collator = Collator.getInstance()
             val zone = ZoneId.systemDefault()
             val scheduled = scheduledBlocks(schedules, LocalDateTime.ofInstant(now, zone))
@@ -186,6 +195,8 @@ class LauncherViewModel(
                         isLimited = canBlock &&
                             settings.limit.keepsClosed(limitState, packageName, now.toEpochMilli(), essentialApps::alwaysOpenAfterLimit),
                         folderId = folderOf[app.key],
+                        installedAt = app.firstInstallTime,
+                        minutesToday = if (canBlock) Duration.ofMillis(usage[packageName] ?: 0L).toMinutes().toInt() else 0,
                     )
                 }
                 .sortedWith(compareBy(collator) { it.label })
@@ -195,10 +206,13 @@ class LauncherViewModel(
             val labels = apps.sortedByDescending { it.isWorkProfile }.associate { it.component.packageName to it.label }
             LauncherUiState(
                 apps = apps,
+                recentlyInstalled = recentlyInstalled(apps.filterNot { it.isHidden }, now.toEpochMilli()) { it.installedAt },
                 favorites = settings.favorites.mapNotNull { byKey[it] }.filterNot { it.isHidden },
                 launchDelaySeconds = settings.launchDelaySeconds,
                 timeUpBlockMinutes = settings.timeUpBlockMinutes,
                 doubleTapToLock = settings.doubleTapToLock,
+                appListKeyboard = settings.appListKeyboard,
+                appListFade = settings.appListFade,
                 precisionWanted = settings.precisionWanted,
                 gateLocks = gateLocks(closed) { labels[it] },
                 gateAlwaysOpen = alwaysOpen,
@@ -379,6 +393,14 @@ class LauncherViewModel(
 
     fun setDoubleTapToLock(on: Boolean) {
         viewModelScope.launch { preferences.setDoubleTapToLock(on) }
+    }
+
+    fun setAppListKeyboard(on: Boolean) {
+        viewModelScope.launch { preferences.setAppListKeyboard(on) }
+    }
+
+    fun setAppListFade(on: Boolean) {
+        viewModelScope.launch { preferences.setAppListFade(on) }
     }
 
     fun precisionSettingsIntent(): Intent = precision.settingsIntent()

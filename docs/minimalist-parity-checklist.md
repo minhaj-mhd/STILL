@@ -38,6 +38,8 @@ Android: Compose gesture detectors; status bar expand via `StatusBarManager`/ref
 
 Android: `LauncherApps.getActivityList`, `<queries>` for MAIN/LAUNCHER, package add/remove callbacks, `UserManager` for work profile
 
+STILL (stage 4, 2026-10-23): names sit beside a large accent letter for the section at the top of the list, which slides to the next letter as you scroll, with a little room before each new letter. Fade with use (Settings > App list, on by default, needs Usage access) fades apps by today's time from 10 minutes to 2 hours, with the time beside them; the phone, Settings and STILL never fade. Letters down the right edge jump through the list, with the letter shown large while sliding (hidden while searching or typing). Enter opens the top match, which shows in the accent colour. "Recently installed" lists up to 5 apps installed in the last 3 days above "All apps". Settings > App list > Open the keyboard (off by default) starts a search when you swipe to the list. Scrolling the list puts the keyboard away.
+
 - [ ] Alphabetical text-only list of all launchable apps
 - [ ] Fast scroller with letter indicator along the edge
 - [ ] Search bar; optional auto-open keyboard when the page opens (with first-run prompt)

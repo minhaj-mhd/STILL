@@ -29,6 +29,8 @@ data class InstalledApp(
     val label: String,
     val isWorkProfile: Boolean,
     val canUninstall: Boolean,
+    /** When its package was first installed, in epoch milliseconds; updates don't change it. */
+    val firstInstallTime: Long,
 )
 
 class AppRepository(context: Context) {
@@ -103,6 +105,7 @@ class AppRepository(context: Context) {
                         label = info.label.toString(),
                         isWorkProfile = user != owner,
                         canUninstall = (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0,
+                        firstInstallTime = info.firstInstallTime,
                     )
                 }
         }
