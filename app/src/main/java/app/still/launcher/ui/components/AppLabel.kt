@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -18,9 +19,12 @@ import androidx.compose.ui.unit.dp
 import app.still.launcher.R
 import app.still.launcher.apps.FADE_FROM_MINUTES
 import app.still.launcher.apps.fadeForUse
+import app.still.launcher.limit.AppClosed
 import app.still.launcher.ui.LauncherApp
 import app.still.launcher.ui.theme.stillPalette
 import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
 
 /**
  * An app shown as text only, the way both the home screen and the app list draw it. With
@@ -58,7 +62,7 @@ fun AppLabel(
             .padding(vertical = 10.dp),
     ) {
         // Blocked and gated apps stay listed, greyed out, so you can see what's closed.
-        val closed = app.isBlocked || app.isGated || app.isLimited
+        val closed = app.isBlocked || app.isGated || app.isLimited || app.isAppClosed
         val color = when {
             dimmed || closed -> MaterialTheme.colorScheme.onSurfaceVariant
             highlighted -> stillPalette.accent
@@ -73,20 +77,33 @@ fun AppLabel(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),
         )
-        if (fadeWithUse && app.minutesToday > FADE_FROM_MINUTES) Tag(formatDuration(Duration.ofMinutes(app.minutesToday.toLong())))
+        val limit = app.appLimit
+        val left = limit?.left
+        // An app with a daily budget says what's left instead of what's used.
+        if (fadeWithUse && left == null && app.minutesToday > FADE_FROM_MINUTES) Tag(formatDuration(Duration.ofMinutes(app.minutesToday.toLong())))
         if (app.isWorkProfile) Tag(stringResource(R.string.apps_work_label))
-        if (app.isBlocked) Tag(stringResource(R.string.apps_blocked_label))
-        else if (app.isGated || app.isLimited) Tag(stringResource(R.string.apps_locked_label))
+        val opensAt = limit?.opensAtMillis
+        when {
+            app.isBlocked -> Tag(stringResource(R.string.apps_blocked_label))
+            app.isGated || app.isLimited -> Tag(stringResource(R.string.apps_locked_label))
+            limit?.closed == AppClosed.DONE_TODAY -> Tag(stringResource(R.string.apps_done_today))
+            opensAt != null -> Tag(stringResource(R.string.apps_opens_at, formatTime(Instant.ofEpochMilli(opensAt).atZone(ZoneId.systemDefault()).toLocalTime())))
+            limit != null && left != null && limit.usedToday > Duration.ZERO -> {
+                // The last quarter of the budget shows in amber.
+                val low = left.toMillis() * 4 <= limit.limit.dailyMinutes * 60_000L
+                Tag(stringResource(R.string.apps_left, formatDuration(left)), if (low) stillPalette.warning else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
 
 /** A small grey word after an app's name, e.g. "work", "blocked" or "locked". */
 @Composable
-private fun Tag(text: String) {
+private fun Tag(text: String, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = color,
         modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
     )
 }

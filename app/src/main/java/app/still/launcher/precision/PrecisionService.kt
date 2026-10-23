@@ -100,7 +100,12 @@ class PrecisionService : AccessibilityService() {
 
     private fun check(packageName: String) {
         val now = Instant.now()
-        val kind = precision.gate.onForeground(packageName, now.toEpochMilli(), ruleFor(packageName, now)) ?: return
+        container.appLimits.onForeground(packageName, now.toEpochMilli())
+        val kind = precision.gate.onForeground(packageName, now.toEpochMilli(), ruleFor(packageName, now))
+        if (kind == null) {
+            container.appLimits.onAllowed(packageName, now.toEpochMilli())
+            return
+        }
         precision.intervene(Intervention(packageName, kind))
     }
 
@@ -119,7 +124,9 @@ class PrecisionService : AccessibilityService() {
             blocked = activeBlock(packageName, rules.blocks, scheduled, now, zone) != null,
             gated = gates.isNotEmpty(),
             limited = container.dailyLimit.keepsClosed(packageName, now.toEpochMilli()),
-            asksFirst = packageName in rules.settings.launchDelayPackages || packageName in rules.settings.timeReminderPackages,
+            appClosed = container.appLimits.status(packageName, now.toEpochMilli())?.closed != null,
+            asksFirst = packageName in rules.settings.launchDelayPackages || packageName in rules.settings.timeReminderPackages ||
+                container.appLimits.pauseFor(packageName, now.toEpochMilli()) != null,
         )
     }
 

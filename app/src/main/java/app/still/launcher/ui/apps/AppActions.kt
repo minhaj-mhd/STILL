@@ -37,6 +37,7 @@ import app.still.launcher.R
 import app.still.launcher.data.AppScreenTime
 import app.still.launcher.ui.LauncherApp
 import app.still.launcher.ui.components.formatDuration
+import app.still.launcher.ui.limit.appLimitSummary
 
 /** Things you can do with an app; opened by long-pressing it on home or in the app list. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +49,7 @@ fun AppActionsSheet(
     onDismiss: () -> Unit,
     onAllowUsageAccess: () -> Unit,
     onBlock: () -> Unit,
+    onLimits: () -> Unit,
     onSetLaunchDelay: (Boolean) -> Unit,
     onSetTimeReminder: (Boolean) -> Unit,
     onSetFavorite: (Boolean) -> Unit,
@@ -103,6 +105,8 @@ fun AppActionsSheet(
                 ActionRow(stringResource(R.string.action_block), onBlock)
             }
             if (app.canBlock) {
+                val limit = app.appLimit
+                ActionRow(if (limit != null) stringResource(R.string.action_limits_set, appLimitSummary(limit.limit)) else stringResource(R.string.action_limits), onLimits)
                 if (app.hasLaunchDelay) ActionRow(stringResource(R.string.action_remove_launch_delay)) { onSetLaunchDelay(false) }
                 else ActionRow(stringResource(R.string.action_add_launch_delay)) { onSetLaunchDelay(true) }
                 if (app.hasTimeReminder) ActionRow(stringResource(R.string.action_remove_time_reminder)) { onSetTimeReminder(false) }

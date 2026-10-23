@@ -79,6 +79,18 @@ class ScreenTimeRepository(context: Context) {
         }
     }
 
+    /** When the phone was unlocked between [fromMillis] and [toMillis]. Requires [hasAccess]. */
+    suspend fun unlockTimes(fromMillis: Long, toMillis: Long): List<Long> = withContext(Dispatchers.IO) {
+        val events = usageStats.queryEvents(fromMillis, toMillis)
+        val event = UsageEvents.Event()
+        val times = mutableListOf<Long>()
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+            if (event.eventType == UsageEvents.Event.KEYGUARD_HIDDEN) times += event.timeStamp
+        }
+        times
+    }
+
     /**
      * The package in front now, judging by usage events since [sinceMillis]; null when nothing
      * is (screen off, or back on STILL counts as STILL). Requires [hasAccess].

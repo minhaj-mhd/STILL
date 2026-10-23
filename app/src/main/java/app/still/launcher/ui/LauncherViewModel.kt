@@ -27,16 +27,30 @@ import app.still.launcher.data.GateRepository
 import app.still.launcher.data.LauncherPreferences
 import app.still.launcher.data.LauncherSettings
 import app.still.launcher.data.MonoIcon
+import app.still.launcher.data.PracticeRepository
+import app.still.launcher.data.practice.Choice
+import app.still.launcher.data.practice.ChoiceAnswer
+import app.still.launcher.data.practice.ChoiceSource
 import app.still.launcher.data.ScreenTimeRepository
 import app.still.launcher.data.WallpaperChoice
 import app.still.launcher.gates.EmergencyOpen
+import app.still.launcher.gates.GateInputs
 import app.still.launcher.gates.GateCheck
 import app.still.launcher.gates.GateLocks
 import app.still.launcher.gates.TaskGateMonitor
 import app.still.launcher.gates.closedGates
 import app.still.launcher.gates.emergencyOpenFor
 import app.still.launcher.gates.gateLocks
+import app.still.launcher.limit.AppLimit
+import app.still.launcher.limit.AppLimitEntry
+import app.still.launcher.limit.AppLimitMonitor
+import app.still.launcher.limit.AppLimitStatus
+import app.still.launcher.limit.AppVisit
 import app.still.launcher.limit.DailyLimitMonitor
+import app.still.launcher.limit.Pause
+import app.still.launcher.limit.appLimitStatus
+import app.still.launcher.limit.limitDay
+import app.still.launcher.limit.withLimit
 import app.still.launcher.limit.LimitSettings
 import app.still.launcher.limit.LimitState
 import app.still.launcher.precision.Intervention
@@ -61,6 +75,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.text.Collator
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
@@ -98,13 +113,26 @@ data class LauncherApp(
     val folderId: String? = null,
     /** When it was first installed, in epoch milliseconds. */
     val installedAt: Long = 0L,
-    /** Its time so far today; 0 while the app list doesn't fade, and for apps STILL never blocks. */
+    /** Its time so far today, when STILL reads it; 0 for apps STILL never blocks. */
     val minutesToday: Int = 0,
+    /** Where it stands against its own limits; null when it has none. */
+    val appLimit: AppLimitStatus? = null,
 ) {
     val isRenamed: Boolean get() = label != originalLabel
     val isBlocked: Boolean get() = blockedUntil != null
     val isGated: Boolean get() = gates.isNotEmpty()
+
+    /** Its own limits keep it closed: done for today, or waiting between visits. */
+    val isAppClosed: Boolean get() = appLimit?.closed != null
 }
+
+/** What changes on its own, minute to minute: gates, the daily limit, time per app, and visits to limited apps. */
+private data class LiveInputs(
+    val gates: GateInputs?,
+    val limit: LimitState?,
+    val usage: Map<String, Long>,
+    val visits: Map<String, AppVisit>,
+)
 
 /** A folder on home with its apps, in the order they were added; hidden and uninstalled apps are left out. */
 data class HomeFolder(val id: String, val name: String, val apps: List<LauncherApp>)
@@ -141,6 +169,13 @@ data class LauncherUiState(
     val folderStyle: FolderStyle = FolderStyle.STRIP,
     val folderOpening: FolderOpening = FolderOpening.SPOTLIGHT,
     val appDisplay: AppDisplay = AppDisplay.TEXT,
+    /** Each app's own limits as saved, and the day they're read for. */
+    val appLimits: Map<String, AppLimitEntry> = emptyMap(),
+    val limitDay: LocalDate = LocalDate.now(),
+    /** Inner practice switches. */
+    val dailyQuality: Boolean = true,
+    val unlocksOnHome: Boolean = true,
+    val askWhyOn: Boolean = true,
 )
 
 class LauncherViewModel(
@@ -155,6 +190,8 @@ class LauncherViewModel(
     private val gateRepository: GateRepository,
     private val dailyLimit: DailyLimitMonitor,
     private val appIcons: AppIcons,
+    private val appLimits: AppLimitMonitor,
+    private val practice: PracticeRepository,
 ) : ViewModel() {
 
     /** The current minute, so blocks end on time without anything else changing. */
@@ -165,9 +202,9 @@ class LauncherViewModel(
             appRepository.installedApps,
             preferences.settings,
             combine(blocking.blocks, blocking.schedules, ::Pair),
-            combine(taskGates.inputs, dailyLimit.state, dailyLimit.appUsage, ::Triple),
+            combine(taskGates.inputs, dailyLimit.state, dailyLimit.appUsage, appLimits.visits, ::LiveInputs),
             clock,
-        ) { installed, settings, (blocks, schedules), (gateInputs, limitState, usage), now ->
+        ) { installed, settings, (blocks, schedules), (gateInputs, limitState, usage, visits), now ->
             val collator = Collator.getInstance()
             val zone = ZoneId.systemDefault()
             val scheduled = scheduledBlocks(schedules, LocalDateTime.ofInstant(now, zone))
@@ -175,6 +212,7 @@ class LauncherViewModel(
             val canGate = { packageName: String -> essentialApps.canGate(packageName, alwaysOpen) }
             val closed = gateInputs?.let { closedGates(it, now, zone, canGate) }.orEmpty()
             val today = now.atZone(zone).toLocalDate()
+            val limitDay = limitDay(LocalDateTime.ofInstant(now, zone), settings.limit.dayStartHour)
             val folderOf = settings.folders.flatMap { folder -> folder.apps.map { it to folder.id } }.toMap()
             val apps = installed
                 .map { app ->
@@ -206,6 +244,9 @@ class LauncherViewModel(
                         folderId = folderOf[app.key],
                         installedAt = app.firstInstallTime,
                         minutesToday = if (canBlock) Duration.ofMillis(usage[packageName] ?: 0L).toMinutes().toInt() else 0,
+                        appLimit = if (!canBlock) null else settings.appLimits[packageName]?.let { entry ->
+                            appLimitStatus(entry, limitDay, usage[packageName] ?: 0L, visits[packageName], now.toEpochMilli(), precision.gate.graceMillis)
+                        },
                     )
                 }
                 .sortedWith(compareBy(collator) { it.label })
@@ -241,6 +282,11 @@ class LauncherViewModel(
                 folderStyle = settings.folderStyle,
                 folderOpening = settings.folderOpening,
                 appDisplay = settings.appDisplay,
+                appLimits = settings.appLimits,
+                limitDay = limitDay,
+                dailyQuality = settings.dailyQuality,
+                unlocksOnHome = settings.unlocksOnHome,
+                askWhyOn = settings.askWhyOn,
             )
         }
             .flowOn(Dispatchers.Default)
@@ -267,9 +313,49 @@ class LauncherViewModel(
     val interventions: Flow<Intervention> = precision.interventions.receiveAsFlow()
 
     fun launch(app: LauncherApp): Boolean {
+        val now = System.currentTimeMillis()
         // STILL has done its checks, so Precision mode lets the app come to the front.
-        precision.gate.allow(app.component.packageName, System.currentTimeMillis() + precision.gate.graceMillis)
-        return appRepository.launch(app.component, app.user)
+        precision.gate.allow(app.component.packageName, now + precision.gate.graceMillis)
+        val launched = appRepository.launch(app.component, app.user)
+        if (launched) appLimits.onOpened(app.component.packageName, app.label, now)
+        return launched
+    }
+
+    /** STILL is on screen again, so any app visit in progress has ended. */
+    fun onShown() {
+        appLimits.onLauncherShown(System.currentTimeMillis())
+    }
+
+    /** Saves [limit] for [app]: tightening counts now, loosening waits for tomorrow. */
+    fun setAppLimit(app: LauncherApp, limit: AppLimit) {
+        if (!app.canBlock) return
+        val day = uiState.value.limitDay
+        viewModelScope.launch { preferences.updateAppLimit(app.component.packageName) { it.withLimit(limit, day) } }
+    }
+
+    /** The pause to show before opening [app] now, or null to open it without asking. */
+    fun pauseFor(app: LauncherApp): Pause? = appLimits.pauseFor(app.component.packageName)
+
+    fun onPauseShown(app: LauncherApp) {
+        appLimits.onAsked(app.component.packageName, System.currentTimeMillis())
+    }
+
+    /** Keeps what happened when STILL paused before [app]: it opened, or you turned back. */
+    fun recordChoice(app: LauncherApp, source: ChoiceSource, answer: ChoiceAnswer?, turnedBack: Boolean) {
+        val choice = Choice(at = Instant.now(), packageName = app.component.packageName, source = source, answer = answer, turnedBack = turnedBack)
+        viewModelScope.launch { practice.record(choice) }
+    }
+
+    fun setDailyQuality(on: Boolean) {
+        viewModelScope.launch { preferences.setDailyQuality(on) }
+    }
+
+    fun setUnlocksOnHome(on: Boolean) {
+        viewModelScope.launch { preferences.setUnlocksOnHome(on) }
+    }
+
+    fun setAskWhyOn(on: Boolean) {
+        viewModelScope.launch { preferences.setAskWhyOn(on) }
     }
 
     fun setFavorite(app: LauncherApp, favorite: Boolean) {
@@ -474,6 +560,8 @@ class LauncherViewModel(
                     container.gateRepository,
                     container.dailyLimit,
                     container.appIcons,
+                    container.appLimits,
+                    container.practiceRepository,
                 )
             }
         }

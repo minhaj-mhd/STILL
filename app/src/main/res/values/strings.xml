@@ -346,6 +346,141 @@
     <string name="limit_open_now">Open now</string>
     <string name="limit_no_allowed">No allowed apps yet. Choose them in Insights.</string>
     <string name="limit_go_home">Go home</string>
+
+    <!-- App limits -->
+    <string name="action_limits">Limits…</string>
+    <string name="action_limits_set">Limits · %1$s</string>
+    <string name="app_limit_title">Limits for %1$s</string>
+    <string name="app_limit_used_today">%1$s today so far</string>
+    <string name="app_limit_daily">A day</string>
+    <string name="app_limit_visit">Each visit</string>
+    <string name="app_limit_wait">Wait between visits</string>
+    <string name="app_limit_off">Off</string>
+    <string name="app_limit_ask">Ask what I\'m opening it for</string>
+    <string name="app_limit_ask_detail">Now and then, not every time: at most every 2 hours, during a focus session, or when you keep coming back</string>
+    <string name="app_limit_ask_off">Turned off for every app under Settings &gt; Inner practice</string>
+    <string name="app_limit_until_tomorrow">Until tomorrow: %1$s</string>
+    <string name="app_limit_rule">Tightening counts now; loosening waits until tomorrow.</string>
+    <string name="app_limit_needs_usage">Counting its daily time needs Usage access.</string>
+    <string name="app_limit_needs_precision">Without Precision mode, limits only apply when you open it from STILL.</string>
+    <string name="app_limit_summary_daily">%1$s a day</string>
+    <string name="app_limit_summary_visit">%1$s a visit</string>
+    <string name="app_limit_summary_wait">%1$s between</string>
+    <string name="app_limit_summary_ask">asks why</string>
+    <string name="app_limit_none">No limits</string>
+    <string name="app_limit_done_title">%1$s is done for today</string>
+    <string name="app_limit_done_body">%1$s of %2$s used. It opens again at %3$s.</string>
+    <string name="app_limit_waiting_title">%1$s opens again at %2$s</string>
+    <string name="app_limit_waiting_body">In %1$s. You set %2$s between visits.</string>
+    <plurals name="visit_up_title">
+        <item quantity="one">That\'s your %1$d minute</item>
+        <item quantity="other">That\'s your %1$d minutes</item>
+    </plurals>
+    <plurals name="visit_up_notice">
+        <item quantity="one">Your %1$d minute in %2$s is up</item>
+        <item quantity="other">Your %1$d minutes in %2$s are up</item>
+    </plurals>
+    <string name="visit_up_body">%1$s, each visit.</string>
+    <string name="visit_up_body_wait">%1$s opens again at %2$s.</string>
+    <string name="visit_up_leave">Leave</string>
+    <string name="apps_done_today">done today</string>
+    <string name="apps_opens_at">opens %1$s</string>
+    <string name="apps_left">%1$s left</string>
+
+    <!-- The pause before a limited app -->
+    <plurals name="pause_focus">
+        <item quantity="one">You\'re %1$d minute into %2$s.</item>
+        <item quantity="other">You\'re %1$d minutes into %2$s.</item>
+    </plurals>
+    <plurals name="pause_often">
+        <item quantity="one">You\'ve opened it %1$d time since %2$s.</item>
+        <item quantity="other">You\'ve opened it %1$d times since %2$s.</item>
+    </plurals>
+    <string name="pause_quality">You chose %1$s today.</string>
+    <string name="pause_question">What are you opening %1$s for?</string>
+    <string name="pause_question_often">Is there something specific you need?</string>
+    <string name="pause_answer_purpose">A specific purpose</string>
+    <string name="pause_answer_break">An intentional break</string>
+    <string name="pause_answer_checking">Just checking</string>
+    <string name="pause_reply_purpose">Go ahead, and come back when it\'s done.</string>
+    <plurals name="pause_reply_purpose_visit">
+        <item quantity="one">One visit, up to %1$d minute.</item>
+        <item quantity="other">One visit, up to %1$d minutes.</item>
+    </plurals>
+    <string name="pause_reply_break">Enjoy the break.</string>
+    <plurals name="pause_reply_break_visit">
+        <item quantity="one">Enjoy it. The break ends after %1$d minute.</item>
+        <item quantity="other">Enjoy it. The break ends after %1$d minutes.</item>
+    </plurals>
+    <string name="pause_reply_checking">It\'ll still be there later.</string>
+    <string name="pause_open_anyway">Open anyway</string>
+    <string name="pause_back_to">Back to %1$s</string>
+    <string name="pause_used_of">%1$s · %2$s of %3$s today</string>
+
+    <!-- Inner practice: the day's quality -->
+    <string name="keynote_today">Today\'s quality</string>
+    <string name="keynote_steadiness">Steadiness</string>
+    <string name="keynote_steadiness_action">When I want to escape a hard task, I\'ll stay with the next small step.</string>
+    <string name="keynote_patience">Patience</string>
+    <string name="keynote_patience_action">Let people finish before I answer.</string>
+    <string name="keynote_attention">Attention</string>
+    <string name="keynote_attention_action">Finish one thing before opening anything else.</string>
+    <string name="keynote_courage">Courage</string>
+    <string name="keynote_courage_action">Ask the question I\'ve been putting off.</string>
+    <string name="keynote_goodwill">Goodwill</string>
+    <string name="keynote_goodwill_action">Be kind even when I\'m in a hurry.</string>
+    <string name="keynote_own">Your own…</string>
+    <string name="keynote_own_title">Your own quality</string>
+    <string name="keynote_action_title">What will you do?</string>
+    <string name="keynote_practise_with">Practise it with: %1$s</string>
+    <string name="keynote_link_none">nothing in particular</string>
+    <string name="keynote_link_new_task">the action, as a task for today</string>
+    <string name="keynote_not_today">Not today</string>
+    <string name="keynote_start">Start the day</string>
+    <string name="keynote_save">Save</string>
+    <string name="moments_empty">No marks yet. Turning back from a limited app, finishing what you practise it with, or a focus session each add one.</string>
+    <string name="moments_practising_with">Practising with %1$s</string>
+    <string name="moments_phone_today">Phone today: %1$s</string>
+    <string name="moments_app_use">%1$s: %2$s of %3$s</string>
+    <string name="moments_change">Change today\'s quality</string>
+    <string name="moment_turned_back">Turned back from %1$s</string>
+    <string name="moment_practised">Finished %1$s</string>
+    <plurals name="moment_focused">
+        <item quantity="one">%1$d minute of focus on %2$s</item>
+        <item quantity="other">%1$d minutes of focus on %2$s</item>
+    </plurals>
+    <string name="moment_within_limit">%1$s within its %2$s</string>
+    <string name="moment_evening">Evening</string>
+    <plurals name="unlocks_today">
+        <item quantity="one">%1$d unlock today</item>
+        <item quantity="other">%1$d unlocks today</item>
+    </plurals>
+    <plurals name="unlocks_fewer">
+        <item quantity="one">%1$d unlock · fewer than usual by now</item>
+        <item quantity="other">%1$d unlocks · fewer than usual by now</item>
+    </plurals>
+    <plurals name="unlocks_about">
+        <item quantity="one">%1$d unlock · about usual by now</item>
+        <item quantity="other">%1$d unlocks · about usual by now</item>
+    </plurals>
+    <plurals name="unlocks_more">
+        <item quantity="one">%1$d unlock · more than usual by now</item>
+        <item quantity="other">%1$d unlocks · more than usual by now</item>
+    </plurals>
+
+    <!-- Settings: app limits and Inner practice -->
+    <string name="settings_app_limits">App limits</string>
+    <string name="settings_app_limits_empty">No app has limits yet.</string>
+    <string name="settings_app_limits_hint">To add or change an app\'s limits, long-press it and choose Limits.</string>
+    <string name="settings_app_limit_changes">%1$s · changes tomorrow</string>
+    <string name="settings_section_practice">Inner practice</string>
+    <string name="settings_daily_quality">Daily quality</string>
+    <string name="settings_daily_quality_detail">Pick a quality each morning. Home shows it, with a mark each time you practise it.</string>
+    <string name="settings_unlocks">Unlocks on home</string>
+    <string name="settings_unlocks_detail">Today\'s unlocks, against your usual by this hour</string>
+    <string name="settings_unlocks_needs_usage">Today\'s unlocks, against your usual by this hour. Needs Usage access.</string>
+    <string name="settings_ask_why">Ask before limited apps</string>
+    <string name="settings_ask_why_detail">Apps whose limits ask what they\'re opened for will ask, now and then</string>
     <plurals name="limit_emergency">
         <item quantity="one">Emergency 5 minutes · %d left today</item>
         <item quantity="other">Emergency 5 minutes · %d left today</item>

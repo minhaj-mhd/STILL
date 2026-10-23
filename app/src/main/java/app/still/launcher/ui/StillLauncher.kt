@@ -40,6 +40,10 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.still.launcher.R
 import app.still.launcher.data.AppScreenTime
+import app.still.launcher.data.practice.ChoiceSource
+import app.still.launcher.limit.AppClosed
+import app.still.launcher.limit.Pause
+import app.still.launcher.limit.dayStart
 import app.still.launcher.limit.LimitSettings
 import app.still.launcher.precision.InterventionKind
 import app.still.launcher.productivity.progress
@@ -53,6 +57,13 @@ import app.still.launcher.ui.apps.FolderPickerSheet
 import app.still.launcher.ui.apps.LaunchDelayScreen
 import app.still.launcher.ui.apps.TimeIntentSheet
 import app.still.launcher.ui.apps.TimeUpScreen
+import app.still.launcher.ui.apps.WhyPauseScreen
+import app.still.launcher.ui.keynote.HomeKeynote
+import app.still.launcher.ui.keynote.KeynoteCard
+import app.still.launcher.ui.keynote.KeynoteViewModel
+import app.still.launcher.ui.keynote.LinkOption
+import app.still.launcher.ui.keynote.MomentsSheet
+import app.still.launcher.data.productivity.ItemType
 import app.still.launcher.ui.apps.RenameAppDialog
 import app.still.launcher.ui.components.rememberCurrentMinute
 import app.still.launcher.ui.theme.WallpaperBackground
@@ -64,6 +75,9 @@ import app.still.launcher.ui.home.HomePage
 import app.still.launcher.ui.insights.InsightsPage
 import app.still.launcher.ui.limit.DailyLimitPage
 import app.still.launcher.ui.limit.LimitScreen
+import app.still.launcher.ui.limit.AppLimitReason
+import app.still.launcher.ui.limit.AppLimitScreen
+import app.still.launcher.ui.limit.AppLimitSheet
 import app.still.launcher.ui.notifications.HeldNotificationsPage
 import app.still.launcher.ui.notifications.NotificationFilterViewModel
 import app.still.launcher.ui.notes.NotesPage
@@ -89,7 +103,7 @@ import java.time.Instant
 private enum class Page { Productivity, Home, Apps }
 
 /** Full-screen views over the pages, opened by swiping up on home. Back goes up this list. */
-private enum class Overlay { INSIGHTS, DAILY_LIMIT, HOME_CUSTOMISE, SETTINGS, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION, HELD_NOTIFICATIONS }
+private enum class Overlay { INSIGHTS, DAILY_LIMIT, HOME_CUSTOMISE, SETTINGS, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, APP_LIMITS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION, HELD_NOTIFICATIONS }
 
 @Composable
 fun StillLauncher(
@@ -106,6 +120,8 @@ fun StillLauncher(
     val agenda by todayViewModel.agenda.collectAsStateWithLifecycle()
     val activeReminders by todayViewModel.activeReminders.collectAsStateWithLifecycle()
     val focus by todayViewModel.focus.collectAsStateWithLifecycle()
+    val keynoteViewModel: KeynoteViewModel = viewModel(factory = KeynoteViewModel.Factory)
+    val keynote by keynoteViewModel.state.collectAsStateWithLifecycle()
     val filterViewModel: NotificationFilterViewModel = viewModel(factory = NotificationFilterViewModel.Factory)
     val filterSettings by filterViewModel.settings.collectAsStateWithLifecycle()
     val held by filterViewModel.held.collectAsStateWithLifecycle()
@@ -114,6 +130,7 @@ fun StillLauncher(
     LaunchedEffect(now) {
         todayViewModel.setNow(now.toLocalDateTime())
         viewModel.setNow(now.toInstant())
+        keynoteViewModel.setNow(now.toLocalDateTime())
     }
     val pagerState = rememberPagerState(initialPage = Page.Home.ordinal) { Page.entries.size }
     val scope = rememberCoroutineScope()
@@ -141,6 +158,22 @@ fun StillLauncher(
     var limitScreenKey by rememberSaveable { mutableStateOf<String?>(null) }
     var limitEmergencyKey by rememberSaveable { mutableStateOf<String?>(null) }
     var emergencyKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var appLimitSheetKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var appLimitScreenKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var appLimitReason by rememberSaveable { mutableStateOf<AppLimitReason?>(null) }
+    var visitUpMinutes by rememberSaveable { mutableIntStateOf(0) }
+    var pauseKey by rememberSaveable { mutableStateOf<String?>(null) }
+    // Worked out when the app is tapped: asking changes what's due next time.
+    var pause by remember { mutableStateOf<Pause?>(null) }
+    var momentsOpen by rememberSaveable { mutableStateOf(false) }
+    var changingKeynote by rememberSaveable { mutableStateOf(false) }
+    // Today's unfinished tasks and habits, to practise the day's quality with.
+    val linkOptions = remember(agenda) {
+        agenda?.let { today ->
+            (today.overdue + today.today).filter { it.isPending }.map { LinkOption(ItemType.TASK, it.task.id, it.task.title) } +
+                today.habits.filter { it.isPending }.map { LinkOption(ItemType.HABIT, it.habit.id, it.habit.title) }
+        }.orEmpty().distinctBy { it.type to it.id }
+    }
     // Look apps up by key so an open menu reflects changes (e.g. favorite toggled) immediately.
     val menuApp = state.apps.firstOrNull { it.key == menuAppKey }
     val renameApp = state.apps.firstOrNull { it.key == renameAppKey }
@@ -157,6 +190,9 @@ fun StillLauncher(
     val limitScreenApp = state.apps.firstOrNull { it.key == limitScreenKey }
     val limitEmergencyApp = state.apps.firstOrNull { it.key == limitEmergencyKey }
     val emergencyApp = state.apps.firstOrNull { it.key == emergencyKey }
+    val appLimitSheetApp = state.apps.firstOrNull { it.key == appLimitSheetKey }
+    val appLimitScreenApp = state.apps.firstOrNull { it.key == appLimitScreenKey }
+    val pauseApp = state.apps.firstOrNull { it.key == pauseKey }
 
     var isDefaultLauncher by remember { mutableStateOf(context.isDefaultLauncher()) }
     var hasUsageAccess by remember { mutableStateOf(viewModel.hasUsageAccess()) }
@@ -165,6 +201,7 @@ fun StillLauncher(
         isDefaultLauncher = context.isDefaultLauncher()
         hasUsageAccess = viewModel.hasUsageAccess()
         precisionSwitchedOn = viewModel.isPrecisionSwitchedOn()
+        viewModel.onShown()
         onPauseOrDispose { }
     }
     val precisionRunning by viewModel.precisionRunning.collectAsStateWithLifecycle()
@@ -203,7 +240,8 @@ fun StillLauncher(
         }
     }
 
-    // Opening an app from STILL goes: blocked? → daily limit used up? → gated? → launch delay → "how long?" → open.
+    // Opening an app from STILL goes: blocked? → daily limit used up? → its own limits? → gated? →
+    // "what for?" → launch delay → "how long?" → open.
     fun openApp(app: LauncherApp) {
         if (viewModel.launch(app)) {
             query = ""
@@ -220,13 +258,28 @@ fun StillLauncher(
         if (app.hasTimeReminder) timeAskKey = app.key else openApp(app)
     }
 
+    fun afterPause(app: LauncherApp) {
+        if (app.hasLaunchDelay) launchDelayKey = app.key else afterLaunchDelay(app)
+    }
+
     fun launchApp(app: LauncherApp) {
         when {
             app.isBlocked -> blockedScreenKey = app.key
             app.isLimited -> limitScreenKey = app.key
+            app.isAppClosed -> {
+                appLimitReason = if (app.appLimit?.closed == AppClosed.DONE_TODAY) AppLimitReason.DONE_TODAY else AppLimitReason.WAITING
+                appLimitScreenKey = app.key
+            }
             app.isGated -> gateScreenKey = app.key
-            app.hasLaunchDelay -> launchDelayKey = app.key
-            else -> afterLaunchDelay(app)
+            else -> {
+                val due = viewModel.pauseFor(app)
+                if (due != null) {
+                    pause = due
+                    pauseKey = app.key
+                } else {
+                    afterPause(app)
+                }
+            }
         }
     }
 
@@ -244,6 +297,10 @@ fun StillLauncher(
         emergencyKey = null
         limitScreenKey = null
         limitEmergencyKey = null
+        appLimitSheetKey = null
+        appLimitScreenKey = null
+        pauseKey = null
+        momentsOpen = false
         folderPickerKey = null
         newFolderForKey = null
         folderMenuId = null
@@ -289,6 +346,18 @@ fun StillLauncher(
                         viewModel.uiState.first { current -> current.apps.any { it.key == app.key && it.isLimited } }
                     }
                     if (limited != null) limitScreenKey = app.key else launchApp(app)
+                }
+                InterventionKind.APP_LIMIT -> {
+                    viewModel.setNow(Instant.now())
+                    val closed = withTimeoutOrNull(BLOCK_SHOWS_WITHIN_MILLIS) {
+                        viewModel.uiState.first { current -> current.apps.any { it.key == app.key && it.isAppClosed } }
+                    }
+                    launchApp(closed?.apps?.firstOrNull { it.key == app.key } ?: app)
+                }
+                InterventionKind.VISIT_UP -> {
+                    visitUpMinutes = request.plannedMinutes
+                    appLimitReason = AppLimitReason.VISIT_UP
+                    appLimitScreenKey = app.key
                 }
                 InterventionKind.GATED -> {
                     viewModel.setNow(Instant.now())
@@ -391,6 +460,25 @@ fun StillLauncher(
                     },
                     phoneButton = state.phoneButton.app,
                     cameraButton = state.cameraButton.app,
+                    keynote = keynote.keynote?.let { HomeKeynote(it.quality, keynote.moments.size) },
+                    onKeynoteClick = { momentsOpen = true },
+                    unlocks = keynote.unlocks,
+                    keynoteCard = if (keynote.enabled && (keynote.asking || changingKeynote)) {
+                        {
+                            KeynoteCard(
+                                initial = if (changingKeynote) keynote.keynote else keynote.previous,
+                                linkOptions = linkOptions,
+                                changing = changingKeynote,
+                                onStart = { quality, action, link ->
+                                    keynoteViewModel.startDay(quality, action, link)
+                                    changingKeynote = false
+                                },
+                                onPutOff = { if (changingKeynote) changingKeynote = false else keynoteViewModel.putOff() },
+                            )
+                        }
+                    } else {
+                        null
+                    },
                     precisionLost = precisionLost,
                     onTurnOnPrecision = { overlay = Overlay.PRECISION },
                     onDismissPrecisionLost = viewModel::forgetPrecision,
@@ -459,12 +547,13 @@ fun StillLauncher(
                 onOpenSettings = { overlay = Overlay.NOTIFICATION_FILTER },
                 onClose = { overlay = Overlay.INSIGHTS },
             )
-            Overlay.SETTINGS, Overlay.CUSTOMISE, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS, Overlay.SCHEDULES, Overlay.GATES,
+            Overlay.SETTINGS, Overlay.CUSTOMISE, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS, Overlay.APP_LIMITS, Overlay.SCHEDULES, Overlay.GATES,
             Overlay.NOTIFICATION_FILTER, Overlay.PRECISION -> SettingsScreen(
                 page = when (current) {
                     Overlay.CUSTOMISE -> SettingsPage.CUSTOMISE
                     Overlay.HIDDEN_APPS -> SettingsPage.HIDDEN_APPS
                     Overlay.BLOCKED_APPS -> SettingsPage.BLOCKED_APPS
+                    Overlay.APP_LIMITS -> SettingsPage.APP_LIMITS
                     Overlay.SCHEDULES -> SettingsPage.SCHEDULES
                     Overlay.GATES -> SettingsPage.GATES
                     Overlay.NOTIFICATION_FILTER -> SettingsPage.NOTIFICATION_FILTER
@@ -477,6 +566,7 @@ fun StillLauncher(
                         SettingsPage.CUSTOMISE -> Overlay.CUSTOMISE
                         SettingsPage.HIDDEN_APPS -> Overlay.HIDDEN_APPS
                         SettingsPage.BLOCKED_APPS -> Overlay.BLOCKED_APPS
+                        SettingsPage.APP_LIMITS -> Overlay.APP_LIMITS
                         SettingsPage.SCHEDULES -> Overlay.SCHEDULES
                         SettingsPage.GATES -> Overlay.GATES
                         SettingsPage.NOTIFICATION_FILTER -> Overlay.NOTIFICATION_FILTER
@@ -511,6 +601,15 @@ fun StillLauncher(
                 onSetAppListKeyboard = viewModel::setAppListKeyboard,
                 appListFade = state.appListFade,
                 onSetAppListFade = viewModel::setAppListFade,
+                appLimits = state.appLimits,
+                limitDay = state.limitDay,
+                onEditAppLimit = { appLimitSheetKey = it.key },
+                dailyQuality = state.dailyQuality,
+                onSetDailyQuality = viewModel::setDailyQuality,
+                unlocksOnHome = state.unlocksOnHome,
+                onSetUnlocksOnHome = viewModel::setUnlocksOnHome,
+                askWhyOn = state.askWhyOn,
+                onSetAskWhyOn = viewModel::setAskWhyOn,
                 onOpenHeldNotifications = { overlay = Overlay.HELD_NOTIFICATIONS },
             )
         }
@@ -573,6 +672,56 @@ fun StillLauncher(
         )
     }
 
+    // An app's own limits keep it closed, or a visit ran its length. Nothing opens from here; the
+    // screen goes once the reason does.
+    appLimitScreenApp?.let { app ->
+        val reason = appLimitReason
+        val stillApplies = when (reason) {
+            AppLimitReason.DONE_TODAY -> app.appLimit?.closed == AppClosed.DONE_TODAY
+            AppLimitReason.WAITING -> app.appLimit?.closed == AppClosed.WAITING
+            AppLimitReason.VISIT_UP -> true
+            null -> false
+        }
+        if (reason == null || !stillApplies) {
+            LaunchedEffect(app.key, reason) { appLimitScreenKey = null }
+        } else {
+            AppLimitScreen(
+                appLabel = app.label,
+                reason = reason,
+                status = app.appLimit,
+                visitMinutes = visitUpMinutes,
+                nextDay = dayStart(state.limitDay.plusDays(1), state.limitSettings.dayStartHour),
+                onClose = { appLimitScreenKey = null },
+            )
+        }
+    }
+
+    // "What are you opening it for?", now and then, before an app whose limits ask.
+    pauseApp?.let { app ->
+        val current = pause
+        if (current == null) {
+            LaunchedEffect(app.key) { pauseKey = null }
+        } else {
+            LaunchedEffect(app.key) { viewModel.onPauseShown(app) }
+            WhyPauseScreen(
+                app = app,
+                pause = current,
+                quality = keynote.keynote?.quality,
+                onTurnBack = { answer ->
+                    viewModel.recordChoice(app, ChoiceSource.PAUSE, answer, turnedBack = true)
+                    pauseKey = null
+                    pause = null
+                },
+                onOpen = { answer ->
+                    viewModel.recordChoice(app, ChoiceSource.PAUSE, answer, turnedBack = false)
+                    pauseKey = null
+                    pause = null
+                    afterPause(app)
+                },
+            )
+        }
+    }
+
     // A task gate keeps the app closed until what's left is done on the Today page. If the gate
     // opens while this shows (its hours end), carry on opening the app.
     gateScreenApp?.let { app ->
@@ -620,9 +769,13 @@ fun StillLauncher(
             screenTime = screenTime,
             onOpen = {
                 launchDelayKey = null
+                viewModel.recordChoice(app, ChoiceSource.LAUNCH_DELAY, answer = null, turnedBack = false)
                 afterLaunchDelay(app)
             },
-            onCancel = { launchDelayKey = null },
+            onCancel = {
+                launchDelayKey = null
+                viewModel.recordChoice(app, ChoiceSource.LAUNCH_DELAY, answer = null, turnedBack = true)
+            },
         )
     }
 
@@ -664,6 +817,10 @@ fun StillLauncher(
                 menuAppKey = null
                 blockAppKey = app.key
             },
+            onLimits = {
+                menuAppKey = null
+                appLimitSheetKey = app.key
+            },
             onSetLaunchDelay = { on ->
                 viewModel.setLaunchDelay(app, on)
                 menuAppKey = null
@@ -701,6 +858,40 @@ fun StillLauncher(
                 viewModel.uninstall(app)
                 menuAppKey = null
             },
+        )
+    }
+
+    // Tapping today's quality on home: what counted as practising it.
+    val todayKeynote = keynote.keynote
+    if (momentsOpen && todayKeynote != null) {
+        MomentsSheet(
+            keynote = todayKeynote,
+            linkedTitle = keynote.linkedTitle,
+            moments = keynote.moments,
+            unlocks = keynote.unlocks,
+            phoneToday = keynote.phoneToday,
+            budgetApps = state.apps.filter { it.appLimit?.left != null && !it.isWorkProfile },
+            labelOf = { packageName ->
+                state.apps.firstOrNull { it.component.packageName == packageName && !it.isWorkProfile }?.label ?: packageName
+            },
+            onChange = {
+                momentsOpen = false
+                changingKeynote = true
+            },
+            onDismiss = { momentsOpen = false },
+        )
+    }
+
+    appLimitSheetApp?.let { app ->
+        AppLimitSheet(
+            app = app,
+            entry = state.appLimits[app.component.packageName],
+            day = state.limitDay,
+            hasUsageAccess = hasUsageAccess,
+            precisionOn = precisionRunning,
+            askWhyOn = state.askWhyOn,
+            onChange = { limit -> viewModel.setAppLimit(app, limit) },
+            onDismiss = { appLimitSheetKey = null },
         )
     }
 

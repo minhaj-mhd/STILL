@@ -8,7 +8,9 @@ data class ForegroundRule(
     val gated: Boolean = false,
     /** The day's phone limit is used up and it isn't an allowed app. */
     val limited: Boolean = false,
-    /** It has a launch delay or a time reminder, so it opens only through STILL's questions. */
+    /** Its own limits keep it closed: done for today, or waiting between visits. */
+    val appClosed: Boolean = false,
+    /** It has a launch delay, a time reminder or a pause that's due, so it opens only through STILL's questions. */
     val asksFirst: Boolean = false,
 ) {
     companion object {
@@ -26,6 +28,12 @@ enum class InterventionKind {
 
     /** The day's phone limit is used up: only allowed apps open. */
     LIMIT,
+
+    /** The app's own limits keep it closed: done for today, or waiting between visits. */
+    APP_LIMIT,
+
+    /** A visit reached the app's visit length: offer to leave. */
+    VISIT_UP,
 
     /** Go through the launch delay and "How long?", as if the app were opened from STILL. */
     ASK,
@@ -86,6 +94,7 @@ class ForegroundGate(val graceMillis: Long = DEFAULT_GRACE_MILLIS) {
         val kind = when {
             rule.blocked -> InterventionKind.BLOCKED
             rule.limited -> InterventionKind.LIMIT
+            rule.appClosed -> InterventionKind.APP_LIMIT
             rule.gated -> InterventionKind.GATED
             rule.asksFirst && !inUse -> InterventionKind.ASK
             else -> return null

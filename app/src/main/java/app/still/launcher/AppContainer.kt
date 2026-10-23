@@ -8,12 +8,15 @@ import app.still.launcher.data.BlockingRepository
 import app.still.launcher.data.GateRepository
 import app.still.launcher.focus.FocusTimer
 import app.still.launcher.gates.TaskGateMonitor
+import app.still.launcher.keynote.UnlockMonitor
+import app.still.launcher.limit.AppLimitMonitor
 import app.still.launcher.limit.DailyLimitMonitor
 import app.still.launcher.notifications.NotificationFilter
 import app.still.launcher.data.ScreenTimeRepository
 import app.still.launcher.util.EssentialApps
 import app.still.launcher.data.LauncherPreferences
 import app.still.launcher.data.NotesRepository
+import app.still.launcher.data.PracticeRepository
 import app.still.launcher.data.ProductivityRepository
 import app.still.launcher.data.StillDatabase
 import app.still.launcher.precision.PrecisionMode
@@ -47,5 +50,8 @@ class AppContainer(context: Context) {
     val appTimeReminders = AppTimeReminders(context, blockingRepository, screenTimeRepository, preferences, precisionMode)
     val reminderScheduler = ReminderScheduler(context, productivityRepository, applicationScope)
     val focusTimer = FocusTimer(context, preferences, productivityRepository, applicationScope)
+    val practiceRepository = PracticeRepository(database.practiceDao())
+    val unlockMonitor = UnlockMonitor(screenTimeRepository)
+    val appLimits = AppLimitMonitor(context, preferences, dailyLimit, appTimeReminders, precisionMode, practiceRepository, focusTimer, applicationScope)
     val notificationFilter = NotificationFilter(context, database.heldNotificationDao(), preferences, essentialApps, applicationScope)
 }

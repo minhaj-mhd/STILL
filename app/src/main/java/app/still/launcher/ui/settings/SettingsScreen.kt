@@ -37,7 +37,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.still.launcher.BuildConfig
 import app.still.launcher.R
+import app.still.launcher.limit.AppLimitEntry
 import app.still.launcher.ui.LauncherApp
+import app.still.launcher.ui.limit.appLimitSummary
+import java.time.LocalDate
 import app.still.launcher.ui.blocking.SchedulesPage
 import app.still.launcher.ui.blocking.SchedulesViewModel
 import app.still.launcher.ui.components.AppLabel
@@ -54,7 +57,7 @@ import app.still.launcher.ui.notifications.NotificationFilterPage
 import app.still.launcher.ui.notifications.NotificationFilterViewModel
 
 /** Settings and the pages it leads to. */
-enum class SettingsPage { MAIN, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION }
+enum class SettingsPage { MAIN, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, APP_LIMITS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION }
 
 /**
  * Settings, reached from Insights. Shows each permission STILL uses with its state and a way to
@@ -93,10 +96,22 @@ fun SettingsScreen(
     onSetAppListKeyboard: (Boolean) -> Unit,
     appListFade: Boolean,
     onSetAppListFade: (Boolean) -> Unit,
+    /** Each app's own limits, read for [limitDay]. */
+    appLimits: Map<String, AppLimitEntry>,
+    limitDay: LocalDate,
+    onEditAppLimit: (LauncherApp) -> Unit,
+    dailyQuality: Boolean,
+    onSetDailyQuality: (Boolean) -> Unit,
+    unlocksOnHome: Boolean,
+    onSetUnlocksOnHome: (Boolean) -> Unit,
+    askWhyOn: Boolean,
+    onSetAskWhyOn: (Boolean) -> Unit,
     onOpenHeldNotifications: () -> Unit,
 ) {
     BackHandler { if (page == SettingsPage.MAIN) onClose() else onNavigate(SettingsPage.MAIN) }
     val hidden = apps.filter { it.isHidden }
+    // One row per package: limits cover the app in every profile.
+    val limited = apps.filter { it.component.packageName in appLimits }.sortedBy { it.isWorkProfile }.distinctBy { it.component.packageName }
     // One row per package: a block covers the app in every profile.
     val blocked = apps.filter { it.isBlocked }.distinctBy { it.component.packageName }
 
@@ -127,6 +142,13 @@ fun SettingsScreen(
             onSetAppListKeyboard = onSetAppListKeyboard,
             appListFade = appListFade,
             onSetAppListFade = onSetAppListFade,
+            appLimitCount = limited.size,
+            dailyQuality = dailyQuality,
+            onSetDailyQuality = onSetDailyQuality,
+            unlocksOnHome = unlocksOnHome,
+            onSetUnlocksOnHome = onSetUnlocksOnHome,
+            askWhyOn = askWhyOn,
+            onSetAskWhyOn = onSetAskWhyOn,
         )
         SettingsPage.CUSTOMISE -> CustomisePage(onBack = { onNavigate(SettingsPage.MAIN) })
         SettingsPage.NOTIFICATION_FILTER -> NotificationFilterPage(
@@ -162,6 +184,34 @@ fun SettingsScreen(
             onBack = { onNavigate(SettingsPage.MAIN) },
             onOpenEditor = onOpenEditor,
         )
+        SettingsPage.APP_LIMITS -> EditorScaffold(
+            title = stringResource(R.string.settings_app_limits),
+            onDone = { onNavigate(SettingsPage.MAIN) },
+        ) {
+            if (limited.isEmpty()) EmptyText(stringResource(R.string.settings_app_limits_empty))
+            limited.forEach { app ->
+                val entry = appLimits.getValue(app.component.packageName)
+                val summary = appLimitSummary(entry.limitOn(limitDay))
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onEditAppLimit(app) }
+                        .padding(vertical = 6.dp),
+                ) {
+                    Text(app.label, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        text = if (entry.waitingOn(limitDay) != null) stringResource(R.string.settings_app_limit_changes, summary) else summary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Text(
+                text = stringResource(R.string.settings_app_limits_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         SettingsPage.BLOCKED_APPS -> EditorScaffold(
             title = stringResource(R.string.settings_blocked_apps),
             onDone = { onNavigate(SettingsPage.MAIN) },
@@ -211,6 +261,13 @@ private fun MainSettings(
     onSetAppListKeyboard: (Boolean) -> Unit,
     appListFade: Boolean,
     onSetAppListFade: (Boolean) -> Unit,
+    appLimitCount: Int,
+    dailyQuality: Boolean,
+    onSetDailyQuality: (Boolean) -> Unit,
+    unlocksOnHome: Boolean,
+    onSetUnlocksOnHome: (Boolean) -> Unit,
+    askWhyOn: Boolean,
+    onSetAskWhyOn: (Boolean) -> Unit,
     schedulesViewModel: SchedulesViewModel = viewModel(factory = SchedulesViewModel.Factory),
     gatesViewModel: GatesViewModel = viewModel(factory = GatesViewModel.Factory),
     filterViewModel: NotificationFilterViewModel = viewModel(factory = NotificationFilterViewModel.Factory),
@@ -293,6 +350,10 @@ private fun MainSettings(
                 value = stringResource(if (filterOn) R.string.settings_on else R.string.schedules_status_off),
             ) { onNavigate(SettingsPage.NOTIFICATION_FILTER) }
             NavigationRow(
+                title = stringResource(R.string.settings_app_limits),
+                value = pluralStringResource(R.plurals.settings_app_count, appLimitCount, appLimitCount),
+            ) { onNavigate(SettingsPage.APP_LIMITS) }
+            NavigationRow(
                 title = stringResource(R.string.settings_hidden_apps),
                 value = pluralStringResource(R.plurals.settings_app_count, hiddenCount, hiddenCount),
             ) { onNavigate(SettingsPage.HIDDEN_APPS) }
@@ -330,6 +391,27 @@ private fun MainSettings(
 
         Section(stringResource(R.string.settings_section_home)) {
             NavigationRow(title = stringResource(R.string.customise_title), value = "") { onNavigate(SettingsPage.CUSTOMISE) }
+        }
+
+        Section(stringResource(R.string.settings_section_practice)) {
+            SwitchRow(
+                title = stringResource(R.string.settings_daily_quality),
+                detail = stringResource(R.string.settings_daily_quality_detail),
+                checked = dailyQuality,
+                onCheckedChange = onSetDailyQuality,
+            )
+            SwitchRow(
+                title = stringResource(R.string.settings_unlocks),
+                detail = stringResource(if (hasUsageAccess) R.string.settings_unlocks_detail else R.string.settings_unlocks_needs_usage),
+                checked = unlocksOnHome,
+                onCheckedChange = onSetUnlocksOnHome,
+            )
+            SwitchRow(
+                title = stringResource(R.string.settings_ask_why),
+                detail = stringResource(R.string.settings_ask_why_detail),
+                checked = askWhyOn,
+                onCheckedChange = onSetAskWhyOn,
+            )
         }
 
         Section(stringResource(R.string.settings_section_app_list)) {

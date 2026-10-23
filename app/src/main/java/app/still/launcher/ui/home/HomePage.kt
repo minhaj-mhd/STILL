@@ -3,6 +3,7 @@ package app.still.launcher.ui.home
 import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -71,6 +72,9 @@ import app.still.launcher.ui.components.AppIcon
 import app.still.launcher.ui.components.AppItem
 import app.still.launcher.ui.components.TaskRing
 import app.still.launcher.ui.components.TickRing
+import app.still.launcher.ui.keynote.HomeKeynote
+import app.still.launcher.ui.keynote.unlockText
+import app.still.launcher.keynote.UnlockObservation
 import app.still.launcher.ui.components.formatDuration
 import app.still.launcher.ui.components.holdToDrag
 import app.still.launcher.ui.components.formatTime
@@ -129,6 +133,13 @@ fun HomePage(
     /** What the bottom corners open; null leaves a corner empty. */
     phoneButton: LauncherApp?,
     cameraButton: LauncherApp?,
+    /** Today's quality and its marks; null when there's none, or the daily quality is off. */
+    keynote: HomeKeynote?,
+    onKeynoteClick: () -> Unit,
+    /** Today's unlocks against the usual; null when that's off or unknown. */
+    unlocks: UnlockObservation?,
+    /** The morning card asking for today's quality, while it's due. */
+    keynoteCard: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val openFolder = folders.firstOrNull { it.id == openFolderId }
@@ -175,10 +186,16 @@ fun HomePage(
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.graphicsLayer { alpha = clockAlpha }) {
                 Spacer(Modifier.height(8.dp))
                 DateLine(limit)
+                keynote?.let { KeynoteLine(it, onKeynoteClick) }
                 ProgressLine(progress, onDueTasksClick)
+                unlocks?.let { UnlockLine(it) }
                 if (lockedApps > 0) LockedApps(lockedApps, itemsToGo, onDueTasksClick)
                 focus?.let { Focusing(it, onDueTasksClick) }
             }
+        }
+        keynoteCard?.let { card ->
+            Spacer(Modifier.height(16.dp))
+            card()
         }
         if (reminders.isNotEmpty()) {
             Column(
@@ -532,6 +549,43 @@ private fun ProgressLine(progress: List<ItemProgress>, onClick: () -> Unit) {
         modifier = Modifier
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
+    )
+}
+
+/** Today's quality, with a mark for each time it was practised; tapping it shows what counted. */
+@Composable
+private fun KeynoteLine(keynote: HomeKeynote, onClick: () -> Unit) {
+    val accent = stillPalette.accent
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+    ) {
+        Text(keynote.quality, style = MaterialTheme.typography.titleMedium, color = accent)
+        if (keynote.marks > 0) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                repeat(minOf(keynote.marks, MAX_MARKS)) {
+                    Box(Modifier.size(width = 2.dp, height = 12.dp).background(accent, RoundedCornerShape(1.dp)))
+                }
+                if (keynote.marks > MAX_MARKS) Text("+${keynote.marks - MAX_MARKS}", style = MaterialTheme.typography.labelMedium, color = accent)
+            }
+        }
+    }
+}
+
+/** More marks than this show as "+N". */
+private const val MAX_MARKS = 12
+
+/** "18 unlocks · fewer than usual by now" under the due count. */
+@Composable
+private fun UnlockLine(unlocks: UnlockObservation) {
+    Text(
+        text = unlockText(unlocks),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(bottom = 4.dp),
     )
 }
 

@@ -26,12 +26,14 @@ import app.still.launcher.precision.PrecisionMode
 import kotlinx.coroutines.launch
 import java.time.Instant
 
-/** A planned stretch in one app, started from the "How long?" sheet. */
+/** A planned stretch in one app: from the "How long?" sheet, or a visit to an app with limits. */
 data class AppSession(
     val packageName: String,
     val label: String,
     val startMillis: Long,
     val plannedMinutes: Int,
+    /** A visit timed by the app's own limits, rather than a time reminder. */
+    val isVisit: Boolean = false,
 ) {
     val endMillis: Long get() = startMillis + plannedMinutes * 60_000L
 }
@@ -71,6 +73,37 @@ class AppTimeReminders(
         notifications.cancel(notificationId(session))
         if (minutes > 1) setAlarm(session.endMillis - 60_000L, alarmIntent(ACTION_ONE_MINUTE_LEFT, session))
         setAlarm(session.endMillis, alarmIntent(ACTION_TIME_UP, session))
+    }
+
+    /**
+     * Times a visit to an app with limits: the same alarms as a time reminder, kept apart so both
+     * can run. When it ends, [onVisitTimeUp] steps in.
+     */
+    fun startVisit(packageName: String, label: String, minutes: Int, startMillis: Long) {
+        val session = AppSession(packageName, label, startMillis, minutes, isVisit = true)
+        precision.gate.allow(packageName, session.endMillis)
+        if (minutes > 1) setAlarm(session.endMillis - 60_000L, alarmIntent(ACTION_ONE_MINUTE_LEFT, session))
+        setAlarm(session.endMillis, alarmIntent(ACTION_TIME_UP, session))
+    }
+
+    /**
+     * A visit ran its length, or the app's day ran out ([doneToday]). With Precision mode STILL
+     * steps in front of the app; without it, a notification's "Leave" button takes you home.
+     */
+    suspend fun onVisitTimeUp(session: AppSession, doneToday: Boolean) {
+        precision.gate.onTimeUp(session.packageName)
+        if (isStillIn(session) == false) return
+        if (precision.isRunning) {
+            val kind = if (doneToday) InterventionKind.APP_LIMIT else InterventionKind.VISIT_UP
+            precision.intervene(Intervention(session.packageName, kind, session.plannedMinutes))
+            return
+        }
+        val title = if (doneToday) {
+            appContext.getString(R.string.app_limit_done_title, session.label)
+        } else {
+            appContext.resources.getQuantityString(R.plurals.visit_up_notice, session.plannedMinutes, session.plannedMinutes, session.label)
+        }
+        notify(session, title, text = null)
     }
 
     suspend fun onOneMinuteLeft(session: AppSession) {
@@ -153,13 +186,15 @@ class AppTimeReminders(
 
     /** One pending intent per action and app, so a new session for the app replaces the old alarms. */
     private fun alarmIntent(action: String, session: AppSession): PendingIntent {
+        val kind = if (session.isVisit) "visit" else "time-reminder"
         val intent = Intent(appContext, AppTimeReminderReceiver::class.java)
             .setAction(action)
-            .setData("still://time-reminder/${session.packageName}".toUri())
+            .setData("still://$kind/${session.packageName}".toUri())
             .putExtra(EXTRA_PACKAGE, session.packageName)
             .putExtra(EXTRA_LABEL, session.label)
             .putExtra(EXTRA_START, session.startMillis)
             .putExtra(EXTRA_MINUTES, session.plannedMinutes)
+            .putExtra(EXTRA_VISIT, session.isVisit)
         return PendingIntent.getBroadcast(appContext, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
@@ -173,6 +208,7 @@ class AppTimeReminders(
         internal const val EXTRA_LABEL = "label"
         internal const val EXTRA_START = "start"
         internal const val EXTRA_MINUTES = "minutes"
+        internal const val EXTRA_VISIT = "visit"
     }
 }
 
@@ -186,13 +222,15 @@ class AppTimeReminderReceiver : BroadcastReceiver() {
             label = intent.getStringExtra(AppTimeReminders.EXTRA_LABEL).orEmpty(),
             startMillis = intent.getLongExtra(AppTimeReminders.EXTRA_START, 0L),
             plannedMinutes = intent.getIntExtra(AppTimeReminders.EXTRA_MINUTES, 0),
+            isVisit = intent.getBooleanExtra(AppTimeReminders.EXTRA_VISIT, false),
         )
         val pending = goAsync()
         container.applicationScope.launch {
             try {
                 when (intent.action) {
                     AppTimeReminders.ACTION_ONE_MINUTE_LEFT -> container.appTimeReminders.onOneMinuteLeft(session)
-                    AppTimeReminders.ACTION_TIME_UP -> container.appTimeReminders.onTimeUp(session)
+                    AppTimeReminders.ACTION_TIME_UP ->
+                        if (session.isVisit) container.appLimits.onVisitTimeUp(session) else container.appTimeReminders.onTimeUp(session)
                 }
             } finally {
                 pending.finish()

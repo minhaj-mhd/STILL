@@ -64,11 +64,11 @@ class DailyLimitMonitor(
 
     private val _appUsage = MutableStateFlow<Map<String, Long>>(emptyMap())
 
-    /** Each app's time so far today in milliseconds; empty while the app list doesn't fade, or without Usage access. */
+    /** Each app's time so far today in milliseconds; empty while nothing needs it, or without Usage access. */
     val appUsage: StateFlow<Map<String, Long>> = _appUsage.asStateFlow()
 
     init {
-        scope.launch { preferences.settings.map { it.limit to it.appListFade }.distinctUntilChanged().collect { refresh() } }
+        scope.launch { preferences.settings.map { Triple(it.limit, it.needsAppUsage, it.appLimits) }.distinctUntilChanged().collect { refresh() } }
     }
 
     fun createChannel() {
@@ -92,9 +92,9 @@ class DailyLimitMonitor(
         val day = limitDay(now.toLocalDateTime(), limit.dayStartHour)
         val minutes = limit.planOn(day).minutesOn(day)
         val start = dayStart(day, limit.dayStartHour).atZone(zone).toInstant().toEpochMilli()
-        // The app list's fading counts the same day, so one reading serves both.
-        val byApp = if (minutes > 0 || settings.appListFade) screenTime.foregroundMillisSince(start) else null
-        _appUsage.value = if (settings.appListFade) byApp.orEmpty() else emptyMap()
+        // App limits, the app list's fading and Inner practice count the same day, so one reading serves all.
+        val byApp = if (minutes > 0 || settings.needsAppUsage) screenTime.foregroundMillisSince(start) else null
+        _appUsage.value = if (settings.needsAppUsage) byApp.orEmpty() else emptyMap()
         if (byApp == null || minutes <= 0) {
             _state.value = null
             alarmManager.cancel(checkIntent())

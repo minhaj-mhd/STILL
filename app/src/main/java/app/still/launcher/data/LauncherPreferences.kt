@@ -11,16 +11,22 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import app.still.launcher.focus.FocusSession
+import app.still.launcher.limit.AppLimitEntry
+import app.still.launcher.limit.AppVisit
 import app.still.launcher.limit.LimitSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import java.io.IOException
+import java.time.LocalDate
 import java.util.UUID
 
 /** User choices about apps. Favorites, hidden apps and renames are keyed by [InstalledApp.key]. */
@@ -66,7 +72,20 @@ data class LauncherSettings(
     val wallpaper: WallpaperChoice = WallpaperChoice.BLACK,
     /** How much the phone's wallpaper is darkened behind home, 0 to [MAX_WALLPAPER_DIM]. */
     val wallpaperDim: Float = DEFAULT_WALLPAPER_DIM,
+    /** Each app's own limits, by package. */
+    val appLimits: Map<String, AppLimitEntry> = emptyMap(),
+    /** Inner practice: a quality for the day on home, with a mark each time it's practised. */
+    val dailyQuality: Boolean = true,
+    /** Inner practice: today's unlocks on home, against the usual by this hour. */
+    val unlocksOnHome: Boolean = true,
+    /** Inner practice: apps whose limits ask what they're opened for do ask; off silences every such pause. */
+    val askWhyOn: Boolean = true,
+    /** The day the morning quality card was put off, so it doesn't ask again that day. */
+    val keynotePutOffOn: LocalDate? = null,
 ) {
+    /** App limits, the app list's fading and the daily quality's summary all need each app's time today. */
+    val needsAppUsage: Boolean get() = appListFade || appLimits.isNotEmpty() || dailyQuality
+
     companion object {
         const val DEFAULT_LAUNCH_DELAY_SECONDS = 15
         const val DEFAULT_WALLPAPER_DIM = 0.4f
@@ -108,8 +127,15 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
                 accent = enumOr(prefs[ACCENT], AccentColor.TEAL),
                 wallpaper = enumOr(prefs[WALLPAPER], WallpaperChoice.BLACK),
                 wallpaperDim = prefs[WALLPAPER_DIM] ?: LauncherSettings.DEFAULT_WALLPAPER_DIM,
+                appLimits = prefs[APP_LIMITS]?.let(::decodeAppLimits) ?: emptyMap(),
+                dailyQuality = prefs[DAILY_QUALITY] ?: true,
+                unlocksOnHome = prefs[UNLOCKS_ON_HOME] ?: true,
+                askWhyOn = prefs[ASK_WHY_ON] ?: true,
+                keynotePutOffOn = prefs[KEYNOTE_PUT_OFF_ON]?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
             )
         }
+        // Other keys, such as visits to limited apps, change often; only pass on real changes.
+        .distinctUntilChanged()
 
     /** The focus timer that's running, if any; kept apart from [settings] as it changes on its own. */
     val focusSession: Flow<FocusSession?> = dataStore.data
@@ -196,6 +222,55 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
             val current = prefs[DAILY_LIMIT]?.let(::decodeLimit) ?: LimitSettings()
             prefs[DAILY_LIMIT] = json.encodeToString(LimitSettings.serializer(), change(current))
         }
+    }
+
+    /** Changes one app's limits in one step, so the rules compare against what's saved; null removes them. */
+    suspend fun updateAppLimit(packageName: String, change: (AppLimitEntry?) -> AppLimitEntry?) {
+        dataStore.edit { prefs ->
+            val all = prefs[APP_LIMITS]?.let(::decodeAppLimits) ?: emptyMap()
+            val updated = change(all[packageName])
+            prefs[APP_LIMITS] = json.encodeToString(appLimitsSerializer, if (updated == null) all - packageName else all + (packageName to updated))
+        }
+    }
+
+    /** Visits to limited apps, kept so the wait between visits survives STILL restarting. */
+    suspend fun appVisits(): Map<String, AppVisit> = dataStore.data.first()[APP_VISITS]?.let(::decodeVisits) ?: emptyMap()
+
+    suspend fun setAppVisits(visits: Map<String, AppVisit>) {
+        dataStore.edit { prefs -> prefs[APP_VISITS] = json.encodeToString(visitsSerializer, visits) }
+    }
+
+    suspend fun setDailyQuality(on: Boolean) {
+        dataStore.edit { prefs -> prefs[DAILY_QUALITY] = on }
+    }
+
+    suspend fun setUnlocksOnHome(on: Boolean) {
+        dataStore.edit { prefs -> prefs[UNLOCKS_ON_HOME] = on }
+    }
+
+    suspend fun setAskWhyOn(on: Boolean) {
+        dataStore.edit { prefs -> prefs[ASK_WHY_ON] = on }
+    }
+
+    suspend fun setKeynotePutOff(day: LocalDate) {
+        dataStore.edit { prefs -> prefs[KEYNOTE_PUT_OFF_ON] = day.toString() }
+    }
+
+    /** Limits saved by a different app version that can't be read fall back to none. */
+    private fun decodeAppLimits(text: String): Map<String, AppLimitEntry>? = try {
+        json.decodeFromString(appLimitsSerializer, text)
+    } catch (e: SerializationException) {
+        null
+    } catch (e: IllegalArgumentException) {
+        null
+    }
+
+    private fun decodeVisits(text: String): Map<String, AppVisit>? = try {
+        json.decodeFromString(visitsSerializer, text)
+    } catch (e: SerializationException) {
+        null
+    } catch (e: IllegalArgumentException) {
+        null
     }
 
     /** The last limit notice shown, e.g. "2026-10-23:WARN", so it isn't shown twice. */
@@ -361,6 +436,14 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val ACCENT = stringPreferencesKey("accent")
         val WALLPAPER = stringPreferencesKey("wallpaper")
         val WALLPAPER_DIM = floatPreferencesKey("wallpaperDim")
+        val APP_LIMITS = stringPreferencesKey("appLimits")
+        val APP_VISITS = stringPreferencesKey("appVisits")
+        val DAILY_QUALITY = booleanPreferencesKey("dailyQuality")
+        val UNLOCKS_ON_HOME = booleanPreferencesKey("unlocksOnHome")
+        val ASK_WHY_ON = booleanPreferencesKey("askWhyOn")
+        val KEYNOTE_PUT_OFF_ON = stringPreferencesKey("keynotePutOffOn")
+        val appLimitsSerializer: KSerializer<Map<String, AppLimitEntry>> = MapSerializer(String.serializer(), AppLimitEntry.serializer())
+        val visitsSerializer: KSerializer<Map<String, AppVisit>> = MapSerializer(String.serializer(), AppVisit.serializer())
         // Typed explicitly, as for Room's converters.
         val foldersSerializer: KSerializer<List<AppFolder>> = ListSerializer(AppFolder.serializer())
         val NOTIFICATION_FILTER_ON = booleanPreferencesKey("notificationFilterOn")

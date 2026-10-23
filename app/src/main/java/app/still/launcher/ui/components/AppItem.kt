@@ -86,7 +86,7 @@ fun AppItem(
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         onLongClick()
     })
-    val closed = app.isBlocked || app.isGated || app.isLimited
+    val closed = app.isBlocked || app.isGated || app.isLimited || app.isAppClosed
     val color = if (closed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground
     when (display) {
         AppDisplay.TEXT -> AppLabel(app = app, onClick = onClick, onLongClick = onLongClick, modifier = modifier, style = style, clickable = clickable)

@@ -206,7 +206,7 @@ Kept short; the full requirements live in `STILL_Productivity_Launcher_Spec_v2.m
 - [ ] Left page: notes, tasks (one-time, recurring, subtasks, reminders), habits (yes/no, counts, durations, quotas, streaks), due/overdue dashboard
 - [ ] Shared scheduling model used by tasks, habits and blocking schedules
 - [ ] Task gates: block selected apps while tasks/habits are pending, by specific item or by priority level (High/Medium/Low) — design in [task-gated-blocking.md](task-gated-blocking.md)
-- [ ] Daily usage budgets, session limits, cooldowns, focus sessions, emergency exceptions
+- [ ] Daily usage budgets, session limits, cooldowns, focus sessions, emergency exceptions. **Stage 5:** per-app daily budget, visit length and wait between visits, plus a "what are you opening it for?" pause and Inner practice (daily quality with practice marks, unlocks on home); see [limits-and-inner-practice.md](limits-and-inner-practice.md)
 - [ ] Long-term usage history stored locally (Room) and an Insights page
 - [ ] Wallpapers, gradients, blur/dim, layouts, home modules, appearance presets
 - [ ] Backup/export
