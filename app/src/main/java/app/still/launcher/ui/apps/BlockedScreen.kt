@@ -18,9 +18,9 @@ import app.still.launcher.R
 import app.still.launcher.ui.components.formatDateTime
 import java.time.Instant
 
-/** Shown instead of opening a blocked app: what's blocked, until when, and a way out. */
+/** Shown instead of opening a blocked app: what's blocked, until when, by which schedule, and a way out. */
 @Composable
-fun BlockedScreen(appLabel: String, blockedUntil: Instant, onClose: () -> Unit) {
+fun BlockedScreen(appLabel: String, blockedUntil: Instant, scheduleName: String?, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(
@@ -32,7 +32,11 @@ fun BlockedScreen(appLabel: String, blockedUntil: Instant, onClose: () -> Unit) 
         ) {
             Text(stringResource(R.string.blocked_title, appLabel), style = MaterialTheme.typography.headlineMedium)
             Text(
-                text = stringResource(R.string.blocked_body, formatDateTime(blockedUntil)),
+                text = if (scheduleName != null) {
+                    stringResource(R.string.blocked_body_schedule, formatDateTime(blockedUntil), scheduleName)
+                } else {
+                    stringResource(R.string.blocked_body, formatDateTime(blockedUntil))
+                },
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

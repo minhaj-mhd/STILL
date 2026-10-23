@@ -57,6 +57,7 @@
     <string name="blocked_title">%1$s is blocked</string>
     <string name="blocked_body">Until %1$s. You chose this break, and it\'s still running.</string>
     <string name="blocked_close">Close</string>
+    <string name="blocked_body_schedule">Until %1$s, by your “%2$s” schedule.</string>
 
     <!-- Insights -->
     <string name="insights_title">Insights</string>
@@ -102,6 +103,49 @@
     <string name="settings_blocked_empty">No apps are blocked right now.</string>
     <string name="settings_section_about">About</string>
     <string name="settings_version">Version %1$s</string>
+
+    <!-- Blocking schedules -->
+    <string name="schedules_title">Blocking schedules</string>
+    <string name="schedules_empty">Block apps at set times, like mornings or evenings, without thinking about it. Start from one below.</string>
+    <string name="schedules_new">New schedule</string>
+    <string name="schedules_custom">Custom</string>
+    <string name="schedules_template_morning">Mindful morning</string>
+    <string name="schedules_template_evening">No-screen evening</string>
+    <string name="schedules_default_name">My schedule</string>
+    <string name="schedules_new_title">New schedule</string>
+    <string name="schedules_edit_title">Schedule</string>
+    <string name="schedules_time">Time</string>
+    <string name="schedules_from">From %1$s</string>
+    <string name="schedules_to">To %1$s</string>
+    <string name="schedules_to_next_day">To %1$s next day</string>
+    <string name="schedules_days">Days</string>
+    <string name="schedules_every_week">Every week</string>
+    <string name="schedules_every_other_week">Every other week</string>
+    <string name="schedules_every_day">Every day</string>
+    <string name="schedules_weekdays">Weekdays</string>
+    <string name="schedules_weekends">Weekends</string>
+    <string name="schedules_apps">Block these apps</string>
+    <string name="schedules_no_apps">No apps chosen yet. A schedule without apps isn\'t saved.</string>
+    <string name="schedules_choose_apps">Choose apps</string>
+    <string name="schedules_sorted_by_use">Most used in the last 7 days first</string>
+    <string name="schedules_delete">Delete schedule</string>
+    <string name="schedules_incomplete_title">This schedule isn\'t saved yet</string>
+    <string name="schedules_incomplete_body">Choose at least one app for it to block.</string>
+    <string name="schedules_discard">Discard</string>
+    <string name="schedules_delete_detail">The apps it blocks will open again.</string>
+    <string name="schedules_status_off">Off</string>
+    <string name="schedules_status_off_today">Off for today</string>
+    <string name="schedules_status_blocking">Blocking until %1$s</string>
+    <string name="schedules_turn_off_title">Turn off “%1$s”?</string>
+    <string name="schedules_off_today">Just for today (back on tomorrow)</string>
+    <string name="schedules_off_permanently">Turn off</string>
+    <string name="schedules_edit_active_title">This schedule is blocking apps right now</string>
+    <string name="schedules_edit_active_body">Editing “%1$s” could unblock them early. Edit anyway?</string>
+    <string name="settings_schedules">Blocking schedules</string>
+    <plurals name="settings_schedule_count">
+        <item quantity="one">%d schedule</item>
+        <item quantity="other">%d schedules</item>
+    </plurals>
 
     <!-- Long-press menu -->
     <string name="action_add_favorite">Add to home</string>

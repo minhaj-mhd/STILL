@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.still.launcher.StillApplication
+import app.still.launcher.blocking.scheduledBlocks
 import app.still.launcher.data.AppRepository
 import app.still.launcher.data.AppScreenTime
 import app.still.launcher.data.BlockingRepository
@@ -26,6 +27,8 @@ import kotlinx.coroutines.launch
 import java.text.Collator
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 
 /** An installed app with the user's customizations applied. */
 data class LauncherApp(
@@ -42,6 +45,8 @@ data class LauncherApp(
     val canBlock: Boolean = true,
     /** When a running block ends; null when the app isn't blocked right now. */
     val blockedUntil: Instant? = null,
+    /** The blocking schedule behind [blockedUntil], or null for a block set by hand. */
+    val blockedBySchedule: String? = null,
 ) {
     val isRenamed: Boolean get() = label != originalLabel
     val isBlocked: Boolean get() = blockedUntil != null
@@ -66,11 +71,26 @@ class LauncherViewModel(
     private val clock = MutableStateFlow(Instant.now())
 
     val uiState: StateFlow<LauncherUiState> =
-        combine(appRepository.installedApps, preferences.settings, blocking.blocks, clock) { installed, settings, blocks, now ->
+        combine(
+            appRepository.installedApps,
+            preferences.settings,
+            blocking.blocks,
+            blocking.schedules,
+            clock,
+        ) { installed, settings, blocks, schedules, now ->
             val collator = Collator.getInstance()
+            val zone = ZoneId.systemDefault()
+            val scheduled = scheduledBlocks(schedules, LocalDateTime.ofInstant(now, zone))
             val apps = installed
                 .map { app ->
                     val packageName = app.component.packageName
+                    val canBlock = !essentialApps.isEssential(packageName)
+                    // A block set by hand and a schedule can overlap; whichever ends later counts.
+                    // Essential apps are never blocked, whatever a schedule lists.
+                    val manualUntil = blocks[packageName]?.takeIf { canBlock && it.isAfter(now) }
+                    val schedule = scheduled[packageName]?.takeIf { canBlock }
+                    val scheduleUntil = schedule?.until?.atZone(zone)?.toInstant()
+                    val bySchedule = scheduleUntil != null && (manualUntil == null || scheduleUntil > manualUntil)
                     LauncherApp(
                         key = app.key,
                         component = app.component,
@@ -81,8 +101,9 @@ class LauncherViewModel(
                         canUninstall = app.canUninstall,
                         isFavorite = app.key in settings.favorites,
                         isHidden = app.key in settings.hidden,
-                        canBlock = !essentialApps.isEssential(packageName),
-                        blockedUntil = blocks[packageName]?.takeIf { it.isAfter(now) },
+                        canBlock = canBlock,
+                        blockedUntil = if (bySchedule) scheduleUntil else manualUntil,
+                        blockedBySchedule = schedule?.scheduleName?.takeIf { bySchedule },
                     )
                 }
                 .sortedWith(compareBy(collator) { it.label })

@@ -28,7 +28,7 @@ class AppContainer(context: Context) {
     val appRepository = AppRepository(context)
     val productivityRepository = ProductivityRepository(database.productivityDao())
     val notesRepository = NotesRepository(database.noteDao())
-    val blockingRepository = BlockingRepository(database.appBlockDao())
+    val blockingRepository = BlockingRepository(database.appBlockDao(), database.blockingScheduleDao())
     val screenTimeRepository = ScreenTimeRepository(context)
     val essentialApps = EssentialApps(context)
     val reminderScheduler = ReminderScheduler(context, productivityRepository, applicationScope)

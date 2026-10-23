@@ -8,6 +8,8 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import app.still.launcher.data.blocking.AppBlock
 import app.still.launcher.data.blocking.AppBlockDao
+import app.still.launcher.data.blocking.BlockingSchedule
+import app.still.launcher.data.blocking.BlockingScheduleDao
 import app.still.launcher.data.notes.Note
 import app.still.launcher.data.notes.NoteDao
 import app.still.launcher.data.productivity.Converters
@@ -21,12 +23,20 @@ import app.still.launcher.data.productivity.Task
  * Everything STILL keeps on the phone beyond simple settings. Schemas are exported to
  * app/schemas; every version bump needs a migration so existing data survives updates.
  *
- * Version 2 added [DismissedReminder]; version 3 added [Note]; version 4 added [AppBlock].
+ * Version 2 added [DismissedReminder]; 3 added [Note]; 4 added [AppBlock]; 5 added [BlockingSchedule].
  */
 @Database(
-    entities = [Task::class, Habit::class, OccurrenceRecord::class, DismissedReminder::class, Note::class, AppBlock::class],
-    version = 4,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
+    entities = [
+        Task::class, Habit::class, OccurrenceRecord::class, DismissedReminder::class, Note::class,
+        AppBlock::class, BlockingSchedule::class,
+    ],
+    version = 5,
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2),
+        AutoMigration(from = 2, to = 3),
+        AutoMigration(from = 3, to = 4),
+        AutoMigration(from = 4, to = 5),
+    ],
 )
 @TypeConverters(Converters::class)
 abstract class StillDatabase : RoomDatabase() {
@@ -36,6 +46,8 @@ abstract class StillDatabase : RoomDatabase() {
     abstract fun noteDao(): NoteDao
 
     abstract fun appBlockDao(): AppBlockDao
+
+    abstract fun blockingScheduleDao(): BlockingScheduleDao
 
     companion object {
         fun create(context: Context): StillDatabase =

@@ -63,7 +63,7 @@ import kotlinx.coroutines.launch
 private enum class Page { Productivity, Home, Apps }
 
 /** Full-screen views over the pages, opened by swiping up on home. Back goes up this list. */
-private enum class Overlay { INSIGHTS, SETTINGS, HIDDEN_APPS, BLOCKED_APPS }
+private enum class Overlay { INSIGHTS, SETTINGS, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES }
 
 @Composable
 fun StillLauncher(
@@ -229,9 +229,6 @@ fun StillLauncher(
         }
     }
 
-    // Task and habit editors cover the pages; their own Back handler takes priority over the pager's.
-    editor?.let { target -> EditorHost(target, onClose = { editor = null }) }
-
     // Insights slides up from home; Settings and its lists open on top of it.
     AnimatedContent(
         targetState = overlay,
@@ -254,10 +251,11 @@ fun StillLauncher(
                 onAllowUsageAccess = { context.startActivity(viewModel.usageAccessIntent()) },
                 onClose = { overlay = null },
             )
-            Overlay.SETTINGS, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS -> SettingsScreen(
+            Overlay.SETTINGS, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS, Overlay.SCHEDULES -> SettingsScreen(
                 page = when (current) {
                     Overlay.HIDDEN_APPS -> SettingsPage.HIDDEN_APPS
                     Overlay.BLOCKED_APPS -> SettingsPage.BLOCKED_APPS
+                    Overlay.SCHEDULES -> SettingsPage.SCHEDULES
                     else -> SettingsPage.MAIN
                 },
                 onNavigate = { page ->
@@ -265,6 +263,7 @@ fun StillLauncher(
                         SettingsPage.MAIN -> Overlay.SETTINGS
                         SettingsPage.HIDDEN_APPS -> Overlay.HIDDEN_APPS
                         SettingsPage.BLOCKED_APPS -> Overlay.BLOCKED_APPS
+                        SettingsPage.SCHEDULES -> Overlay.SCHEDULES
                     }
                 },
                 onClose = { overlay = Overlay.INSIGHTS },
@@ -277,9 +276,14 @@ fun StillLauncher(
                 canScheduleExactAlarms = todayViewModel::canScheduleExactAlarms,
                 onLaunch = ::launchApp,
                 onLongPressApp = { menuAppKey = it.key },
+                onOpenScheduleEditor = { editor = it },
             )
         }
     }
+
+    // Editors cover everything else, including Settings when a schedule is opened from there.
+    // Their own Back handler takes priority over the pages'.
+    editor?.let { target -> EditorHost(target, onClose = { editor = null }) }
 
     // Opening a blocked app lands here instead; it closes itself when the block runs out.
     blockedScreenApp?.let { app ->
@@ -287,7 +291,7 @@ fun StillLauncher(
         if (until == null) {
             LaunchedEffect(app.key) { blockedScreenKey = null }
         } else {
-            BlockedScreen(app.label, until, onClose = { blockedScreenKey = null })
+            BlockedScreen(app.label, until, app.blockedBySchedule, onClose = { blockedScreenKey = null })
         }
     }
 

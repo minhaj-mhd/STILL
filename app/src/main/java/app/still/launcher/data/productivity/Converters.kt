@@ -6,6 +6,7 @@ import app.still.launcher.schedule.Quota
 import app.still.launcher.schedule.Schedule
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.time.LocalDate
@@ -42,6 +43,12 @@ class Converters {
     fun jsonToQuota(text: String): Quota = json.decodeFromString(Quota.serializer(), text)
 
     @TypeConverter
+    fun stringSetToJson(strings: Set<String>): String = json.encodeToString(stringListSerializer, strings.sorted())
+
+    @TypeConverter
+    fun jsonToStringSet(text: String): Set<String> = json.decodeFromString(stringListSerializer, text).toSet()
+
+    @TypeConverter
     fun checklistToJson(items: List<ChecklistItem>): String = json.encodeToString(checklistSerializer, items)
 
     @TypeConverter
@@ -51,5 +58,6 @@ class Converters {
         val json = Json { ignoreUnknownKeys = true }
         // Typed explicitly: Room's code generator can't see the serialization plugin's generated serializer().
         val checklistSerializer: KSerializer<List<ChecklistItem>> = ListSerializer(ChecklistItem.serializer())
+        val stringListSerializer: KSerializer<List<String>> = ListSerializer(String.serializer())
     }
 }

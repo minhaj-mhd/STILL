@@ -33,16 +33,21 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import app.still.launcher.BuildConfig
 import app.still.launcher.R
 import app.still.launcher.ui.LauncherApp
+import app.still.launcher.ui.blocking.SchedulesPage
+import app.still.launcher.ui.blocking.SchedulesViewModel
 import app.still.launcher.ui.components.AppLabel
 import app.still.launcher.ui.components.FieldLabel
 import app.still.launcher.ui.components.formatDateTime
 import app.still.launcher.ui.editor.EditorScaffold
+import app.still.launcher.ui.editor.EditorTarget
 
-/** Settings and its two lists. */
-enum class SettingsPage { MAIN, HIDDEN_APPS, BLOCKED_APPS }
+/** Settings and the pages it leads to. */
+enum class SettingsPage { MAIN, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES }
 
 /**
  * Settings, reached from Insights. Shows each permission STILL uses with its state and a way to
@@ -62,6 +67,7 @@ fun SettingsScreen(
     canScheduleExactAlarms: () -> Boolean,
     onLaunch: (LauncherApp) -> Unit,
     onLongPressApp: (LauncherApp) -> Unit,
+    onOpenScheduleEditor: (EditorTarget.EditSchedule) -> Unit,
 ) {
     BackHandler { if (page == SettingsPage.MAIN) onClose() else onNavigate(SettingsPage.MAIN) }
     val hidden = apps.filter { it.isHidden }
@@ -91,6 +97,10 @@ fun SettingsScreen(
                 AppLabel(app = app, onClick = { onLaunch(app) }, onLongClick = { onLongPressApp(app) }, dimmed = true)
             }
         }
+        SettingsPage.SCHEDULES -> SchedulesPage(
+            onBack = { onNavigate(SettingsPage.MAIN) },
+            onOpenEditor = onOpenScheduleEditor,
+        )
         SettingsPage.BLOCKED_APPS -> EditorScaffold(
             title = stringResource(R.string.settings_blocked_apps),
             onDone = { onNavigate(SettingsPage.MAIN) },
@@ -100,8 +110,9 @@ fun SettingsScreen(
                 Column {
                     Text(app.label, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     app.blockedUntil?.let { until ->
+                        val untilText = stringResource(R.string.block_until, formatDateTime(until))
                         Text(
-                            text = stringResource(R.string.block_until, formatDateTime(until)),
+                            text = app.blockedBySchedule?.let { "$untilText · $it" } ?: untilText,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -124,6 +135,7 @@ private fun MainSettings(
     onAllowUsageAccess: () -> Unit,
     canNotify: () -> Boolean,
     canScheduleExactAlarms: () -> Boolean,
+    schedulesViewModel: SchedulesViewModel = viewModel(factory = SchedulesViewModel.Factory),
 ) {
     val context = LocalContext.current
     var notificationsOn by remember { mutableStateOf(canNotify()) }
@@ -179,6 +191,11 @@ private fun MainSettings(
         }
 
         Section(stringResource(R.string.settings_section_apps)) {
+            val scheduleCount = schedulesViewModel.schedules.collectAsStateWithLifecycle().value?.size ?: 0
+            NavigationRow(
+                title = stringResource(R.string.settings_schedules),
+                value = pluralStringResource(R.plurals.settings_schedule_count, scheduleCount, scheduleCount),
+            ) { onNavigate(SettingsPage.SCHEDULES) }
             NavigationRow(
                 title = stringResource(R.string.settings_hidden_apps),
                 value = pluralStringResource(R.plurals.settings_app_count, hiddenCount, hiddenCount),
