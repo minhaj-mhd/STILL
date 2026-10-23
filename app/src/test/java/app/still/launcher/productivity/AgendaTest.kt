@@ -63,6 +63,19 @@ class AgendaTest {
         assertEquals(listOf(1L), result.today.map { it.task.id })
         assertEquals(listOf(2L), result.overdue.map { it.task.id })
         assertEquals(2, result.pendingCount)
+        assertEquals(2, result.dueTaskCount)
+        assertEquals(1, result.overdueTaskCount)
+    }
+
+    @Test
+    fun `home count leaves out habits, undated and finished tasks`() {
+        val due = Task(id = 1, title = "Submit report", schedule = Schedule(today))
+        val done = Task(id = 2, title = "Pay rent", schedule = Schedule(today), completedAt = at("2026-10-23T08:00:00Z"))
+        val undated = Task(id = 3, title = "Call bank")
+        val habit = Habit(id = 1, title = "Read", schedule = Schedule(today, Recurrence.Daily()))
+        val result = agenda(tasks = listOf(due, done, undated), habits = listOf(habit))
+        assertEquals(1, result.dueTaskCount)
+        assertEquals(0, result.overdueTaskCount)
     }
 
     @Test

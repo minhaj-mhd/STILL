@@ -54,6 +54,11 @@ data class TodayAgenda(
     /** Dated tasks and habits still to do today; undated tasks don't count. */
     val pendingCount: Int get() =
         overdue.count { it.isPending } + today.count { it.isPending } + habits.count { it.isPending }
+
+    /** Tasks due today or overdue and not done, as shown on the home screen. */
+    val dueTaskCount: Int get() = overdue.count { it.isPending } + today.count { it.isPending }
+
+    val overdueTaskCount: Int get() = overdue.count { it.isPending }
 }
 
 /**

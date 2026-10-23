@@ -34,6 +34,8 @@ import app.still.launcher.ui.editor.EditorTarget
 import app.still.launcher.ui.editor.EditorTargetSaver
 import app.still.launcher.ui.home.HomePage
 import app.still.launcher.ui.productivity.TodayPage
+import app.still.launcher.ui.productivity.TodayViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import app.still.launcher.util.defaultLauncherRequestIntent
 import app.still.launcher.util.homeSettingsIntent
 import app.still.launcher.util.isDefaultLauncher
@@ -51,6 +53,9 @@ fun StillLauncher(
     val context = LocalContext.current
     val resources = LocalResources.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Shared with the Today page, so home's due count always matches what the Today page lists.
+    val todayViewModel: TodayViewModel = viewModel(factory = TodayViewModel.Factory)
+    val agenda by todayViewModel.agenda.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(initialPage = Page.Home.ordinal) { Page.entries.size }
     val scope = rememberCoroutineScope()
 
@@ -113,7 +118,7 @@ fun StillLauncher(
             modifier = Modifier.fillMaxSize(),
         ) { page ->
             when (Page.entries[page]) {
-                Page.Productivity -> TodayPage(onOpenEditor = { editor = it })
+                Page.Productivity -> TodayPage(onOpenEditor = { editor = it }, viewModel = todayViewModel)
                 Page.Home -> HomePage(
                     favorites = state.favorites,
                     isDefaultLauncher = isDefaultLauncher,
@@ -131,6 +136,9 @@ fun StillLauncher(
                             // No clock app installed; nothing to open.
                         }
                     },
+                    dueTasks = agenda?.dueTaskCount ?: 0,
+                    overdueTasks = agenda?.overdueTaskCount ?: 0,
+                    onDueTasksClick = { scope.launch { pagerState.animateScrollToPage(Page.Productivity.ordinal) } },
                     onLaunch = ::launchApp,
                     onLongPress = { menuAppKey = it.key },
                 )

@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,6 +41,9 @@ fun HomePage(
     isDefaultLauncher: Boolean,
     onSetDefaultLauncher: () -> Unit,
     onClockClick: () -> Unit,
+    dueTasks: Int,
+    overdueTasks: Int,
+    onDueTasksClick: () -> Unit,
     onLaunch: (LauncherApp) -> Unit,
     onLongPress: (LauncherApp) -> Unit,
     modifier: Modifier = Modifier,
@@ -55,6 +59,7 @@ fun HomePage(
             Spacer(Modifier.height(24.dp))
         }
         Clock(onClick = onClockClick)
+        if (dueTasks > 0) DueTasks(dueTasks, overdueTasks, onDueTasksClick)
         Box(
             contentAlignment = Alignment.CenterStart,
             modifier = Modifier
@@ -107,6 +112,23 @@ private fun Clock(onClick: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/** "3 tasks due · 1 overdue" under the date; tapping it opens the Today page. Hidden when nothing is due. */
+@Composable
+private fun DueTasks(dueTasks: Int, overdueTasks: Int, onClick: () -> Unit) {
+    val text = buildList {
+        add(pluralStringResource(R.plurals.home_tasks_due, dueTasks, dueTasks))
+        if (overdueTasks > 0) add(pluralStringResource(R.plurals.home_tasks_overdue, overdueTasks, overdueTasks))
+    }.joinToString(" · ")
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+    )
 }
 
 @Composable

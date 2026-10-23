@@ -4,6 +4,14 @@
     <!-- Home -->
     <string name="home_not_default_title">STILL isn\'t your home app yet</string>
     <string name="home_not_default_action">Set as home app</string>
+    <plurals name="home_tasks_due">
+        <item quantity="one">%d task due</item>
+        <item quantity="other">%d tasks due</item>
+    </plurals>
+    <plurals name="home_tasks_overdue">
+        <item quantity="one">%d overdue</item>
+        <item quantity="other">%d overdue</item>
+    </plurals>
     <string name="home_favorites_empty">Long-press an app in the app list to add it here.\nSwipe left to see all apps.</string>
 
     <!-- Apps page -->
