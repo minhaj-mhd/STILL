@@ -14,9 +14,15 @@ import app.still.launcher.blocking.scheduledBlocks
 import app.still.launcher.data.AppRepository
 import app.still.launcher.data.AppScreenTime
 import app.still.launcher.data.BlockingRepository
+import app.still.launcher.data.GateRepository
 import app.still.launcher.data.LauncherPreferences
 import app.still.launcher.data.LauncherSettings
 import app.still.launcher.data.ScreenTimeRepository
+import app.still.launcher.gates.EmergencyOpen
+import app.still.launcher.gates.GateCheck
+import app.still.launcher.gates.TaskGateMonitor
+import app.still.launcher.gates.closedGates
+import app.still.launcher.gates.emergencyOpenFor
 import app.still.launcher.precision.Intervention
 import app.still.launcher.precision.PrecisionMode
 import app.still.launcher.reminders.AppTimeReminders
@@ -27,15 +33,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.text.Collator
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /** An installed app with the user's customizations applied. */
 data class LauncherApp(
@@ -58,9 +67,16 @@ data class LauncherApp(
     val hasLaunchDelay: Boolean = false,
     /** Opening it from STILL asks how long you'll use it, then reminds you. */
     val hasTimeReminder: Boolean = false,
+    /** False for apps task gates never close (see [EssentialApps.canGate]). */
+    val canGate: Boolean = true,
+    /** The task gates keeping it closed right now, with what's left to do; empty when none. */
+    val gates: List<GateCheck> = emptyList(),
+    /** How it can still be opened past [gates] today; null when it can't. */
+    val emergencyOpen: EmergencyOpen? = null,
 ) {
     val isRenamed: Boolean get() = label != originalLabel
     val isBlocked: Boolean get() = blockedUntil != null
+    val isGated: Boolean get() = gates.isNotEmpty()
 }
 
 data class LauncherUiState(
@@ -84,6 +100,8 @@ class LauncherViewModel(
     private val essentialApps: EssentialApps,
     private val appTimeReminders: AppTimeReminders,
     private val precision: PrecisionMode,
+    private val taskGates: TaskGateMonitor,
+    private val gateRepository: GateRepository,
 ) : ViewModel() {
 
     /** The current minute, so blocks end on time without anything else changing. */
@@ -93,19 +111,22 @@ class LauncherViewModel(
         combine(
             appRepository.installedApps,
             preferences.settings,
-            blocking.blocks,
-            blocking.schedules,
+            combine(blocking.blocks, blocking.schedules, ::Pair),
+            taskGates.inputs,
             clock,
-        ) { installed, settings, blocks, schedules, now ->
+        ) { installed, settings, (blocks, schedules), gateInputs, now ->
             val collator = Collator.getInstance()
             val zone = ZoneId.systemDefault()
             val scheduled = scheduledBlocks(schedules, LocalDateTime.ofInstant(now, zone))
+            val closed = gateInputs?.let { closedGates(it, now, zone, essentialApps::canGate) }.orEmpty()
+            val today = now.atZone(zone).toLocalDate()
             val apps = installed
                 .map { app ->
                     val packageName = app.component.packageName
                     val canBlock = !essentialApps.isEssential(packageName)
                     // Essential apps are never blocked, whatever a schedule lists.
                     val block = if (canBlock) activeBlock(packageName, blocks, scheduled, now, zone) else null
+                    val gates = closed[packageName].orEmpty()
                     LauncherApp(
                         key = app.key,
                         component = app.component,
@@ -121,6 +142,9 @@ class LauncherViewModel(
                         blockedBySchedule = block?.scheduleName,
                         hasLaunchDelay = canBlock && packageName in settings.launchDelayPackages,
                         hasTimeReminder = canBlock && packageName in settings.timeReminderPackages,
+                        canGate = canBlock && essentialApps.canGate(packageName),
+                        gates = gates,
+                        emergencyOpen = gateInputs?.let { emergencyOpenFor(gates, it.events, today, zone) },
                     )
                 }
                 .sortedWith(compareBy(collator) { it.label })
@@ -141,6 +165,7 @@ class LauncherViewModel(
     /** The UI reports the time every minute. */
     fun setNow(now: Instant) {
         clock.value = now
+        taskGates.setToday(now.atZone(ZoneId.systemDefault()).toLocalDate())
     }
 
     /** Whether Precision mode's service is connected. */
@@ -204,6 +229,25 @@ class LauncherViewModel(
         appTimeReminders.start(app.component.packageName, app.label, minutes)
     }
 
+    /**
+     * Lets [app] past its closed gates for a few minutes, using up one of today's emergency
+     * opens, then calls [onOpen].
+     */
+    fun emergencyOpen(app: LauncherApp, onOpen: () -> Unit) {
+        val emergency = app.emergencyOpen ?: return
+        val packageName = app.component.packageName
+        viewModelScope.launch {
+            // Whole milliseconds, as stored, so the saved event can be recognised below.
+            val now = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+            gateRepository.recordEmergencyOpen(packageName, app.gates.map { it.gate }, now, now.plusSeconds(emergency.minutes * 60L))
+            // Wait until the gates know, so Precision mode doesn't close the app again as it opens.
+            withTimeoutOrNull(EMERGENCY_SAVE_TIMEOUT_MILLIS) {
+                taskGates.inputs.first { inputs -> inputs?.events?.any { it.packageName == packageName && it.time == now } == true }
+            }
+            onOpen()
+        }
+    }
+
     /** Locks the screen; false when Precision mode is off. */
     fun lockScreen(): Boolean = precision.lockScreen()
 
@@ -212,6 +256,9 @@ class LauncherViewModel(
     }
 
     fun precisionSettingsIntent(): Intent = precision.settingsIntent()
+
+    /** Android has Precision mode switched on, whether or not it's running. */
+    fun isPrecisionSwitchedOn(): Boolean = precision.isSwitchedOn()
 
     fun appInfoIntent(): Intent = precision.appInfoIntent()
 
@@ -235,6 +282,8 @@ class LauncherViewModel(
     }
 
     companion object {
+        private const val EMERGENCY_SAVE_TIMEOUT_MILLIS = 2_000L
+
         val Factory = viewModelFactory {
             initializer {
                 val container = (this[APPLICATION_KEY] as StillApplication).container
@@ -246,6 +295,8 @@ class LauncherViewModel(
                     container.essentialApps,
                     container.appTimeReminders,
                     container.precisionMode,
+                    container.taskGates,
+                    container.gateRepository,
                 )
             }
         }

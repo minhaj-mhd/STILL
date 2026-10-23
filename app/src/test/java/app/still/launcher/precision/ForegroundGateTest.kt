@@ -30,6 +30,16 @@ class ForegroundGateTest {
     }
 
     @Test
+    fun `a gated app is covered on every visit, whatever its pass`() {
+        val gated = ForegroundRule(gated = true, asksFirst = true)
+        gate.allow("insta", minutes(10))
+        assertEquals(InterventionKind.GATED, gate.onForeground("insta", 0, gated))
+        assertNull(gate.onForeground("insta", 1_000, gated))
+        gate.onForeground("still", 2_000, none)
+        assertEquals(InterventionKind.GATED, gate.onForeground("insta", 3_000, gated))
+    }
+
+    @Test
     fun `a block beats a pass`() {
         gate.allow("insta", minutes(10))
         assertEquals(InterventionKind.BLOCKED, gate.onForeground("insta", 0, blocked))

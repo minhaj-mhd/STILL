@@ -52,6 +52,7 @@ import app.still.launcher.ui.components.rememberCurrentMinute
 import app.still.launcher.ui.editor.EditorHost
 import app.still.launcher.ui.editor.EditorTarget
 import app.still.launcher.ui.editor.EditorTargetSaver
+import app.still.launcher.ui.gates.GateScreen
 import app.still.launcher.ui.home.HomePage
 import app.still.launcher.ui.insights.InsightsPage
 import app.still.launcher.ui.notes.NotesPage
@@ -76,7 +77,7 @@ import java.time.Instant
 private enum class Page { Productivity, Home, Apps }
 
 /** Full-screen views over the pages, opened by swiping up on home. Back goes up this list. */
-private enum class Overlay { INSIGHTS, SETTINGS, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, PRECISION }
+private enum class Overlay { INSIGHTS, SETTINGS, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, GATES, PRECISION }
 
 @Composable
 fun StillLauncher(
@@ -113,6 +114,8 @@ fun StillLauncher(
     var timeUpKey by rememberSaveable { mutableStateOf<String?>(null) }
     var timeUpMinutes by rememberSaveable { mutableIntStateOf(0) }
     var showLockHelp by rememberSaveable { mutableStateOf(false) }
+    var gateScreenKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var emergencyKey by rememberSaveable { mutableStateOf<String?>(null) }
     // Look apps up by key so an open menu reflects changes (e.g. favorite toggled) immediately.
     val menuApp = state.apps.firstOrNull { it.key == menuAppKey }
     val renameApp = state.apps.firstOrNull { it.key == renameAppKey }
@@ -121,12 +124,16 @@ fun StillLauncher(
     val launchDelayApp = state.apps.firstOrNull { it.key == launchDelayKey }
     val timeAskApp = state.apps.firstOrNull { it.key == timeAskKey }
     val timeUpApp = state.apps.firstOrNull { it.key == timeUpKey }
+    val gateScreenApp = state.apps.firstOrNull { it.key == gateScreenKey }
+    val emergencyApp = state.apps.firstOrNull { it.key == emergencyKey }
 
     var isDefaultLauncher by remember { mutableStateOf(context.isDefaultLauncher()) }
     var hasUsageAccess by remember { mutableStateOf(viewModel.hasUsageAccess()) }
+    var precisionSwitchedOn by remember { mutableStateOf(viewModel.isPrecisionSwitchedOn()) }
     LifecycleResumeEffect(Unit) {
         isDefaultLauncher = context.isDefaultLauncher()
         hasUsageAccess = viewModel.hasUsageAccess()
+        precisionSwitchedOn = viewModel.isPrecisionSwitchedOn()
         onPauseOrDispose { }
     }
     val precisionRunning by viewModel.precisionRunning.collectAsStateWithLifecycle()
@@ -165,7 +172,7 @@ fun StillLauncher(
         }
     }
 
-    // Opening an app from STILL goes: blocked? → launch delay → "how long?" → open.
+    // Opening an app from STILL goes: blocked? → gated? → launch delay → "how long?" → open.
     fun openApp(app: LauncherApp) {
         if (viewModel.launch(app)) {
             query = ""
@@ -184,6 +191,7 @@ fun StillLauncher(
     fun launchApp(app: LauncherApp) {
         when {
             app.isBlocked -> blockedScreenKey = app.key
+            app.isGated -> gateScreenKey = app.key
             app.hasLaunchDelay -> launchDelayKey = app.key
             else -> afterLaunchDelay(app)
         }
@@ -199,6 +207,8 @@ fun StillLauncher(
         launchDelayKey = null
         timeAskKey = null
         timeUpKey = null
+        gateScreenKey = null
+        emergencyKey = null
         showLockHelp = false
         editor = null
         overlay = null
@@ -232,6 +242,14 @@ fun StillLauncher(
                         viewModel.uiState.first { current -> current.apps.any { it.key == app.key && it.isBlocked } }
                     }
                     blockedScreenKey = app.key
+                }
+                InterventionKind.GATED -> {
+                    viewModel.setNow(Instant.now())
+                    val gated = withTimeoutOrNull(BLOCK_SHOWS_WITHIN_MILLIS) {
+                        viewModel.uiState.first { current -> current.apps.any { it.key == app.key && it.isGated } }
+                    }
+                    // If the gate has opened in the meantime, carry on as if opened from here.
+                    if (gated != null) gateScreenKey = app.key else launchApp(app)
                 }
                 InterventionKind.ASK -> launchApp(app)
                 InterventionKind.TIME_UP -> {
@@ -338,11 +356,12 @@ fun StillLauncher(
                 onAllowUsageAccess = { context.startActivity(viewModel.usageAccessIntent()) },
                 onClose = { overlay = null },
             )
-            Overlay.SETTINGS, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS, Overlay.SCHEDULES, Overlay.PRECISION -> SettingsScreen(
+            Overlay.SETTINGS, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS, Overlay.SCHEDULES, Overlay.GATES, Overlay.PRECISION -> SettingsScreen(
                 page = when (current) {
                     Overlay.HIDDEN_APPS -> SettingsPage.HIDDEN_APPS
                     Overlay.BLOCKED_APPS -> SettingsPage.BLOCKED_APPS
                     Overlay.SCHEDULES -> SettingsPage.SCHEDULES
+                    Overlay.GATES -> SettingsPage.GATES
                     Overlay.PRECISION -> SettingsPage.PRECISION
                     else -> SettingsPage.MAIN
                 },
@@ -352,6 +371,7 @@ fun StillLauncher(
                         SettingsPage.HIDDEN_APPS -> Overlay.HIDDEN_APPS
                         SettingsPage.BLOCKED_APPS -> Overlay.BLOCKED_APPS
                         SettingsPage.SCHEDULES -> Overlay.SCHEDULES
+                        SettingsPage.GATES -> Overlay.GATES
                         SettingsPage.PRECISION -> Overlay.PRECISION
                     }
                 },
@@ -365,12 +385,13 @@ fun StillLauncher(
                 canScheduleExactAlarms = todayViewModel::canScheduleExactAlarms,
                 onLaunch = ::launchApp,
                 onLongPressApp = { menuAppKey = it.key },
-                onOpenScheduleEditor = { editor = it },
+                onOpenEditor = { editor = it },
                 launchDelaySeconds = state.launchDelaySeconds,
                 onSetLaunchDelaySeconds = viewModel::setLaunchDelaySeconds,
                 timeUpBlockMinutes = state.timeUpBlockMinutes,
                 onSetTimeUpBlockMinutes = viewModel::setTimeUpBlockMinutes,
                 precisionOn = precisionRunning,
+                precisionStuck = precisionSwitchedOn && !precisionRunning,
                 onTurnOnPrecision = { context.startActivity(viewModel.precisionSettingsIntent()) },
                 onTurnOffPrecision = viewModel::turnOffPrecision,
                 onOpenAppInfo = { context.startActivity(viewModel.appInfoIntent()) },
@@ -391,6 +412,46 @@ fun StillLauncher(
             LaunchedEffect(app.key) { blockedScreenKey = null }
         } else {
             BlockedScreen(app.label, until, app.blockedBySchedule, onClose = { blockedScreenKey = null })
+        }
+    }
+
+    // A task gate keeps the app closed until what's left is done on the Today page. If the gate
+    // opens while this shows (its hours end), carry on opening the app.
+    gateScreenApp?.let { app ->
+        if (!app.isGated) {
+            LaunchedEffect(app.key) {
+                gateScreenKey = null
+                launchApp(app)
+            }
+        } else {
+            GateScreen(
+                app = app,
+                onEmergencyOpen = {
+                    gateScreenKey = null
+                    emergencyKey = app.key
+                },
+                onClose = { gateScreenKey = null },
+            )
+        }
+    }
+
+    // An emergency open waits, then lets the app past its gates for a few minutes.
+    emergencyApp?.let { app ->
+        val emergency = app.emergencyOpen
+        if (emergency == null) {
+            LaunchedEffect(app.key) { emergencyKey = null }
+        } else {
+            LaunchDelayScreen(
+                appLabel = app.label,
+                seconds = emergency.delaySeconds,
+                screenTime = null,
+                question = stringResource(R.string.gate_emergency_question, app.label, emergency.minutes),
+                onOpen = {
+                    emergencyKey = null
+                    viewModel.emergencyOpen(app) { openApp(app) }
+                },
+                onCancel = { emergencyKey = null },
+            )
         }
     }
 

@@ -24,6 +24,7 @@ import app.still.launcher.ui.editor.EditorScaffold
 @Composable
 fun PrecisionPage(
     isOn: Boolean,
+    isStuck: Boolean,
     onTurnOn: () -> Unit,
     onTurnOff: () -> Unit,
     onOpenAppInfo: () -> Unit,
@@ -48,6 +49,7 @@ fun PrecisionPage(
             Text(stringResource(R.string.precision_on), style = MaterialTheme.typography.titleMedium)
             OutlinedButton(onClick = onTurnOff) { Text(stringResource(R.string.precision_turn_off)) }
         } else {
+            if (isStuck) Text(stringResource(R.string.precision_stuck), style = MaterialTheme.typography.titleMedium)
             Button(onClick = onTurnOn) { Text(stringResource(R.string.precision_agree)) }
             Text(
                 text = stringResource(R.string.precision_steps),

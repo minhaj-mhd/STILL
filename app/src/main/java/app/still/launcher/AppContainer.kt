@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
 import app.still.launcher.data.AppRepository
 import app.still.launcher.data.BlockingRepository
+import app.still.launcher.data.GateRepository
+import app.still.launcher.gates.TaskGateMonitor
 import app.still.launcher.data.ScreenTimeRepository
 import app.still.launcher.util.EssentialApps
 import app.still.launcher.data.LauncherPreferences
@@ -33,6 +35,8 @@ class AppContainer(context: Context) {
     val blockingRepository = BlockingRepository(database.appBlockDao(), database.blockingScheduleDao())
     val screenTimeRepository = ScreenTimeRepository(context)
     val essentialApps = EssentialApps(context)
+    val gateRepository = GateRepository(database.taskGateDao())
+    val taskGates = TaskGateMonitor(productivityRepository, gateRepository, applicationScope)
     val precisionMode = PrecisionMode(context)
     val appTimeReminders = AppTimeReminders(context, blockingRepository, screenTimeRepository, preferences, precisionMode)
     val reminderScheduler = ReminderScheduler(context, productivityRepository, applicationScope)

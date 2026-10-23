@@ -18,6 +18,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -44,18 +45,25 @@ class PrecisionService : AccessibilityService() {
         container = (application as StillApplication).container
         precision.attach(this)
         scope.launch {
-            combine(container.blockingRepository.blocks, container.blockingRepository.schedules, container.preferences.settings) {
-                    blocks, schedules, settings ->
+            combine(
+                container.blockingRepository.blocks,
+                container.blockingRepository.schedules,
+                container.preferences.settings,
+                // Gates are read straight from the monitor; this only looks again when they change.
+                container.taskGates.inputs,
+            ) { blocks, schedules, settings, _ ->
                 Rules(blocks, schedules, settings)
             }.collect { latest ->
                 rules = latest
                 recheck()
             }
         }
-        // Schedules start and blocks end with the clock alone, so look at the app in front now and then.
+        // Schedules start, blocks end and tasks fall due with the clock alone, so look at the app
+        // in front now and then.
         scope.launch {
             while (true) {
                 delay(RECHECK_MILLIS)
+                container.taskGates.setToday(LocalDate.now())
                 recheck()
             }
         }
@@ -103,8 +111,10 @@ class PrecisionService : AccessibilityService() {
         if (container.essentialApps.isEssential(packageName)) return ForegroundRule.NONE
         val zone = ZoneId.systemDefault()
         val scheduled = scheduledBlocks(rules.schedules, LocalDateTime.ofInstant(now, zone))
+        val gates = container.taskGates.closedGates(now) { it == packageName && container.essentialApps.canGate(it) }
         return ForegroundRule(
             blocked = activeBlock(packageName, rules.blocks, scheduled, now, zone) != null,
+            gated = gates.isNotEmpty(),
             asksFirst = packageName in rules.settings.launchDelayPackages || packageName in rules.settings.timeReminderPackages,
         )
     }

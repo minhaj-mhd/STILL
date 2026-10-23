@@ -32,7 +32,8 @@ import kotlinx.coroutines.delay
 
 /**
  * A pause before a chosen app opens. The countdown has to finish before "Open" works, and
- * "Not now" is the bigger button; Back also cancels.
+ * "Not now" is the bigger button; Back also cancels. [question] replaces "Do you really want
+ * to open it?", e.g. for an emergency open.
  */
 @Composable
 fun LaunchDelayScreen(
@@ -41,6 +42,7 @@ fun LaunchDelayScreen(
     screenTime: AppScreenTime?,
     onOpen: () -> Unit,
     onCancel: () -> Unit,
+    question: String? = null,
 ) {
     BackHandler(onBack = onCancel)
     var remaining by rememberSaveable { mutableIntStateOf(seconds) }
@@ -66,7 +68,7 @@ fun LaunchDelayScreen(
                 fontWeight = FontWeight.Light,
                 color = if (remaining > 0) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.outline,
             )
-            Text(stringResource(R.string.delay_question, appLabel), style = MaterialTheme.typography.headlineSmall)
+            Text(question ?: stringResource(R.string.delay_question, appLabel), style = MaterialTheme.typography.headlineSmall)
             screenTime?.let {
                 Text(
                     text = stringResource(R.string.time_ask_today, formatDuration(it.today)),

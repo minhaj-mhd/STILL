@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.saveable.Saver
 import app.still.launcher.ui.blocking.ScheduleEditor
 import app.still.launcher.ui.blocking.ScheduleTemplate
+import app.still.launcher.ui.gates.GateEditor
 
 /** Which item a full-screen editor is open for. A null id means a new item, prefilled with [title]. */
 sealed interface EditorTarget {
@@ -14,6 +15,8 @@ sealed interface EditorTarget {
 
     /** A new schedule can start from a [template]. */
     data class EditSchedule(val scheduleId: Long?, val template: ScheduleTemplate? = null) : EditorTarget
+
+    data class EditGate(val gateId: Long?) : EditorTarget
 }
 
 /** Keeps the open editor across rotation and process death, as "kind|id|title". */
@@ -25,6 +28,7 @@ val EditorTargetSaver = Saver<EditorTarget?, String>(
             is EditorTarget.EditHabit -> "habit|${target.habitId ?: ""}|${target.title}"
             is EditorTarget.EditNote -> "note|${target.noteId ?: ""}|${target.title}"
             is EditorTarget.EditSchedule -> "schedule|${target.scheduleId ?: ""}|${target.template?.name.orEmpty()}"
+            is EditorTarget.EditGate -> "gate|${target.gateId ?: ""}|"
         }
     },
     restore = { saved ->
@@ -34,6 +38,7 @@ val EditorTargetSaver = Saver<EditorTarget?, String>(
             "habit" -> EditorTarget.EditHabit(id.toLongOrNull(), title)
             "note" -> EditorTarget.EditNote(id.toLongOrNull(), title)
             "schedule" -> EditorTarget.EditSchedule(id.toLongOrNull(), ScheduleTemplate.entries.firstOrNull { it.name == title })
+            "gate" -> EditorTarget.EditGate(id.toLongOrNull())
             else -> null
         }
     },
@@ -51,5 +56,6 @@ fun EditorHost(target: EditorTarget, onClose: () -> Unit) {
         is EditorTarget.EditHabit -> HabitEditor(target, onClose)
         is EditorTarget.EditNote -> NoteEditor(target, onClose)
         is EditorTarget.EditSchedule -> ScheduleEditor(target, onClose)
+        is EditorTarget.EditGate -> GateEditor(target, onClose)
     }
 }

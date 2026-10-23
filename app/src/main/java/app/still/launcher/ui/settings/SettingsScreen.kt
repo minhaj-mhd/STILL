@@ -48,9 +48,11 @@ import app.still.launcher.ui.components.formatDateTime
 import app.still.launcher.ui.editor.EditorScaffold
 import app.still.launcher.ui.editor.EditorTarget
 import app.still.launcher.ui.editor.SwitchRow
+import app.still.launcher.ui.gates.GatesPage
+import app.still.launcher.ui.gates.GatesViewModel
 
 /** Settings and the pages it leads to. */
-enum class SettingsPage { MAIN, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, PRECISION }
+enum class SettingsPage { MAIN, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, GATES, PRECISION }
 
 /**
  * Settings, reached from Insights. Shows each permission STILL uses with its state and a way to
@@ -70,12 +72,14 @@ fun SettingsScreen(
     canScheduleExactAlarms: () -> Boolean,
     onLaunch: (LauncherApp) -> Unit,
     onLongPressApp: (LauncherApp) -> Unit,
-    onOpenScheduleEditor: (EditorTarget.EditSchedule) -> Unit,
+    onOpenEditor: (EditorTarget) -> Unit,
     launchDelaySeconds: Int,
     onSetLaunchDelaySeconds: (Int) -> Unit,
     timeUpBlockMinutes: Int,
     onSetTimeUpBlockMinutes: (Int) -> Unit,
     precisionOn: Boolean,
+    /** Switched on in Android's settings but not running. */
+    precisionStuck: Boolean,
     onTurnOnPrecision: () -> Unit,
     onTurnOffPrecision: () -> Unit,
     onOpenAppInfo: () -> Unit,
@@ -111,6 +115,7 @@ fun SettingsScreen(
         )
         SettingsPage.PRECISION -> PrecisionPage(
             isOn = precisionOn,
+            isStuck = precisionStuck,
             onTurnOn = onTurnOnPrecision,
             onTurnOff = onTurnOffPrecision,
             onOpenAppInfo = onOpenAppInfo,
@@ -128,7 +133,12 @@ fun SettingsScreen(
         }
         SettingsPage.SCHEDULES -> SchedulesPage(
             onBack = { onNavigate(SettingsPage.MAIN) },
-            onOpenEditor = onOpenScheduleEditor,
+            onOpenEditor = onOpenEditor,
+        )
+        SettingsPage.GATES -> GatesPage(
+            precisionOn = precisionOn,
+            onBack = { onNavigate(SettingsPage.MAIN) },
+            onOpenEditor = onOpenEditor,
         )
         SettingsPage.BLOCKED_APPS -> EditorScaffold(
             title = stringResource(R.string.settings_blocked_apps),
@@ -174,6 +184,7 @@ private fun MainSettings(
     doubleTapToLock: Boolean,
     onSetDoubleTapToLock: (Boolean) -> Unit,
     schedulesViewModel: SchedulesViewModel = viewModel(factory = SchedulesViewModel.Factory),
+    gatesViewModel: GatesViewModel = viewModel(factory = GatesViewModel.Factory),
 ) {
     val context = LocalContext.current
     var notificationsOn by remember { mutableStateOf(canNotify()) }
@@ -242,6 +253,11 @@ private fun MainSettings(
                 title = stringResource(R.string.settings_schedules),
                 value = pluralStringResource(R.plurals.settings_schedule_count, scheduleCount, scheduleCount),
             ) { onNavigate(SettingsPage.SCHEDULES) }
+            val gateCount = gatesViewModel.inputs.collectAsStateWithLifecycle().value?.gates?.size ?: 0
+            NavigationRow(
+                title = stringResource(R.string.gates_title),
+                value = pluralStringResource(R.plurals.settings_gate_count, gateCount, gateCount),
+            ) { onNavigate(SettingsPage.GATES) }
             NavigationRow(
                 title = stringResource(R.string.settings_hidden_apps),
                 value = pluralStringResource(R.plurals.settings_app_count, hiddenCount, hiddenCount),

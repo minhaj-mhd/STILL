@@ -4,6 +4,8 @@ package app.still.launcher.precision
 data class ForegroundRule(
     /** A block or a schedule covers it right now. */
     val blocked: Boolean = false,
+    /** A task gate keeps it closed until tasks or habits are done. */
+    val gated: Boolean = false,
     /** It has a launch delay or a time reminder, so it opens only through STILL's questions. */
     val asksFirst: Boolean = false,
 ) {
@@ -16,6 +18,9 @@ data class ForegroundRule(
 enum class InterventionKind {
     /** Show the blocked screen. */
     BLOCKED,
+
+    /** Show what's left to do before a task gate opens. */
+    GATED,
 
     /** Go through the launch delay and "How long?", as if the app were opened from STILL. */
     ASK,
@@ -30,11 +35,12 @@ data class Intervention(val packageName: String, val kind: InterventionKind, val
 /**
  * Decides when Precision mode steps in as apps come to the front.
  *
- * A blocked app is covered on every visit. An app with a launch delay or a time reminder needs a
- * pass, which STILL hands out when it opens the app after asking. A pass never runs out while
- * you stay in the app, and it lasts [graceMillis] after you leave, so a quick look at another
- * app doesn't ask again; a time reminder's pass also lasts until the planned time is up. STILL
- * steps in at most once per visit, and a visit ends when another app comes to the front.
+ * A blocked or gated app is covered on every visit. An app with a launch delay or a time
+ * reminder needs a pass, which STILL hands out when it opens the app after asking. A pass never
+ * runs out while you stay in the app, and it lasts [graceMillis] after you leave, so a quick
+ * look at another app doesn't ask again; a time reminder's pass also lasts until the planned
+ * time is up. STILL steps in at most once per visit, and a visit ends when another app comes to
+ * the front.
  */
 class ForegroundGate(val graceMillis: Long = DEFAULT_GRACE_MILLIS) {
 
@@ -74,12 +80,13 @@ class ForegroundGate(val graceMillis: Long = DEFAULT_GRACE_MILLIS) {
         if (intervened) return null
         val kind = when {
             rule.blocked -> InterventionKind.BLOCKED
+            rule.gated -> InterventionKind.GATED
             rule.asksFirst && !inUse -> InterventionKind.ASK
             else -> return null
         }
         intervened = true
-        if (kind == InterventionKind.BLOCKED) {
-            // The pass is spent: once the block ends, opening the app asks again.
+        if (kind != InterventionKind.ASK) {
+            // The pass is spent: once the block ends or the gate opens, opening the app asks again.
             passes.remove(packageName)
             inUse = false
         }

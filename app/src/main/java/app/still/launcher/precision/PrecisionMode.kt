@@ -48,6 +48,16 @@ class PrecisionMode(context: Context) {
         _running.value = false
     }
 
+    /**
+     * Whether Android's settings have the service switched on, running or not. After an update
+     * Android sometimes leaves it switched on without starting it again.
+     */
+    fun isSwitchedOn(): Boolean {
+        val component = ComponentName(appContext, PrecisionService::class.java)
+        val enabled = Settings.Secure.getString(appContext.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
+        return enabled.split(':').any { ComponentName.unflattenFromString(it) == component }
+    }
+
     /** The app in front, or null when Precision mode is off and STILL can't tell. */
     fun appInFront(): String? = if (isRunning) gate.foreground else null
 

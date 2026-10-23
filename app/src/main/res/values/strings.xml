@@ -134,6 +134,71 @@
     <string name="settings_time_reminder">Time reminder</string>
     <string name="time_up_more">More time</string>
 
+    <!-- Task gates -->
+    <string name="apps_locked_label">locked</string>
+    <string name="gate_title">Finish these to open %1$s</string>
+    <string name="gate_any_one">Any one of these opens it.</string>
+    <string name="gate_where_to_finish">Finish them on the Today page, then open %1$s again.</string>
+    <plurals name="gate_emergency_open">
+        <item quantity="one">Emergency open · %d left today</item>
+        <item quantity="other">Emergency open · %d left today</item>
+    </plurals>
+    <string name="gate_emergency_question">Open %1$s for %2$d min anyway?</string>
+    <string name="gates_title">Task gates</string>
+    <string name="gates_intro">Keep apps closed until your tasks and habits are done. Opening a closed app shows what\'s left; finish it on the Today page.</string>
+    <string name="gates_precision_hint">Without Precision mode, gates only work when you open apps from STILL.</string>
+    <string name="gates_new">New gate</string>
+    <string name="gates_new_title">New gate</string>
+    <string name="gates_edit_title">Gate</string>
+    <string name="gates_default_name">Tasks first</string>
+    <string name="gates_apps">Keep these apps closed</string>
+    <string name="gates_no_apps">No apps chosen yet. A gate without apps isn\'t saved.</string>
+    <string name="gates_until">Until these are done</string>
+    <string name="gates_by_priority">By priority</string>
+    <string name="gates_by_items">Chosen tasks and habits</string>
+    <string name="gates_priority_high">High priority</string>
+    <string name="gates_priority_medium">Medium priority and up</string>
+    <string name="gates_priority_any">Any priority</string>
+    <string name="gates_tasks">Tasks</string>
+    <string name="gates_habits">Habits</string>
+    <string name="gates_include_undated">Tasks without a date</string>
+    <string name="gates_include_undated_detail">Count them too, until they\'re done.</string>
+    <string name="gates_priority_hint">Counts what\'s due today or overdue, from its time if it has one. Items without a priority never count.</string>
+    <string name="gates_choose_items">Choose tasks and habits</string>
+    <string name="gates_no_items">No tasks or habits yet. Add some on the Today page first.</string>
+    <string name="gates_no_items_chosen">Nothing chosen yet.</string>
+    <string name="gates_require_all">All of them</string>
+    <string name="gates_require_any">Any one of them</string>
+    <string name="gates_when">When</string>
+    <string name="gates_always">All the time</string>
+    <string name="gates_set_hours">Set hours</string>
+    <string name="gates_emergency">Emergency opens</string>
+    <string name="gates_emergency_none">None</string>
+    <string name="gates_emergency_per_day">%1$d a day</string>
+    <string name="gates_emergency_detail">Each one waits %1$d s, then opens the app for:</string>
+    <string name="gates_delete">Delete gate</string>
+    <string name="gates_delete_detail">The apps it keeps closed will open again.</string>
+    <string name="gates_incomplete_title">This gate isn\'t saved yet</string>
+    <string name="gates_incomplete_body">Choose at least one app, and what it waits for.</string>
+    <string name="gates_keep_editing">Keep editing</string>
+    <string name="gates_status_open">Open</string>
+    <string name="gates_status_outside_hours">Not in its hours now</string>
+    <plurals name="gates_status_closed">
+        <item quantity="one">Closed · %d to go</item>
+        <item quantity="other">Closed · %d to go</item>
+    </plurals>
+    <plurals name="gates_summary_items">
+        <item quantity="one">%d chosen item</item>
+        <item quantity="other">%d chosen items</item>
+    </plurals>
+    <string name="gates_turn_off_title">Turn off “%1$s”?</string>
+    <string name="gates_edit_closed_title">“%1$s” is closed right now</string>
+    <string name="gates_closed_now_body">It\'s keeping apps closed until you finish. Changing it now could open them early.</string>
+    <plurals name="settings_gate_count">
+        <item quantity="one">%d gate</item>
+        <item quantity="other">%d gates</item>
+    </plurals>
+
     <!-- Precision mode -->
     <string name="precision_service_label">STILL Precision mode</string>
     <string name="precision_service_description">Lets STILL notice which app is in front, so your blocks, schedules, launch delays and time reminders apply however you open an app, and lets you lock the screen by double-tapping home. STILL can\'t read what\'s on screen or what you type, and nothing leaves your phone.</string>
@@ -150,6 +215,7 @@
     <string name="precision_restricted">If Android says the setting is restricted: open App info, tap ⋮ at the top right, choose Allow restricted settings, then try again.</string>
     <string name="precision_app_info">Open App info</string>
     <string name="precision_on">Precision mode is on.</string>
+    <string name="precision_stuck">Android shows Precision mode as on, but it isn\'t running. This can happen after STILL updates. In Accessibility settings, turn STILL Precision mode off, then on again.</string>
     <string name="precision_turn_off">Turn off</string>
     <string name="precision_lost_title">Precision mode is off, so blocks only work when you open apps from STILL.</string>
     <string name="precision_lost_turn_on">Turn on</string>

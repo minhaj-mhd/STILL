@@ -10,6 +10,9 @@ import app.still.launcher.data.blocking.AppBlock
 import app.still.launcher.data.blocking.AppBlockDao
 import app.still.launcher.data.blocking.BlockingSchedule
 import app.still.launcher.data.blocking.BlockingScheduleDao
+import app.still.launcher.data.gates.GateEvent
+import app.still.launcher.data.gates.TaskGate
+import app.still.launcher.data.gates.TaskGateDao
 import app.still.launcher.data.notes.Note
 import app.still.launcher.data.notes.NoteDao
 import app.still.launcher.data.productivity.Converters
@@ -23,19 +26,21 @@ import app.still.launcher.data.productivity.Task
  * Everything STILL keeps on the phone beyond simple settings. Schemas are exported to
  * app/schemas; every version bump needs a migration so existing data survives updates.
  *
- * Version 2 added [DismissedReminder]; 3 added [Note]; 4 added [AppBlock]; 5 added [BlockingSchedule].
+ * Version 2 added [DismissedReminder]; 3 added [Note]; 4 added [AppBlock]; 5 added [BlockingSchedule];
+ * 6 added [TaskGate] and [GateEvent].
  */
 @Database(
     entities = [
         Task::class, Habit::class, OccurrenceRecord::class, DismissedReminder::class, Note::class,
-        AppBlock::class, BlockingSchedule::class,
+        AppBlock::class, BlockingSchedule::class, TaskGate::class, GateEvent::class,
     ],
-    version = 5,
+    version = 6,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
+        AutoMigration(from = 5, to = 6),
     ],
 )
 @TypeConverters(Converters::class)
@@ -48,6 +53,8 @@ abstract class StillDatabase : RoomDatabase() {
     abstract fun appBlockDao(): AppBlockDao
 
     abstract fun blockingScheduleDao(): BlockingScheduleDao
+
+    abstract fun taskGateDao(): TaskGateDao
 
     companion object {
         fun create(context: Context): StillDatabase =

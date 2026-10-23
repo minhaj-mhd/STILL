@@ -42,8 +42,9 @@ fun AppLabel(
             )
             .padding(vertical = 10.dp),
     ) {
-        // Blocked apps stay listed, greyed out, so you can see what's blocked.
-        val color = if (dimmed || app.isBlocked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground
+        // Blocked and gated apps stay listed, greyed out, so you can see what's closed.
+        val closed = app.isBlocked || app.isGated
+        val color = if (dimmed || closed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground
         Text(
             text = app.label,
             style = style,
@@ -54,10 +55,11 @@ fun AppLabel(
         )
         if (app.isWorkProfile) Tag(stringResource(R.string.apps_work_label))
         if (app.isBlocked) Tag(stringResource(R.string.apps_blocked_label))
+        else if (app.isGated) Tag(stringResource(R.string.apps_locked_label))
     }
 }
 
-/** A small grey word after an app's name, e.g. "work" or "blocked". */
+/** A small grey word after an app's name, e.g. "work", "blocked" or "locked". */
 @Composable
 private fun Tag(text: String) {
     Text(

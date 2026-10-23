@@ -4,6 +4,11 @@ Selected apps stay blocked while chosen tasks or habits are still pending. When 
 
 Status: design agreed 2026-10-23 (see §8 for the confirmed defaults).
 
+Build plan:
+1. **Gates** (built 2026-10-23): `task_gates` and `gate_events` tables (DB v6), the gate rules in `gates/TaskGates.kt`, enforcement from STILL and through Precision mode, the gate screen with tickable items, emergency opens, and Settings > Task gates with a list and an editor. Apps gates never close are the essential ones plus the default messages, contacts, clock, camera and maps apps.
+2. **Markers and exceptions**: "unlocks Instagram" on the Today page, which gate blocks an app in its long-press menu, a home line like "3 apps locked · 2 to go", apps the user marks as always allowed, and friction on "skip today".
+3. **Focus timer** for duration habits, with timer-completed unlocks counted separately in Insights.
+
 ---
 
 ## 1. Priority on tasks and habits
@@ -55,8 +60,8 @@ Proposed default: an item is pending if it is **due today or overdue and not com
 
 When a gated app is opened:
 
-1. STILL shows a **gate screen** instead of the app: "Finish these to open Instagram", with the pending items listed and checkable right there.
-2. Checking off the last item unlocks the app immediately and opens it.
+1. STILL shows a **gate screen** instead of the app: "Finish these to open Instagram", with the pending items listed.
+2. The items **can't be ticked off on the gate screen** (decided 2026-10-23): a tap right there would make the gate too easy to wave through. They're finished on the Today page, and the app opens normally once nothing is left.
 3. Duration habits ("Read 15 min") offer **Start timer** — a focus session that completes the habit when it ends, so the unlock is earned, not just ticked.
 4. "Not now" returns to home.
 
@@ -107,3 +112,5 @@ Evaluation: a `Flow` combining today's pending items, gates and the clock produc
 - [x] Weekly quotas gate only when behind pace
 - [x] Emergency opens: 3 per gate per day, 30 s countdown, 5 minutes each (adjustable per gate)
 - [x] Essential by default: Phone, Messages, Contacts, Clock, Camera, Maps, Settings, STILL; the user can add more (banking, authenticator, work chat)
+- [x] No cool-off: a gate opens as soon as everything is done (decided 2026-10-23; an optional per-gate wait was considered and dropped)
+- [x] Items can't be ticked off on the gate screen, only on the Today page (decided 2026-10-23)

@@ -1,6 +1,8 @@
 package app.still.launcher.data.productivity
 
 import androidx.room.TypeConverter
+import app.still.launcher.data.gates.GateItem
+import app.still.launcher.data.gates.GateWindow
 import app.still.launcher.data.notes.ChecklistItem
 import app.still.launcher.schedule.Quota
 import app.still.launcher.schedule.Schedule
@@ -13,7 +15,7 @@ import java.time.LocalDate
 
 /**
  * Dates are stored as ISO text ("2026-10-23") so they sort and compare correctly in SQL.
- * Schedules, quotas and note checklists are stored as JSON; unknown keys are ignored so older app versions
+ * Schedules, quotas, note checklists and task gates' items and windows are stored as JSON; unknown keys are ignored so older app versions
  * can still read rows written by newer ones.
  */
 class Converters {
@@ -54,10 +56,23 @@ class Converters {
     @TypeConverter
     fun jsonToChecklist(text: String): List<ChecklistItem> = json.decodeFromString(checklistSerializer, text)
 
+    @TypeConverter
+    fun gateItemsToJson(items: List<GateItem>): String = json.encodeToString(gateItemsSerializer, items)
+
+    @TypeConverter
+    fun jsonToGateItems(text: String): List<GateItem> = json.decodeFromString(gateItemsSerializer, text)
+
+    @TypeConverter
+    fun gateWindowToJson(window: GateWindow): String = json.encodeToString(GateWindow.serializer(), window)
+
+    @TypeConverter
+    fun jsonToGateWindow(text: String): GateWindow = json.decodeFromString(GateWindow.serializer(), text)
+
     private companion object {
         val json = Json { ignoreUnknownKeys = true }
         // Typed explicitly: Room's code generator can't see the serialization plugin's generated serializer().
         val checklistSerializer: KSerializer<List<ChecklistItem>> = ListSerializer(ChecklistItem.serializer())
         val stringListSerializer: KSerializer<List<String>> = ListSerializer(String.serializer())
+        val gateItemsSerializer: KSerializer<List<GateItem>> = ListSerializer(GateItem.serializer())
     }
 }

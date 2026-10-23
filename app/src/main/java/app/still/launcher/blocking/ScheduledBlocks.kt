@@ -19,17 +19,26 @@ val BlockingSchedule.isOvernight: Boolean get() = endMinute <= startMinute
  * starts, so an overnight window that began yesterday still counts this morning, and turning
  * a day off removes its whole window, including the part after midnight.
  */
-fun BlockingSchedule.activeWindow(now: LocalDateTime): ActiveWindow? {
+fun BlockingSchedule.activeWindow(now: LocalDateTime): ActiveWindow? =
+    dailyWindowAt(now, startMinute, endMinute) { schedule.occursOn(it) }
+
+/**
+ * The window from [startMinute] to [endMinute] running at [now], on the days [occursOn] accepts,
+ * or null. An end at or before the start runs into the next morning, and that part belongs to
+ * the day the window started.
+ */
+fun dailyWindowAt(now: LocalDateTime, startMinute: Int, endMinute: Int, occursOn: (LocalDate) -> Boolean): ActiveWindow? {
     val today = now.toLocalDate()
     val minute = now.hour * 60 + now.minute
     val end = LocalTime.of(endMinute / 60, endMinute % 60)
+    val overnight = endMinute <= startMinute
 
-    if (schedule.occursOn(today) && minute >= startMinute && (isOvernight || minute < endMinute)) {
-        val endDate = if (isOvernight) today.plusDays(1) else today
+    if (occursOn(today) && minute >= startMinute && (overnight || minute < endMinute)) {
+        val endDate = if (overnight) today.plusDays(1) else today
         return ActiveWindow(today, endDate.atTime(end))
     }
     val yesterday = today.minusDays(1)
-    if (isOvernight && schedule.occursOn(yesterday) && minute < endMinute) {
+    if (overnight && occursOn(yesterday) && minute < endMinute) {
         return ActiveWindow(yesterday, today.atTime(end))
     }
     return null
