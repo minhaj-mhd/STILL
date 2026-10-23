@@ -8,10 +8,13 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
+import app.still.launcher.focus.FocusSession
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
 import java.io.IOException
 
 /** User choices about apps. Favorites, hidden apps and renames are keyed by [InstalledApp.key]. */
@@ -58,6 +61,28 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
                 gateAlwaysOpenPackages = prefs[GATE_ALWAYS_OPEN_PACKAGES] ?: emptySet(),
             )
         }
+
+    /** The focus timer that's running, if any; kept apart from [settings] as it changes on its own. */
+    val focusSession: Flow<FocusSession?> = dataStore.data
+        .catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
+        .map { prefs -> prefs[FOCUS_SESSION]?.let(::decodeFocusSession) }
+
+    suspend fun currentFocusSession(): FocusSession? = focusSession.first()
+
+    suspend fun setFocusSession(session: FocusSession?) {
+        dataStore.edit { prefs ->
+            if (session == null) prefs.remove(FOCUS_SESSION) else prefs[FOCUS_SESSION] = json.encodeToString(FocusSession.serializer(), session)
+        }
+    }
+
+    /** A session saved by a different app version that can't be read is treated as none. */
+    private fun decodeFocusSession(text: String): FocusSession? = try {
+        json.decodeFromString(FocusSession.serializer(), text)
+    } catch (e: SerializationException) {
+        null
+    } catch (e: IllegalArgumentException) {
+        null
+    }
 
     /** The current settings, read once; for code outside the UI such as alarm receivers. */
     suspend fun current(): LauncherSettings = settings.first()
@@ -125,6 +150,8 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val DOUBLE_TAP_TO_LOCK = booleanPreferencesKey("doubleTapToLock")
         val PRECISION_WANTED = booleanPreferencesKey("precisionWanted")
         val GATE_ALWAYS_OPEN_PACKAGES = stringSetPreferencesKey("gateAlwaysOpenPackages")
+        val FOCUS_SESSION = stringPreferencesKey("focusSession")
+        val json = Json { ignoreUnknownKeys = true }
         const val RENAME_PREFIX = "rename:"
         const val SEPARATOR = "\n"
     }

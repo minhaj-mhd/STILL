@@ -34,6 +34,8 @@ import app.still.launcher.productivity.TaskEntry
 import app.still.launcher.productivity.TodayAgenda
 import app.still.launcher.ui.components.AddButton
 import app.still.launcher.ui.editor.EditorTarget
+import java.time.Instant
+import java.time.ZoneId
 
 /**
  * Left page, Today tab: what's due today, overdue tasks, today's habits, and tasks without a
@@ -48,6 +50,7 @@ fun TodayPage(
     viewModel: TodayViewModel = viewModel(factory = TodayViewModel.Factory),
 ) {
     val agenda by viewModel.agenda.collectAsStateWithLifecycle()
+    val focus by viewModel.focus.collectAsStateWithLifecycle()
     val hasReminders by viewModel.hasReminders.collectAsStateWithLifecycle()
 
     var adding by rememberSaveable { mutableStateOf(false) }
@@ -106,7 +109,15 @@ fun TodayPage(
                 if (current.habits.isNotEmpty()) {
                     item(key = "habits-title") { SectionTitle(R.string.today_section_habits) }
                     items(current.habits, key = { "habit:${it.habit.id}:${it.occurrence.time}" }) { entry ->
-                        HabitRow(entry, onToggle = { onHabitClick(entry) }, onLongClick = { habitMenu = entry }, locks = entry.appsLocked())
+                        HabitRow(
+                            entry = entry,
+                            onToggle = { onHabitClick(entry) },
+                            onLongClick = { habitMenu = entry },
+                            locks = entry.appsLocked(),
+                            focusUntil = focus?.takeIf { it.isFor(entry.habit.id, entry.occurrence) }?.let { session ->
+                                Instant.ofEpochMilli(session.endMillis).atZone(ZoneId.systemDefault()).toLocalTime()
+                            },
+                        )
                     }
                 }
                 taskSection(R.string.today_section_undated, current.undated, current, locks, subtasksShown, ::onTaskClick, onSubtaskClick) {
@@ -183,6 +194,15 @@ fun TodayPage(
                 habitMenu = null
             },
             locks = entry.appsLocked(),
+            timerRunning = focus?.isFor(entry.habit.id, entry.occurrence) == true,
+            onStartTimer = {
+                viewModel.startTimer(entry)
+                habitMenu = null
+            },
+            onStopTimer = {
+                viewModel.stopTimer()
+                habitMenu = null
+            },
         )
     }
 

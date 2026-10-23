@@ -84,6 +84,11 @@
                 android:resource="@xml/precision_service" />
         </service>
 
+        <!-- The focus timer's end alarm and its notification's Stop button. -->
+        <receiver
+            android:name=".focus.FocusTimerReceiver"
+            android:exported="false" />
+
         <!-- Re-arms the next reminder after events that clear or shift alarms. -->
         <receiver
             android:name=".reminders.SystemEventReceiver"

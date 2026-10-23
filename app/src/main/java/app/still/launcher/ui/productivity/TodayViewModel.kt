@@ -12,6 +12,8 @@ import app.still.launcher.data.productivity.HabitMeasure
 import app.still.launcher.data.productivity.ItemType
 import app.still.launcher.data.productivity.Priority
 import app.still.launcher.data.productivity.Task
+import app.still.launcher.focus.FocusSession
+import app.still.launcher.focus.FocusTimer
 import app.still.launcher.productivity.ACTIVE_REMINDER_LOOKBACK_DAYS
 import app.still.launcher.productivity.HabitEntry
 import app.still.launcher.productivity.Reminder
@@ -48,6 +50,7 @@ sealed interface QuickFrequency {
 class TodayViewModel(
     private val repository: ProductivityRepository,
     private val reminders: ReminderScheduler,
+    private val focusTimer: FocusTimer,
 ) : ViewModel() {
 
     /** The current minute, reported by the UI (see [setNow]). */
@@ -99,9 +102,23 @@ class TodayViewModel(
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    /** The focus timer that's running, if any. */
+    val focus: StateFlow<FocusSession?> = focusTimer.session
+
     /** The UI reports the time every minute and on resume, so the date and reminder cards stay current. */
     fun setNow(time: LocalDateTime) {
         now.value = time.withSecond(0).withNano(0)
+        // Its alarm finishes the timer too; this covers an alarm Android has delayed.
+        if (focus.value?.isDue(System.currentTimeMillis()) == true) viewModelScope.launch { focusTimer.finishIfDue() }
+    }
+
+    /** Starts the focus timer for what's left of a duration habit today. */
+    fun startTimer(entry: HabitEntry) {
+        viewModelScope.launch { focusTimer.start(entry.habit, entry.occurrence, entry.progress) }
+    }
+
+    fun stopTimer() {
+        viewModelScope.launch { focusTimer.stop() }
     }
 
     /** "Done" on a home reminder card; works like the notification's Done button. */
@@ -173,7 +190,7 @@ class TodayViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val container = (this[APPLICATION_KEY] as StillApplication).container
-                TodayViewModel(container.productivityRepository, container.reminderScheduler)
+                TodayViewModel(container.productivityRepository, container.reminderScheduler, container.focusTimer)
             }
         }
     }

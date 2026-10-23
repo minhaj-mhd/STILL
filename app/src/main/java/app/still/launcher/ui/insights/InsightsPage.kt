@@ -71,6 +71,7 @@ fun InsightsPage(
     }
     val summary by viewModel.screenTime.collectAsStateWithLifecycle()
     val streaks by viewModel.streaks.collectAsStateWithLifecycle()
+    val focusStats by viewModel.focusStats.collectAsStateWithLifecycle()
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
@@ -97,6 +98,7 @@ fun InsightsPage(
             ) {
                 ScreenTimeSection(apps, summary, hasUsageAccess, onAllowUsageAccess)
                 TodaySection(agenda)
+                focusStats?.let { FocusSection(it) }
                 if (streaks.isNotEmpty()) StreaksSection(streaks)
             }
         }
@@ -205,6 +207,20 @@ private fun TodaySection(agenda: TodayAgenda?) {
                 style = MaterialTheme.typography.titleMedium,
             )
         }
+    }
+}
+
+/** How many duration habits the focus timer finished this week, against those logged by hand. */
+@Composable
+private fun FocusSection(stats: FocusStats) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FieldLabel(stringResource(R.string.insights_focus))
+        Text(pluralStringResource(R.plurals.insights_focus_timer, stats.byTimer, stats.byTimer), style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = pluralStringResource(R.plurals.insights_focus_by_hand, stats.byHand, stats.byHand),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

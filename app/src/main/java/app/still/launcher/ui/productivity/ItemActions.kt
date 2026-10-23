@@ -29,6 +29,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.still.launcher.R
 import app.still.launcher.data.productivity.HabitMeasure
+import app.still.launcher.focus.timerMinutes
 import app.still.launcher.productivity.HabitEntry
 import app.still.launcher.productivity.TaskEntry
 
@@ -75,7 +76,8 @@ fun TaskActionsSheet(
 
 /**
  * A habit's long-press menu. When the habit keeps apps closed ([locks]), skipping or deleting it
- * goes through [BypassConfirmSheet] first.
+ * goes through [BypassConfirmSheet] first. A duration habit still to do can run the focus timer;
+ * [timerRunning] says whether it's running for this habit.
  */
 @Composable
 fun HabitActionsSheet(
@@ -86,6 +88,9 @@ fun HabitActionsSheet(
     onSetSkipped: (Boolean) -> Unit,
     onDelete: () -> Unit,
     locks: List<String> = emptyList(),
+    timerRunning: Boolean = false,
+    onStartTimer: () -> Unit = {},
+    onStopTimer: () -> Unit = {},
 ) {
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var confirmSkip by rememberSaveable { mutableStateOf(false) }
@@ -93,6 +98,11 @@ fun HabitActionsSheet(
     if (!confirmSkip && !(confirmDelete && locks.isNotEmpty())) {
         ActionsSheet(title = entry.habit.title, onDismiss = onDismiss) {
             ActionRow(stringResource(R.string.item_edit), onEdit)
+            if (timerRunning) {
+                ActionRow(stringResource(R.string.focus_stop_timer), onStopTimer)
+            } else if (entry.habit.measure == HabitMeasure.DURATION && !entry.isDone && !entry.isSkipped) {
+                ActionRow(stringResource(R.string.focus_start, timerMinutes(entry.habit.target, entry.progress)), onStartTimer)
+            }
             if (entry.habit.measure != HabitMeasure.CHECK) {
                 ActionRow(stringResource(R.string.item_log_amount), onLogAmount)
             }

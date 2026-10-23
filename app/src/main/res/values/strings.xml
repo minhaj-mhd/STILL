@@ -221,6 +221,28 @@
         <item quantity="other">%d gates</item>
     </plurals>
 
+    <!-- Focus timer -->
+    <string name="focus_channel_name">Focus timer</string>
+    <string name="focus_channel_description">While a focus timer runs, and when it finishes</string>
+    <string name="focus_notification_title">Focus: %1$s</string>
+    <string name="focus_notification_text">Until %1$s</string>
+    <string name="focus_stop">Stop</string>
+    <string name="focus_done_title">“%1$s” is done</string>
+    <string name="focus_done_text">%1$d min of focus</string>
+    <string name="focus_start">Start timer · %1$d min</string>
+    <string name="focus_stop_timer">Stop timer</string>
+    <string name="focus_until">Focusing until %1$s</string>
+    <string name="home_focus">Focusing on %1$s until %2$s</string>
+    <string name="insights_focus">Focus timer · last 7 days</string>
+    <plurals name="insights_focus_timer">
+        <item quantity="one">%d duration habit finished with the timer</item>
+        <item quantity="other">%d duration habits finished with the timer</item>
+    </plurals>
+    <plurals name="insights_focus_by_hand">
+        <item quantity="one">%d logged by hand</item>
+        <item quantity="other">%d logged by hand</item>
+    </plurals>
+
     <!-- Precision mode -->
     <string name="precision_service_label">STILL Precision mode</string>
     <string name="precision_service_description">Lets STILL notice which app is in front, so your blocks, schedules, launch delays and time reminders apply however you open an app, and lets you lock the screen by double-tapping home. STILL can\'t read what\'s on screen or what you type, and nothing leaves your phone.</string>

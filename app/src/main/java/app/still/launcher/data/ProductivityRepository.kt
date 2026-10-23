@@ -84,6 +84,10 @@ class ProductivityRepository(private val dao: ProductivityDao) {
         }
     }
 
+    /** What's logged for one occurrence of a habit so far; 0 when nothing is. */
+    suspend fun getHabitProgress(habitId: Long, occurrence: Occurrence): Double =
+        dao.getRecord(ItemType.HABIT, habitId, occurrence.date, OccurrenceRecord.slotMinuteOf(occurrence))?.value ?: 0.0
+
     /** Sets a habit's progress for one occurrence: 1 for a check, or the count, minutes or amount so far. */
     suspend fun setHabitProgress(habit: Habit, occurrence: Occurrence, value: Double, viaTimer: Boolean = false) {
         setProgress(ItemType.HABIT, habit.id, occurrence, value, viaTimer)

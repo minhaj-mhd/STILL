@@ -36,11 +36,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.still.launcher.R
+import app.still.launcher.focus.FocusSession
 import app.still.launcher.productivity.Reminder
 import app.still.launcher.ui.LauncherApp
 import app.still.launcher.ui.components.AppLabel
+import app.still.launcher.ui.components.formatTime
 import app.still.launcher.ui.components.rememberCurrentMinute
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -54,6 +58,8 @@ fun HomePage(
     /** Apps task gates keep closed right now, and how many items they wait for. */
     lockedApps: Int,
     itemsToGo: Int,
+    /** The focus timer that's running, if any. */
+    focus: FocusSession?,
     onDueTasksClick: () -> Unit,
     reminders: List<Reminder>,
     today: LocalDate,
@@ -94,6 +100,7 @@ fun HomePage(
         Clock(onClick = onClockClick)
         if (dueTasks > 0) DueTasks(dueTasks, overdueTasks, onDueTasksClick)
         if (lockedApps > 0) LockedApps(lockedApps, itemsToGo, onDueTasksClick)
+        focus?.let { Focusing(it, onDueTasksClick) }
         if (reminders.isNotEmpty()) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -227,6 +234,20 @@ private fun DueTasks(dueTasks: Int, overdueTasks: Int, onClick: () -> Unit) {
     }.joinToString(" · ")
     Text(
         text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+    )
+}
+
+/** "Focusing on Read until 14:35" while the focus timer runs; tapping it opens the Today page. */
+@Composable
+private fun Focusing(session: FocusSession, onClick: () -> Unit) {
+    val until = Instant.ofEpochMilli(session.endMillis).atZone(ZoneId.systemDefault()).toLocalTime()
+    Text(
+        text = stringResource(R.string.home_focus, session.title, formatTime(until)),
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier

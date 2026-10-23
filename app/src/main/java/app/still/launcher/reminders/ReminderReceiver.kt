@@ -46,8 +46,8 @@ class ReminderReceiver : BroadcastReceiver() {
 
 /**
  * System events after which the next alarm must be set again: reboot, clock or time zone
- * changes, an app update, or the exact-alarm permission being granted. Exported for those
- * broadcasts only; anything else is ignored.
+ * changes, an app update, or the exact-alarm permission being granted. The focus timer's alarm
+ * and notification are restored too. Exported for those broadcasts only; anything else is ignored.
  */
 class SystemEventReceiver : BroadcastReceiver() {
 
@@ -58,6 +58,7 @@ class SystemEventReceiver : BroadcastReceiver() {
         container.applicationScope.launch {
             try {
                 container.reminderScheduler.rescheduleNext()
+                container.focusTimer.restore()
             } finally {
                 pending.finish()
             }

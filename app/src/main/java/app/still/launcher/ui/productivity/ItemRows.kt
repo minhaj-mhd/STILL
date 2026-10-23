@@ -36,6 +36,7 @@ import app.still.launcher.ui.components.formatShortDate
 import app.still.launcher.ui.components.formatTime
 import java.math.RoundingMode
 import java.time.LocalDate
+import java.time.LocalTime
 
 /**
  * Tapping anywhere on the row ticks the task off; editing is in the long-press menu. [locks]
@@ -93,7 +94,8 @@ fun SubtaskRow(subtask: Task, onToggle: () -> Unit) {
 
 /**
  * Tapping anywhere on the row logs progress; editing and streaks are in the long-press menu.
- * [locks] names the apps a task gate keeps closed until it's done.
+ * [locks] names the apps a task gate keeps closed until it's done; [focusUntil] is when its
+ * running focus timer ends.
  */
 @Composable
 fun HabitRow(
@@ -101,6 +103,7 @@ fun HabitRow(
     onToggle: () -> Unit,
     onLongClick: () -> Unit,
     locks: List<String> = emptyList(),
+    focusUntil: LocalTime? = null,
 ) {
     val habit = entry.habit
     val progress = when (habit.measure) {
@@ -131,6 +134,7 @@ fun HabitRow(
         progress,
         quota,
         stringResource(R.string.today_skipped).takeIf { entry.isSkipped },
+        focusUntil?.let { stringResource(R.string.focus_until, formatTime(it)) },
         locksText(locks),
     )
     ItemRow(

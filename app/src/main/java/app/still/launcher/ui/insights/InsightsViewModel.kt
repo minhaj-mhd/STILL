@@ -10,6 +10,7 @@ import app.still.launcher.data.ProductivityRepository
 import app.still.launcher.data.ScreenTimeRepository
 import app.still.launcher.data.ScreenTimeSummary
 import app.still.launcher.data.productivity.Habit
+import app.still.launcher.data.productivity.HabitMeasure
 import app.still.launcher.data.productivity.ItemType
 import app.still.launcher.productivity.HabitStats
 import app.still.launcher.productivity.habitStats
@@ -25,6 +26,9 @@ import java.time.LocalDate
 
 /** A habit and its current streak, for the Insights page. */
 data class HabitStreak(val habit: Habit, val stats: HabitStats)
+
+/** Duration habits finished over the last week: by the focus timer, and logged by hand. */
+data class FocusStats(val byTimer: Int, val byHand: Int)
 
 class InsightsViewModel(
     private val screenTimeRepository: ScreenTimeRepository,
@@ -51,6 +55,22 @@ class InsightsViewModel(
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Null when no duration habit was finished in the last week. */
+    val focusStats: StateFlow<FocusStats?> = combine(
+        productivity.habits,
+        productivity.records(LocalDate.now().minusDays(FOCUS_DAYS - 1), LocalDate.now()),
+    ) { habits, records ->
+        val durationHabits = habits.filter { it.measure == HabitMeasure.DURATION }.associateBy { it.id }
+        val finished = records.filter { record ->
+            record.itemType == ItemType.HABIT && !record.skipped &&
+                durationHabits[record.itemId]?.let { record.value >= it.target } == true
+        }
+        FocusStats(byTimer = finished.count { it.viaTimer }, byHand = finished.count { !it.viaTimer })
+            .takeIf { finished.isNotEmpty() }
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     fun hasUsageAccess(): Boolean = screenTimeRepository.hasAccess()
 
     /** Reads screen time again; called when the page opens and when STILL comes back to the front. */
@@ -60,6 +80,7 @@ class InsightsViewModel(
 
     companion object {
         private const val STREAK_LOOKBACK_DAYS = 366L
+        private const val FOCUS_DAYS = 7L
 
         val Factory = viewModelFactory {
             initializer {

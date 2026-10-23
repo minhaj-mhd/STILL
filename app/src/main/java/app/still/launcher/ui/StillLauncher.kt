@@ -92,6 +92,7 @@ fun StillLauncher(
     val todayViewModel: TodayViewModel = viewModel(factory = TodayViewModel.Factory)
     val agenda by todayViewModel.agenda.collectAsStateWithLifecycle()
     val activeReminders by todayViewModel.activeReminders.collectAsStateWithLifecycle()
+    val focus by todayViewModel.focus.collectAsStateWithLifecycle()
     // One clock for everything time-based: the Today page's date and home's reminder cards.
     val now by rememberCurrentMinute()
     LaunchedEffect(now) {
@@ -309,6 +310,7 @@ fun StillLauncher(
                     overdueTasks = agenda?.overdueTaskCount ?: 0,
                     lockedApps = state.gateLocks.lockedAppCount,
                     itemsToGo = state.gateLocks.itemsToGo,
+                    focus = focus,
                     onDueTasksClick = {
                         leftTab = LeftTab.TODAY
                         scope.launch { pagerState.animateScrollToPage(Page.Productivity.ordinal) }
