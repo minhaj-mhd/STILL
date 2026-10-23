@@ -3,6 +3,9 @@ package app.still.launcher
 import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
 import app.still.launcher.data.AppRepository
+import app.still.launcher.data.BlockingRepository
+import app.still.launcher.data.ScreenTimeRepository
+import app.still.launcher.util.EssentialApps
 import app.still.launcher.data.LauncherPreferences
 import app.still.launcher.data.NotesRepository
 import app.still.launcher.data.ProductivityRepository
@@ -25,5 +28,8 @@ class AppContainer(context: Context) {
     val appRepository = AppRepository(context)
     val productivityRepository = ProductivityRepository(database.productivityDao())
     val notesRepository = NotesRepository(database.noteDao())
+    val blockingRepository = BlockingRepository(database.appBlockDao())
+    val screenTimeRepository = ScreenTimeRepository(context)
+    val essentialApps = EssentialApps(context)
     val reminderScheduler = ReminderScheduler(context, productivityRepository, applicationScope)
 }

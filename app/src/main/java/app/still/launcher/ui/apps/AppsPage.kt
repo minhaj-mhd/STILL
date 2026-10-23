@@ -1,6 +1,5 @@
 package app.still.launcher.ui.apps
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,11 +17,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
@@ -47,18 +42,16 @@ fun AppsPage(
 ) {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
-    var showHidden by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(isCurrentPage) {
         if (!isCurrentPage) {
             focusManager.clearFocus()
             keyboard?.hide()
-            showHidden = false
         }
     }
 
+    // Hidden apps are neither listed nor searchable here; they live in Settings > Hidden apps.
     val visibleApps = remember(apps) { apps.filterNot { it.isHidden } }
-    val hiddenApps = remember(apps) { apps.filter { it.isHidden } }
     val results = remember(visibleApps, query) { search(visibleApps, query) }
 
     Column(
@@ -103,31 +96,6 @@ fun AppsPage(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 16.dp),
                     )
-                }
-            }
-
-            // Hidden apps stay reachable, one deliberate tap away, and are never in search results.
-            if (query.isBlank() && hiddenApps.isNotEmpty()) {
-                item(key = "hidden-toggle") {
-                    Text(
-                        text = stringResource(R.string.apps_hidden_section, hiddenApps.size),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showHidden = !showHidden }
-                            .padding(top = 32.dp, bottom = 12.dp),
-                    )
-                }
-                if (showHidden) {
-                    items(hiddenApps, key = { "hidden:${it.key}" }) { app ->
-                        AppLabel(
-                            app = app,
-                            onClick = { onLaunch(app) },
-                            onLongClick = { onLongPress(app) },
-                            dimmed = true,
-                        )
-                    }
                 }
             }
         }

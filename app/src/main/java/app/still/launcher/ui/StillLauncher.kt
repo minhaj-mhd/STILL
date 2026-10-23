@@ -7,6 +7,12 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -16,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -26,15 +33,21 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.still.launcher.R
+import app.still.launcher.data.AppScreenTime
 import app.still.launcher.ui.apps.AppActionsSheet
 import app.still.launcher.ui.apps.AppsPage
+import app.still.launcher.ui.apps.BlockAppSheet
+import app.still.launcher.ui.apps.BlockedScreen
 import app.still.launcher.ui.apps.RenameAppDialog
 import app.still.launcher.ui.components.rememberCurrentMinute
 import app.still.launcher.ui.editor.EditorHost
 import app.still.launcher.ui.editor.EditorTarget
 import app.still.launcher.ui.editor.EditorTargetSaver
 import app.still.launcher.ui.home.HomePage
+import app.still.launcher.ui.insights.InsightsPage
 import app.still.launcher.ui.notes.NotesPage
+import app.still.launcher.ui.settings.SettingsPage
+import app.still.launcher.ui.settings.SettingsScreen
 import app.still.launcher.ui.productivity.LeftPageTabs
 import app.still.launcher.ui.productivity.LeftTab
 import app.still.launcher.ui.productivity.TodayPage
@@ -48,6 +61,9 @@ import kotlinx.coroutines.launch
 
 /** The three swipeable pages, left to right. STILL always opens on [Home]. */
 private enum class Page { Productivity, Home, Apps }
+
+/** Full-screen views over the pages, opened by swiping up on home. Back goes up this list. */
+private enum class Overlay { INSIGHTS, SETTINGS, HIDDEN_APPS, BLOCKED_APPS }
 
 @Composable
 fun StillLauncher(
@@ -64,7 +80,10 @@ fun StillLauncher(
     val activeReminders by todayViewModel.activeReminders.collectAsStateWithLifecycle()
     // One clock for everything time-based: the Today page's date and home's reminder cards.
     val now by rememberCurrentMinute()
-    LaunchedEffect(now) { todayViewModel.setNow(now.toLocalDateTime()) }
+    LaunchedEffect(now) {
+        todayViewModel.setNow(now.toLocalDateTime())
+        viewModel.setNow(now.toInstant())
+    }
     val pagerState = rememberPagerState(initialPage = Page.Home.ordinal) { Page.entries.size }
     val scope = rememberCoroutineScope()
 
@@ -73,14 +92,26 @@ fun StillLauncher(
     var renameAppKey by rememberSaveable { mutableStateOf<String?>(null) }
     var editor by rememberSaveable(stateSaver = EditorTargetSaver) { mutableStateOf<EditorTarget?>(null) }
     var leftTab by rememberSaveable { mutableStateOf(LeftTab.TODAY) }
+    var overlay by rememberSaveable { mutableStateOf<Overlay?>(null) }
+    var blockAppKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var blockedScreenKey by rememberSaveable { mutableStateOf<String?>(null) }
     // Look apps up by key so an open menu reflects changes (e.g. favorite toggled) immediately.
     val menuApp = state.apps.firstOrNull { it.key == menuAppKey }
     val renameApp = state.apps.firstOrNull { it.key == renameAppKey }
+    val blockApp = state.apps.firstOrNull { it.key == blockAppKey }
+    val blockedScreenApp = state.apps.firstOrNull { it.key == blockedScreenKey }
 
     var isDefaultLauncher by remember { mutableStateOf(context.isDefaultLauncher()) }
+    var hasUsageAccess by remember { mutableStateOf(viewModel.hasUsageAccess()) }
     LifecycleResumeEffect(Unit) {
         isDefaultLauncher = context.isDefaultLauncher()
+        hasUsageAccess = viewModel.hasUsageAccess()
         onPauseOrDispose { }
+    }
+    // Screen time for whichever app the menu or block sheet is about.
+    val screenTimeApp = blockApp ?: menuApp
+    val screenTime by produceState<AppScreenTime?>(null, screenTimeApp?.key, hasUsageAccess) {
+        value = screenTimeApp?.let { viewModel.screenTime(it) }
     }
     val defaultLauncherRequest = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -95,10 +126,23 @@ fun StillLauncher(
         }
     }
 
+    fun requestDefaultLauncher() {
+        try {
+            defaultLauncherRequest.launch(context.defaultLauncherRequestIntent())
+        } catch (e: ActivityNotFoundException) {
+            context.startActivity(homeSettingsIntent())
+        }
+    }
+
     fun launchApp(app: LauncherApp) {
+        if (app.isBlocked) {
+            blockedScreenKey = app.key
+            return
+        }
         if (viewModel.launch(app)) {
             query = ""
-            // Coming back to STILL should land on home, not on the list you left from.
+            // Coming back to STILL should land on home, not on the list or page you left from.
+            overlay = null
             goHome(animate = false)
         } else {
             Toast.makeText(context, resources.getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
@@ -111,7 +155,10 @@ fun StillLauncher(
             query = ""
             menuAppKey = null
             renameAppKey = null
+            blockAppKey = null
+            blockedScreenKey = null
             editor = null
+            overlay = null
             goHome(animate = true)
         }
     }
@@ -120,6 +167,7 @@ fun StillLauncher(
     LaunchedEffect(todayRequests) {
         todayRequests.collect {
             editor = null
+            overlay = null
             leftTab = LeftTab.TODAY
             pagerState.animateScrollToPage(Page.Productivity.ordinal)
         }
@@ -147,13 +195,7 @@ fun StillLauncher(
                 Page.Home -> HomePage(
                     favorites = state.favorites,
                     isDefaultLauncher = isDefaultLauncher,
-                    onSetDefaultLauncher = {
-                        try {
-                            defaultLauncherRequest.launch(context.defaultLauncherRequestIntent())
-                        } catch (e: ActivityNotFoundException) {
-                            context.startActivity(homeSettingsIntent())
-                        }
-                    },
+                    onSetDefaultLauncher = ::requestDefaultLauncher,
                     onClockClick = {
                         try {
                             context.startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS))
@@ -173,6 +215,7 @@ fun StillLauncher(
                     onReminderDismiss = todayViewModel::dismissReminder,
                     onLaunch = ::launchApp,
                     onLongPress = { menuAppKey = it.key },
+                    onSwipeUp = { overlay = Overlay.INSIGHTS },
                 )
                 Page.Apps -> AppsPage(
                     apps = state.apps,
@@ -189,10 +232,76 @@ fun StillLauncher(
     // Task and habit editors cover the pages; their own Back handler takes priority over the pager's.
     editor?.let { target -> EditorHost(target, onClose = { editor = null }) }
 
+    // Insights slides up from home; Settings and its lists open on top of it.
+    AnimatedContent(
+        targetState = overlay,
+        transitionSpec = {
+            when {
+                initialState == null -> slideInVertically { it } togetherWith fadeOut()
+                targetState == null -> fadeIn() togetherWith slideOutVertically { it }
+                else -> fadeIn() togetherWith fadeOut()
+            }
+        },
+        label = "overlay",
+        modifier = Modifier.fillMaxSize(),
+    ) { current ->
+        when (current) {
+            null -> Unit
+            Overlay.INSIGHTS -> InsightsPage(
+                apps = state.apps,
+                agenda = agenda,
+                onOpenSettings = { overlay = Overlay.SETTINGS },
+                onAllowUsageAccess = { context.startActivity(viewModel.usageAccessIntent()) },
+                onClose = { overlay = null },
+            )
+            Overlay.SETTINGS, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS -> SettingsScreen(
+                page = when (current) {
+                    Overlay.HIDDEN_APPS -> SettingsPage.HIDDEN_APPS
+                    Overlay.BLOCKED_APPS -> SettingsPage.BLOCKED_APPS
+                    else -> SettingsPage.MAIN
+                },
+                onNavigate = { page ->
+                    overlay = when (page) {
+                        SettingsPage.MAIN -> Overlay.SETTINGS
+                        SettingsPage.HIDDEN_APPS -> Overlay.HIDDEN_APPS
+                        SettingsPage.BLOCKED_APPS -> Overlay.BLOCKED_APPS
+                    }
+                },
+                onClose = { overlay = Overlay.INSIGHTS },
+                apps = state.apps,
+                isDefaultLauncher = isDefaultLauncher,
+                onSetDefaultLauncher = ::requestDefaultLauncher,
+                hasUsageAccess = hasUsageAccess,
+                onAllowUsageAccess = { context.startActivity(viewModel.usageAccessIntent()) },
+                canNotify = todayViewModel::canNotify,
+                canScheduleExactAlarms = todayViewModel::canScheduleExactAlarms,
+                onLaunch = ::launchApp,
+                onLongPressApp = { menuAppKey = it.key },
+            )
+        }
+    }
+
+    // Opening a blocked app lands here instead; it closes itself when the block runs out.
+    blockedScreenApp?.let { app ->
+        val until = app.blockedUntil
+        if (until == null) {
+            LaunchedEffect(app.key) { blockedScreenKey = null }
+        } else {
+            BlockedScreen(app.label, until, onClose = { blockedScreenKey = null })
+        }
+    }
+
     menuApp?.let { app ->
         AppActionsSheet(
             app = app,
+            screenTime = screenTime,
+            hasUsageAccess = hasUsageAccess,
             onDismiss = { menuAppKey = null },
+            onAllowUsageAccess = { context.startActivity(viewModel.usageAccessIntent()) },
+            onBlock = {
+                menuAppKey = null
+                blockAppKey = app.key
+            },
             onSetFavorite = { favorite ->
                 viewModel.setFavorite(app, favorite)
                 menuAppKey = null
@@ -212,6 +321,18 @@ fun StillLauncher(
             onUninstall = {
                 viewModel.uninstall(app)
                 menuAppKey = null
+            },
+        )
+    }
+
+    blockApp?.let { app ->
+        BlockAppSheet(
+            app = app,
+            screenTime = screenTime,
+            onDismiss = { blockAppKey = null },
+            onBlock = { duration ->
+                viewModel.block(app, duration)
+                blockAppKey = null
             },
         )
     }

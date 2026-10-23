@@ -42,7 +42,8 @@ fun AppLabel(
             )
             .padding(vertical = 10.dp),
     ) {
-        val color = if (dimmed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground
+        // Blocked apps stay listed, greyed out, so you can see what's blocked.
+        val color = if (dimmed || app.isBlocked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground
         Text(
             text = app.label,
             style = style,
@@ -51,13 +52,18 @@ fun AppLabel(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),
         )
-        if (app.isWorkProfile) {
-            Text(
-                text = stringResource(R.string.apps_work_label),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
-            )
-        }
+        if (app.isWorkProfile) Tag(stringResource(R.string.apps_work_label))
+        if (app.isBlocked) Tag(stringResource(R.string.apps_blocked_label))
     }
+}
+
+/** A small grey word after an app's name, e.g. "work" or "blocked". */
+@Composable
+private fun Tag(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
+    )
 }

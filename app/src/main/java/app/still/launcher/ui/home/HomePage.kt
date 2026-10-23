@@ -10,9 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -21,9 +20,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -53,11 +55,13 @@ fun HomePage(
     onReminderDismiss: (Reminder) -> Unit,
     onLaunch: (LauncherApp) -> Unit,
     onLongPress: (LauncherApp) -> Unit,
+    onSwipeUp: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
+            .swipeUp(onSwipeUp)
             .systemBarsPadding()
             .padding(horizontal = 32.dp, vertical = 24.dp),
     ) {
@@ -107,20 +111,47 @@ fun HomePage(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                LazyColumn {
-                    items(favorites, key = { it.key }) { app ->
-                        AppLabel(
-                            app = app,
-                            onClick = { onLaunch(app) },
-                            onLongClick = { onLongPress(app) },
-                            style = MaterialTheme.typography.headlineMedium,
-                        )
+                // A plain column, not a scrolling list, so a swipe that starts on a favorite still
+                // reaches the swipe-up gesture. Home is for a handful of apps anyway.
+                Column {
+                    favorites.forEach { app ->
+                        key(app.key) {
+                            AppLabel(
+                                app = app,
+                                onClick = { onLaunch(app) },
+                                onLongClick = { onLongPress(app) },
+                                style = MaterialTheme.typography.headlineMedium,
+                            )
+                        }
                     }
                 }
             }
         }
     }
 }
+
+/**
+ * Calls [onSwipeUp] after an upward drag of at least [SWIPE_UP_DISTANCE]. Taps and sideways
+ * swipes (to the other pages) pass through untouched.
+ */
+@Composable
+private fun Modifier.swipeUp(onSwipeUp: () -> Unit): Modifier {
+    val currentOnSwipeUp by rememberUpdatedState(onSwipeUp)
+    val distance = with(LocalDensity.current) { SWIPE_UP_DISTANCE.toPx() }
+    return pointerInput(Unit) {
+        var dragged = 0f
+        detectVerticalDragGestures(
+            onDragStart = { dragged = 0f },
+            onVerticalDrag = { change, amount ->
+                dragged += amount
+                change.consume()
+            },
+            onDragEnd = { if (dragged <= -distance) currentOnSwipeUp() },
+        )
+    }
+}
+
+private val SWIPE_UP_DISTANCE = 72.dp
 
 @Composable
 private fun Clock(onClick: () -> Unit) {

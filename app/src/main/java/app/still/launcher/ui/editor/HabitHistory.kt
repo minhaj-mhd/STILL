@@ -49,8 +49,9 @@ private fun StatNumber(label: String, value: String) {
     }
 }
 
+/** "5 in a row", "3 weeks", "2 months". */
 @Composable
-private fun streakText(count: Int, unit: StreakUnit): String = when (unit) {
+fun streakText(count: Int, unit: StreakUnit): String = when (unit) {
     StreakUnit.OCCURRENCES -> pluralStringResource(R.plurals.streak_occurrences, count, count)
     StreakUnit.WEEKS -> pluralStringResource(R.plurals.streak_weeks, count, count)
     StreakUnit.MONTHS -> pluralStringResource(R.plurals.streak_months, count, count)

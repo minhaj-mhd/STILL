@@ -2,7 +2,10 @@ package app.still.launcher.ui.apps
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -29,14 +33,20 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import app.still.launcher.R
+import app.still.launcher.data.AppScreenTime
 import app.still.launcher.ui.LauncherApp
+import app.still.launcher.ui.components.formatDuration
 
 /** Things you can do with an app; opened by long-pressing it on home or in the app list. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppActionsSheet(
     app: LauncherApp,
+    screenTime: AppScreenTime?,
+    hasUsageAccess: Boolean,
     onDismiss: () -> Unit,
+    onAllowUsageAccess: () -> Unit,
+    onBlock: () -> Unit,
     onSetFavorite: (Boolean) -> Unit,
     onRename: () -> Unit,
     onSetHidden: (Boolean) -> Unit,
@@ -52,11 +62,31 @@ fun AppActionsSheet(
                 .navigationBarsPadding()
                 .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
         ) {
-            Text(
-                text = app.label,
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
+            Text(text = app.label, style = MaterialTheme.typography.headlineSmall)
+            when {
+                screenTime != null -> Text(
+                    text = stringResource(
+                        R.string.screen_time_summary,
+                        formatDuration(screenTime.today),
+                        formatDuration(screenTime.lastSevenDays),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                !hasUsageAccess -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.screen_time_needs_access),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = onAllowUsageAccess) { Text(stringResource(R.string.screen_time_allow)) }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            if (app.canBlock && !app.isBlocked) {
+                ActionRow(stringResource(R.string.action_block), onBlock)
+            }
             if (!app.isHidden) {
                 if (app.isFavorite) {
                     ActionRow(stringResource(R.string.action_remove_favorite)) { onSetFavorite(false) }
