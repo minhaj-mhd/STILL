@@ -30,7 +30,7 @@ import app.still.launcher.ui.apps.AppActionsSheet
 import app.still.launcher.ui.apps.AppsPage
 import app.still.launcher.ui.apps.RenameAppDialog
 import app.still.launcher.ui.home.HomePage
-import app.still.launcher.ui.productivity.ProductivityPage
+import app.still.launcher.ui.productivity.TodayPage
 import app.still.launcher.util.defaultLauncherRequestIntent
 import app.still.launcher.util.homeSettingsIntent
 import app.still.launcher.util.isDefaultLauncher
@@ -108,7 +108,7 @@ fun StillLauncher(
             modifier = Modifier.fillMaxSize(),
         ) { page ->
             when (Page.entries[page]) {
-                Page.Productivity -> ProductivityPage()
+                Page.Productivity -> TodayPage()
                 Page.Home -> HomePage(
                     favorites = state.favorites,
                     isDefaultLauncher = isDefaultLauncher,

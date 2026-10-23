@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">STILL</string>
 
     <!-- Home -->
@@ -29,7 +29,65 @@
 
     <string name="launch_failed">Couldn\'t open %1$s</string>
 
-    <!-- Productivity page (stage 2) -->
-    <string name="productivity_title">Today</string>
-    <string name="productivity_placeholder">Tasks, habits and notes arrive in stage 2.</string>
+    <!-- Today page -->
+    <string name="today_title">Today</string>
+    <plurals name="today_left">
+        <item quantity="one">%d thing left</item>
+        <item quantity="other">%d things left</item>
+    </plurals>
+    <string name="today_all_done">All done for today</string>
+    <string name="today_empty">Nothing due today.\nTap + to add a task or habit.</string>
+    <string name="today_section_overdue">Overdue</string>
+    <string name="today_section_today">Due today</string>
+    <string name="today_section_habits">Habits</string>
+    <string name="today_section_undated">No date</string>
+    <string name="today_yesterday">Yesterday</string>
+    <string name="today_skipped">Skipped</string>
+    <!-- "2/3 this week": a fraction, not a count of things, so no plural form is needed. -->
+    <string name="today_quota_week" tools:ignore="PluralsCandidate">%1$d/%2$d this week</string>
+    <string name="today_quota_month" tools:ignore="PluralsCandidate">%1$d/%2$d this month</string>
+    <string name="today_progress">%1$s / %2$s</string>
+    <string name="today_progress_unit">%1$s / %2$s %3$s</string>
+    <string name="today_minutes_unit">min</string>
+    <string name="today_add">Add task or habit</string>
+
+    <!-- Quick add -->
+    <string name="add_kind_task">Task</string>
+    <string name="add_kind_habit">Habit</string>
+    <string name="add_task_hint">What needs doing?</string>
+    <string name="add_habit_hint">What do you want to do regularly?</string>
+    <string name="add_when">When</string>
+    <string name="add_when_none">No date</string>
+    <string name="add_when_today">Today</string>
+    <string name="add_when_tomorrow">Tomorrow</string>
+    <string name="add_when_pick">Pick date</string>
+    <string name="add_priority">Priority</string>
+    <string name="priority_none">None</string>
+    <string name="priority_low">Low</string>
+    <string name="priority_medium">Medium</string>
+    <string name="priority_high">High</string>
+    <string name="add_track">Track</string>
+    <string name="measure_check">Done or not</string>
+    <string name="measure_count">Count</string>
+    <string name="measure_minutes">Minutes</string>
+    <string name="add_target">Target per day</string>
+    <string name="add_how_often">How often</string>
+    <string name="add_often_daily">Every day</string>
+    <string name="add_often_weekly">%d× a week</string>
+    <string name="add_confirm">Add</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+
+    <!-- Task and habit long-press menu -->
+    <string name="item_skip_today">Skip today</string>
+    <string name="item_unskip">Undo skip</string>
+    <string name="item_log_amount">Log amount</string>
+    <string name="item_delete_task">Delete task</string>
+    <string name="item_delete_habit">Delete habit</string>
+    <string name="item_delete_title">Delete “%1$s”?</string>
+    <string name="item_delete_task_detail">Its subtasks and history will be deleted too.</string>
+    <string name="item_delete_habit_detail">Its history will be deleted too.</string>
+    <string name="item_delete_confirm">Delete</string>
+    <string name="item_amount_title">How much for “%1$s”?</string>
+    <string name="item_amount_save">Save</string>
 </resources>

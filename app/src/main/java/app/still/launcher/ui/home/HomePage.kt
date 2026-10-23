@@ -1,9 +1,5 @@
 package app.still.launcher.ui.home
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.text.format.DateFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,11 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -36,12 +28,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.still.launcher.R
 import app.still.launcher.ui.LauncherApp
 import app.still.launcher.ui.components.AppLabel
-import java.time.ZonedDateTime
+import app.still.launcher.ui.components.rememberCurrentMinute
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -117,38 +107,6 @@ private fun Clock(onClick: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-}
-
-/**
- * The current time, refreshed by the system's once-a-minute tick and on resume.
- * Coroutine delays pause while the device sleeps, so they can't drive a clock.
- */
-@Composable
-private fun rememberCurrentMinute(): State<ZonedDateTime> {
-    val context = LocalContext.current
-    val time = remember { mutableStateOf(ZonedDateTime.now()) }
-
-    DisposableEffect(context) {
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                time.value = ZonedDateTime.now()
-            }
-        }
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_TIME_TICK)
-            addAction(Intent.ACTION_TIME_CHANGED)
-            addAction(Intent.ACTION_TIMEZONE_CHANGED)
-        }
-        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
-        onDispose { context.unregisterReceiver(receiver) }
-    }
-
-    LifecycleResumeEffect(Unit) {
-        time.value = ZonedDateTime.now()
-        onPauseOrDispose { }
-    }
-
-    return time
 }
 
 @Composable
