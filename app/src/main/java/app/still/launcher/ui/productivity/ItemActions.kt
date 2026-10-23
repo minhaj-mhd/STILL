@@ -137,7 +137,7 @@ fun AmountDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ActionsSheet(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
+internal fun ActionsSheet(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -158,7 +158,7 @@ private fun ActionsSheet(title: String, onDismiss: () -> Unit, content: @Composa
 }
 
 @Composable
-private fun ActionRow(text: String, onClick: () -> Unit) {
+internal fun ActionRow(text: String, onClick: () -> Unit) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleMedium,

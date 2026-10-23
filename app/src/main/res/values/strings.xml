@@ -63,6 +63,29 @@
     <string name="today_minutes_unit">min</string>
     <string name="today_add">Add task or habit</string>
 
+    <!-- Notes -->
+    <string name="notes_title">Notes</string>
+    <plurals name="notes_count">
+        <item quantity="one">%d note</item>
+        <item quantity="other">%d notes</item>
+    </plurals>
+    <string name="notes_empty">No notes yet.\nTap + to write one.</string>
+    <string name="notes_pinned">Pinned</string>
+    <string name="notes_others">Others</string>
+    <string name="notes_add">Add note</string>
+    <string name="note_untitled">Untitled</string>
+    <string name="note_checklist_progress" tools:ignore="PluralsCandidate">%1$d/%2$d done</string>
+    <string name="note_text_hint">Write something…</string>
+    <string name="note_checklist">Checklist</string>
+    <string name="note_add_item">Add item</string>
+    <string name="note_remove_item">Remove item</string>
+    <string name="note_pin">Pin to top</string>
+    <string name="note_unpin">Unpin</string>
+    <string name="note_delete">Delete note</string>
+    <string name="note_delete_detail">This can\'t be undone.</string>
+    <string name="editor_new_note">New note</string>
+    <string name="editor_note">Note</string>
+
     <!-- Quick add -->
     <string name="add_kind_task">Task</string>
     <string name="add_kind_habit">Habit</string>

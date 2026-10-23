@@ -1,15 +1,18 @@
 package app.still.launcher.data.productivity
 
 import androidx.room.TypeConverter
+import app.still.launcher.data.notes.ChecklistItem
 import app.still.launcher.schedule.Quota
 import app.still.launcher.schedule.Schedule
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.time.LocalDate
 
 /**
  * Dates are stored as ISO text ("2026-10-23") so they sort and compare correctly in SQL.
- * Schedules and quotas are stored as JSON; unknown keys are ignored so older app versions
+ * Schedules, quotas and note checklists are stored as JSON; unknown keys are ignored so older app versions
  * can still read rows written by newer ones.
  */
 class Converters {
@@ -38,7 +41,15 @@ class Converters {
     @TypeConverter
     fun jsonToQuota(text: String): Quota = json.decodeFromString(Quota.serializer(), text)
 
+    @TypeConverter
+    fun checklistToJson(items: List<ChecklistItem>): String = json.encodeToString(checklistSerializer, items)
+
+    @TypeConverter
+    fun jsonToChecklist(text: String): List<ChecklistItem> = json.decodeFromString(checklistSerializer, text)
+
     private companion object {
         val json = Json { ignoreUnknownKeys = true }
+        // Typed explicitly: Room's code generator can't see the serialization plugin's generated serializer().
+        val checklistSerializer: KSerializer<List<ChecklistItem>> = ListSerializer(ChecklistItem.serializer())
     }
 }

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
 import app.still.launcher.data.AppRepository
 import app.still.launcher.data.LauncherPreferences
+import app.still.launcher.data.NotesRepository
 import app.still.launcher.data.ProductivityRepository
 import app.still.launcher.data.StillDatabase
 import app.still.launcher.reminders.ReminderScheduler
@@ -23,5 +24,6 @@ class AppContainer(context: Context) {
     val preferences = LauncherPreferences(context.launcherDataStore)
     val appRepository = AppRepository(context)
     val productivityRepository = ProductivityRepository(database.productivityDao())
+    val notesRepository = NotesRepository(database.noteDao())
     val reminderScheduler = ReminderScheduler(context, productivityRepository, applicationScope)
 }

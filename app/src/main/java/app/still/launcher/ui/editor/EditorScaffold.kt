@@ -81,12 +81,17 @@ fun TitleField(value: String, onValueChange: (String) -> Unit) {
 }
 
 @Composable
-fun NotesField(value: String, onValueChange: (String) -> Unit) {
+fun NotesField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String = stringResource(R.string.editor_notes_hint),
+    minLines: Int = 2,
+) {
     TextField(
         value = value,
         onValueChange = onValueChange,
-        placeholder = { Text(stringResource(R.string.editor_notes_hint)) },
-        minLines = 2,
+        placeholder = { Text(placeholder) },
+        minLines = minLines,
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         colors = transparentFieldColors(),
         modifier = Modifier.fillMaxWidth(),

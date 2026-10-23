@@ -1,16 +1,8 @@
 package app.still.launcher.ui.editor
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -18,15 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.still.launcher.R
@@ -37,7 +21,6 @@ import app.still.launcher.ui.components.FieldLabel
 import app.still.launcher.ui.components.TimePickerDialog
 import app.still.launcher.ui.components.formatShortDate
 import app.still.launcher.ui.components.formatTime
-import app.still.launcher.ui.productivity.CheckCircle
 import app.still.launcher.ui.productivity.DeleteConfirmDialog
 import app.still.launcher.ui.productivity.PriorityChips
 import java.time.LocalDate
@@ -65,7 +48,7 @@ fun TaskEditor(
         if (draft == null) return@EditorScaffold
 
         TitleField(draft.title) { title -> viewModel.update { it.copy(title = title) } }
-        NotesField(draft.notes) { notes -> viewModel.update { it.copy(notes = notes) } }
+        NotesField(draft.notes, onValueChange = { notes -> viewModel.update { it.copy(notes = notes) } })
 
         Column {
             FieldLabel(stringResource(R.string.add_priority))
@@ -109,9 +92,17 @@ fun TaskEditor(
             ) { keep -> viewModel.update { it.copy(keepOverdue = keep) } }
         }
 
-        SubtaskList(
-            subtasks = draft.subtasks,
-            onChange = { subtasks -> viewModel.update { it.copy(subtasks = subtasks) } },
+        EditableChecklist(
+            label = stringResource(R.string.editor_subtasks),
+            addHint = stringResource(R.string.editor_add_subtask),
+            removeDescription = stringResource(R.string.editor_remove_subtask),
+            lines = draft.subtasks.map { ChecklistLine(it.key, it.title, it.done) },
+            onChange = { lines ->
+                viewModel.update { current ->
+                    val byKey = current.subtasks.associateBy { it.key }
+                    current.copy(subtasks = lines.mapNotNull { line -> byKey[line.key]?.copy(title = line.text, done = line.done) })
+                }
+            },
             onAdd = viewModel::addSubtask,
         )
 
@@ -149,56 +140,6 @@ fun TaskEditor(
                 viewModel.delete()
                 onClose()
             },
-        )
-    }
-}
-
-@Composable
-private fun SubtaskList(
-    subtasks: List<SubtaskDraft>,
-    onChange: (List<SubtaskDraft>) -> Unit,
-    onAdd: (String) -> Unit,
-) {
-    var newTitle by rememberSaveable { mutableStateOf("") }
-    Column {
-        FieldLabel(stringResource(R.string.editor_subtasks))
-        subtasks.forEach { subtask ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CheckCircle(checked = subtask.done, skipped = false) {
-                    onChange(subtasks.map { if (it.key == subtask.key) it.copy(done = !it.done) else it })
-                }
-                TextField(
-                    value = subtask.title,
-                    onValueChange = { title -> onChange(subtasks.map { if (it.key == subtask.key) it.copy(title = title) else it }) },
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(
-                        textDecoration = if (subtask.done) TextDecoration.LineThrough else null,
-                    ),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                    ),
-                    modifier = Modifier.weight(1f),
-                )
-                val removeDescription = stringResource(R.string.editor_remove_subtask)
-                TextButton(
-                    onClick = { onChange(subtasks.filterNot { it.key == subtask.key }) },
-                    modifier = Modifier.semantics { contentDescription = removeDescription },
-                ) { Text("×") }
-            }
-        }
-        OutlinedTextField(
-            value = newTitle,
-            onValueChange = { newTitle = it },
-            placeholder = { Text(stringResource(R.string.editor_add_subtask)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = {
-                onAdd(newTitle)
-                newTitle = ""
-            }),
-            modifier = Modifier.fillMaxWidth(),
         )
     }
 }

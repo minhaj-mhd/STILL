@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,8 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -33,11 +30,13 @@ import app.still.launcher.data.productivity.Task
 import app.still.launcher.productivity.HabitEntry
 import app.still.launcher.productivity.TaskEntry
 import app.still.launcher.productivity.TodayAgenda
+import app.still.launcher.ui.components.AddButton
 import app.still.launcher.ui.editor.EditorTarget
 
-/** Left page: what's due today, overdue tasks, today's habits, and tasks without a date. */
+/** Left page, Today tab: what's due today, overdue tasks, today's habits, and tasks without a date. */
 @Composable
 fun TodayPage(
+    tabs: @Composable () -> Unit,
     onOpenEditor: (EditorTarget) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: TodayViewModel = viewModel(factory = TodayViewModel.Factory),
@@ -72,7 +71,7 @@ fun TodayPage(
             contentPadding = PaddingValues(start = 32.dp, top = 48.dp, end = 32.dp, bottom = 112.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            item(key = "header") { Header(agenda) }
+            item(key = "header") { Header(agenda, tabs) }
             if (hasReminders) {
                 item(key = "reminder-permission") { ReminderPermissionBanner(viewModel) }
             }
@@ -108,18 +107,13 @@ fun TodayPage(
             }
         }
 
-        val addDescription = stringResource(R.string.today_add)
-        FloatingActionButton(
+        AddButton(
+            description = stringResource(R.string.today_add),
             onClick = { adding = true },
-            containerColor = MaterialTheme.colorScheme.onBackground,
-            contentColor = MaterialTheme.colorScheme.background,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(24.dp)
-                .semantics { contentDescription = addDescription },
-        ) {
-            Text(text = "+", style = MaterialTheme.typography.headlineSmall)
-        }
+                .padding(24.dp),
+        )
     }
 
     if (adding) {
@@ -195,13 +189,9 @@ fun TodayPage(
 }
 
 @Composable
-private fun Header(agenda: TodayAgenda?) {
+private fun Header(agenda: TodayAgenda?, tabs: @Composable () -> Unit) {
     Column {
-        Text(
-            text = stringResource(R.string.today_title),
-            style = MaterialTheme.typography.displaySmall,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+        tabs()
         if (agenda != null && !agenda.isEmpty) {
             val pending = agenda.pendingCount
             Text(
@@ -215,8 +205,9 @@ private fun Header(agenda: TodayAgenda?) {
     }
 }
 
+/** Small grey heading between groups of rows on the left page. */
 @Composable
-private fun SectionTitle(title: Int) {
+internal fun SectionTitle(title: Int) {
     Text(
         text = stringResource(title),
         style = MaterialTheme.typography.labelLarge,

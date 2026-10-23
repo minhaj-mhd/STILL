@@ -34,6 +34,9 @@ import app.still.launcher.ui.editor.EditorHost
 import app.still.launcher.ui.editor.EditorTarget
 import app.still.launcher.ui.editor.EditorTargetSaver
 import app.still.launcher.ui.home.HomePage
+import app.still.launcher.ui.notes.NotesPage
+import app.still.launcher.ui.productivity.LeftPageTabs
+import app.still.launcher.ui.productivity.LeftTab
 import app.still.launcher.ui.productivity.TodayPage
 import app.still.launcher.ui.productivity.TodayViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -69,6 +72,7 @@ fun StillLauncher(
     var menuAppKey by rememberSaveable { mutableStateOf<String?>(null) }
     var renameAppKey by rememberSaveable { mutableStateOf<String?>(null) }
     var editor by rememberSaveable(stateSaver = EditorTargetSaver) { mutableStateOf<EditorTarget?>(null) }
+    var leftTab by rememberSaveable { mutableStateOf(LeftTab.TODAY) }
     // Look apps up by key so an open menu reflects changes (e.g. favorite toggled) immediately.
     val menuApp = state.apps.firstOrNull { it.key == menuAppKey }
     val renameApp = state.apps.firstOrNull { it.key == renameAppKey }
@@ -116,6 +120,7 @@ fun StillLauncher(
     LaunchedEffect(todayRequests) {
         todayRequests.collect {
             editor = null
+            leftTab = LeftTab.TODAY
             pagerState.animateScrollToPage(Page.Productivity.ordinal)
         }
     }
@@ -132,7 +137,13 @@ fun StillLauncher(
             modifier = Modifier.fillMaxSize(),
         ) { page ->
             when (Page.entries[page]) {
-                Page.Productivity -> TodayPage(onOpenEditor = { editor = it }, viewModel = todayViewModel)
+                Page.Productivity -> {
+                    val tabs = @Composable { LeftPageTabs(leftTab) { leftTab = it } }
+                    when (leftTab) {
+                        LeftTab.TODAY -> TodayPage(tabs = tabs, onOpenEditor = { editor = it }, viewModel = todayViewModel)
+                        LeftTab.NOTES -> NotesPage(tabs = tabs, onOpenEditor = { editor = it })
+                    }
+                }
                 Page.Home -> HomePage(
                     favorites = state.favorites,
                     isDefaultLauncher = isDefaultLauncher,
@@ -152,7 +163,10 @@ fun StillLauncher(
                     },
                     dueTasks = agenda?.dueTaskCount ?: 0,
                     overdueTasks = agenda?.overdueTaskCount ?: 0,
-                    onDueTasksClick = { scope.launch { pagerState.animateScrollToPage(Page.Productivity.ordinal) } },
+                    onDueTasksClick = {
+                        leftTab = LeftTab.TODAY
+                        scope.launch { pagerState.animateScrollToPage(Page.Productivity.ordinal) }
+                    },
                     reminders = activeReminders,
                     today = now.toLocalDate(),
                     onReminderDone = todayViewModel::completeReminder,

@@ -63,7 +63,7 @@ fun HabitEditor(
         stats?.let { HabitStatsBlock(it) }
 
         TitleField(draft.title) { title -> viewModel.update { it.copy(title = title) } }
-        NotesField(draft.notes) { notes -> viewModel.update { it.copy(notes = notes) } }
+        NotesField(draft.notes, onValueChange = { notes -> viewModel.update { it.copy(notes = notes) } })
 
         Column {
             FieldLabel(stringResource(R.string.add_priority))
