@@ -50,9 +50,11 @@ import app.still.launcher.ui.editor.EditorTarget
 import app.still.launcher.ui.editor.SwitchRow
 import app.still.launcher.ui.gates.GatesPage
 import app.still.launcher.ui.gates.GatesViewModel
+import app.still.launcher.ui.notifications.NotificationFilterPage
+import app.still.launcher.ui.notifications.NotificationFilterViewModel
 
 /** Settings and the pages it leads to. */
-enum class SettingsPage { MAIN, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, GATES, PRECISION }
+enum class SettingsPage { MAIN, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION }
 
 /**
  * Settings, reached from Insights. Shows each permission STILL uses with its state and a way to
@@ -85,6 +87,7 @@ fun SettingsScreen(
     onOpenAppInfo: () -> Unit,
     doubleTapToLock: Boolean,
     onSetDoubleTapToLock: (Boolean) -> Unit,
+    onOpenHeldNotifications: () -> Unit,
 ) {
     BackHandler { if (page == SettingsPage.MAIN) onClose() else onNavigate(SettingsPage.MAIN) }
     val hidden = apps.filter { it.isHidden }
@@ -112,6 +115,12 @@ fun SettingsScreen(
             precisionOn = precisionOn,
             doubleTapToLock = doubleTapToLock,
             onSetDoubleTapToLock = onSetDoubleTapToLock,
+        )
+        SettingsPage.NOTIFICATION_FILTER -> NotificationFilterPage(
+            apps = apps,
+            onOpenHeld = onOpenHeldNotifications,
+            onBack = { onNavigate(SettingsPage.MAIN) },
+            onOpenAppInfo = onOpenAppInfo,
         )
         SettingsPage.PRECISION -> PrecisionPage(
             isOn = precisionOn,
@@ -185,6 +194,7 @@ private fun MainSettings(
     onSetDoubleTapToLock: (Boolean) -> Unit,
     schedulesViewModel: SchedulesViewModel = viewModel(factory = SchedulesViewModel.Factory),
     gatesViewModel: GatesViewModel = viewModel(factory = GatesViewModel.Factory),
+    filterViewModel: NotificationFilterViewModel = viewModel(factory = NotificationFilterViewModel.Factory),
 ) {
     val context = LocalContext.current
     var notificationsOn by remember { mutableStateOf(canNotify()) }
@@ -258,6 +268,11 @@ private fun MainSettings(
                 title = stringResource(R.string.gates_title),
                 value = pluralStringResource(R.plurals.settings_gate_count, gateCount, gateCount),
             ) { onNavigate(SettingsPage.GATES) }
+            val filterOn = filterViewModel.settings.collectAsStateWithLifecycle().value.on
+            NavigationRow(
+                title = stringResource(R.string.held_settings_title),
+                value = stringResource(if (filterOn) R.string.settings_on else R.string.schedules_status_off),
+            ) { onNavigate(SettingsPage.NOTIFICATION_FILTER) }
             NavigationRow(
                 title = stringResource(R.string.settings_hidden_apps),
                 value = pluralStringResource(R.plurals.settings_app_count, hiddenCount, hiddenCount),

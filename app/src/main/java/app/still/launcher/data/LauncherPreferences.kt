@@ -35,6 +35,11 @@ data class LauncherSettings(
     val precisionWanted: Boolean = false,
     /** Apps task gates never close, on top of the essential ones. */
     val gateAlwaysOpenPackages: Set<String> = emptySet(),
+    /** The notification filter holds back notifications from apps not in [notificationAllowedPackages]. */
+    val notificationFilterOn: Boolean = false,
+    val notificationAllowedPackages: Set<String> = emptySet(),
+    /** Show how many notifications are held back, as a quiet notification of STILL's own. */
+    val notificationCountShown: Boolean = true,
 ) {
     companion object {
         const val DEFAULT_LAUNCH_DELAY_SECONDS = 15
@@ -59,6 +64,9 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
                 doubleTapToLock = prefs[DOUBLE_TAP_TO_LOCK] ?: true,
                 precisionWanted = prefs[PRECISION_WANTED] ?: false,
                 gateAlwaysOpenPackages = prefs[GATE_ALWAYS_OPEN_PACKAGES] ?: emptySet(),
+                notificationFilterOn = prefs[NOTIFICATION_FILTER_ON] ?: false,
+                notificationAllowedPackages = prefs[NOTIFICATION_ALLOWED_PACKAGES] ?: emptySet(),
+                notificationCountShown = prefs[NOTIFICATION_COUNT_SHOWN] ?: true,
             )
         }
 
@@ -131,6 +139,22 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs -> prefs[PRECISION_WANTED] = wanted }
     }
 
+    /** Turning the filter on for the first time lets [firstAllowed] through to begin with. */
+    suspend fun setNotificationFilterOn(on: Boolean, firstAllowed: Set<String> = emptySet()) {
+        dataStore.edit { prefs ->
+            if (on && prefs[NOTIFICATION_ALLOWED_PACKAGES] == null) prefs[NOTIFICATION_ALLOWED_PACKAGES] = firstAllowed
+            prefs[NOTIFICATION_FILTER_ON] = on
+        }
+    }
+
+    suspend fun setNotificationAllowed(packages: Set<String>) {
+        dataStore.edit { prefs -> prefs[NOTIFICATION_ALLOWED_PACKAGES] = packages }
+    }
+
+    suspend fun setNotificationCountShown(shown: Boolean) {
+        dataStore.edit { prefs -> prefs[NOTIFICATION_COUNT_SHOWN] = shown }
+    }
+
     suspend fun setGateAlwaysOpen(packages: Set<String>) {
         dataStore.edit { prefs -> prefs[GATE_ALWAYS_OPEN_PACKAGES] = packages }
     }
@@ -151,6 +175,9 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val PRECISION_WANTED = booleanPreferencesKey("precisionWanted")
         val GATE_ALWAYS_OPEN_PACKAGES = stringSetPreferencesKey("gateAlwaysOpenPackages")
         val FOCUS_SESSION = stringPreferencesKey("focusSession")
+        val NOTIFICATION_FILTER_ON = booleanPreferencesKey("notificationFilterOn")
+        val NOTIFICATION_ALLOWED_PACKAGES = stringSetPreferencesKey("notificationAllowedPackages")
+        val NOTIFICATION_COUNT_SHOWN = booleanPreferencesKey("notificationCountShown")
         val json = Json { ignoreUnknownKeys = true }
         const val RENAME_PREFIX = "rename:"
         const val SEPARATOR = "\n"

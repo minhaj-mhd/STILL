@@ -129,6 +129,8 @@ STILL (stage 3 step 4): the service listens only for window-state changes (`canR
 
 Android: `NotificationListenerService`
 
+STILL (stage 4, built 2026-10-23): Settings > Notification filter explains what Notification access reads, then a switch, "Let these through" apps (the default messages app to begin with) and an optional count in the shade. Held-back notifications go to a "Held back" list (from Insights or the count) for 7 days; tapping one opens its app through STILL, so blocks and gates apply. Calls, alarms, ongoing notifications, and the phone, clock, system and STILL always come through. Not built: hiding ongoing notifications, since Android doesn't let a listener remove them.
+
 - [ ] Allow-list of apps whose notifications get through
 - [ ] Notifications from other apps are dismissed and stored in a "Filtered notifications" tab
 - [ ] Clear all stored notifications (with confirmation)

@@ -243,6 +243,43 @@
         <item quantity="other">%d logged by hand</item>
     </plurals>
 
+    <!-- Notification filter -->
+    <string name="held_service_label">STILL notification filter</string>
+    <string name="held_channel_name">Held-back count</string>
+    <string name="held_channel_description">How many notifications the filter is holding back</string>
+    <plurals name="held_count">
+        <item quantity="one">%d notification held back</item>
+        <item quantity="other">%d notifications held back</item>
+    </plurals>
+    <string name="held_count_many">%1$d+ notifications held back</string>
+    <string name="held_settings_title">Notification filter</string>
+    <string name="held_intro">Hold back notifications from apps that pull you in. They wait here, out of your notification shade, until you choose to look.</string>
+    <string name="held_sees">Notification access lets STILL read notifications as they arrive, including their text. Held-back ones are kept on this phone for 7 days or until you clear them, and never leave it.</string>
+    <string name="held_allow_access">Agree and allow notification access</string>
+    <string name="held_restricted">If Android says the setting is restricted: open App info, tap ⋮ at the top right, choose Allow restricted settings, then try again.</string>
+    <string name="held_switch">Hold back notifications</string>
+    <string name="held_always_through">Calls, alarms, ongoing ones like music and navigation, and the phone, clock and STILL always come through. Your phone may still buzz before STILL takes one away.</string>
+    <string name="held_not_connected">Android has notification access on for STILL but hasn\'t started it. In Notification access, turn STILL off and on again.</string>
+    <string name="held_allowed">Let these through</string>
+    <string name="held_allowed_none">No apps yet, so everything else is held back.</string>
+    <string name="held_count_switch">Show a count in the notification shade</string>
+    <string name="held_count_switch_detail">A quiet notification saying how many are held back</string>
+    <plurals name="held_open">
+        <item quantity="one">See %d held-back notification</item>
+        <item quantity="other">See %d held-back notifications</item>
+    </plurals>
+    <string name="held_title">Held back</string>
+    <string name="held_clear_all">Clear all</string>
+    <string name="held_clear">Clear</string>
+    <string name="held_empty">Nothing held back.</string>
+    <string name="held_clear_all_title">Clear all held-back notifications?</string>
+    <string name="held_clear_all_body">They\'re removed from STILL. The apps keep their own messages.</string>
+    <string name="insights_held">Notifications</string>
+    <plurals name="insights_held_count">
+        <item quantity="one">%d held back</item>
+        <item quantity="other">%d held back</item>
+    </plurals>
+
     <!-- Precision mode -->
     <string name="precision_service_label">STILL Precision mode</string>
     <string name="precision_service_description">Lets STILL notice which app is in front, so your blocks, schedules, launch delays and time reminders apply however you open an app, and lets you lock the screen by double-tapping home. STILL can\'t read what\'s on screen or what you type, and nothing leaves your phone.</string>

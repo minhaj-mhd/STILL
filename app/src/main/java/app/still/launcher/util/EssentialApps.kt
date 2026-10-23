@@ -34,8 +34,28 @@ class EssentialApps(context: Context) {
      */
     fun canGate(packageName: String): Boolean = !isEssential(packageName) && packageName !in gateExemptApps()
 
+    /**
+     * Apps whose notifications always come through the notification filter: the essential ones,
+     * the system, and the clock app, so alarms can't be held back.
+     */
+    fun notificationsAlwaysThrough(packageName: String): Boolean =
+        isEssential(packageName) || packageName in SYSTEM_PACKAGES || packageName == clockApp()
+
     /** [canGate], and not one of the apps the user keeps [alwaysOpen]. */
     fun canGate(packageName: String, alwaysOpen: Set<String>): Boolean = packageName !in alwaysOpen && canGate(packageName)
+
+    private var clock: String? = null
+    private var clockCheckedAt = 0L
+
+    @Synchronized
+    private fun clockApp(): String? {
+        val now = SystemClock.elapsedRealtime()
+        if (clockCheckedAt == 0L || now - clockCheckedAt > RECHECK_MILLIS) {
+            clock = defaultHandler(Intent(AlarmClock.ACTION_SHOW_ALARMS))
+            clockCheckedAt = now
+        }
+        return clock
+    }
 
     /** The defaults can change, so they're looked up again now and then rather than once. */
     @Synchronized
@@ -65,6 +85,9 @@ class EssentialApps(context: Context) {
 
     private companion object {
         const val SETTINGS_PACKAGE = "com.android.settings"
+
+        /** Android itself and the system UI post notifications that must stay, e.g. about charging or updates. */
+        val SYSTEM_PACKAGES = setOf("android", "com.android.systemui")
 
         /** The "which app?" chooser comes from the system package. */
         const val SYSTEM_CHOOSER_PACKAGE = "android"

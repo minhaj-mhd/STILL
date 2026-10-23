@@ -13,5 +13,7 @@ class StillApplication : Application() {
         container.reminderScheduler.start()
         container.appTimeReminders.createChannel()
         container.focusTimer.createChannel()
+        container.notificationFilter.createChannel()
+        container.notificationFilter.rebindIfAllowed()
     }
 }

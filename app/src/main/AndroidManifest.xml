@@ -84,6 +84,20 @@
                 android:resource="@xml/precision_service" />
         </service>
 
+        <!--
+            Notification filter: sees notifications as they're posted and holds back those from
+            apps the user hasn't allowed. Only Android can bind it, once Notification access is on.
+        -->
+        <service
+            android:name=".notifications.NotificationFilterService"
+            android:exported="true"
+            android:label="@string/held_service_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <!-- The focus timer's end alarm and its notification's Stop button. -->
         <receiver
             android:name=".focus.FocusTimerReceiver"

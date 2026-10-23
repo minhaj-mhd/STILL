@@ -55,6 +55,8 @@ import app.still.launcher.ui.editor.EditorTargetSaver
 import app.still.launcher.ui.gates.GateScreen
 import app.still.launcher.ui.home.HomePage
 import app.still.launcher.ui.insights.InsightsPage
+import app.still.launcher.ui.notifications.HeldNotificationsPage
+import app.still.launcher.ui.notifications.NotificationFilterViewModel
 import app.still.launcher.ui.notes.NotesPage
 import app.still.launcher.ui.settings.SettingsPage
 import app.still.launcher.ui.settings.SettingsScreen
@@ -77,13 +79,14 @@ import java.time.Instant
 private enum class Page { Productivity, Home, Apps }
 
 /** Full-screen views over the pages, opened by swiping up on home. Back goes up this list. */
-private enum class Overlay { INSIGHTS, SETTINGS, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, GATES, PRECISION }
+private enum class Overlay { INSIGHTS, SETTINGS, HIDDEN_APPS, BLOCKED_APPS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION, HELD_NOTIFICATIONS }
 
 @Composable
 fun StillLauncher(
     viewModel: LauncherViewModel,
     homePresses: Flow<Unit>,
     todayRequests: Flow<Unit>,
+    heldNotificationRequests: Flow<Unit>,
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -93,6 +96,9 @@ fun StillLauncher(
     val agenda by todayViewModel.agenda.collectAsStateWithLifecycle()
     val activeReminders by todayViewModel.activeReminders.collectAsStateWithLifecycle()
     val focus by todayViewModel.focus.collectAsStateWithLifecycle()
+    val filterViewModel: NotificationFilterViewModel = viewModel(factory = NotificationFilterViewModel.Factory)
+    val filterSettings by filterViewModel.settings.collectAsStateWithLifecycle()
+    val held by filterViewModel.held.collectAsStateWithLifecycle()
     // One clock for everything time-based: the Today page's date and home's reminder cards.
     val now by rememberCurrentMinute()
     LaunchedEffect(now) {
@@ -271,6 +277,15 @@ fun StillLauncher(
         }
     }
 
+    // The held-back count in the notification shade was tapped.
+    LaunchedEffect(heldNotificationRequests) {
+        heldNotificationRequests.collect {
+            closeAll()
+            goHome(animate = false)
+            overlay = Overlay.HELD_NOTIFICATIONS
+        }
+    }
+
     // A launcher has nowhere to go back to: Back only returns to the home page.
     BackHandler {
         if (pagerState.currentPage != Page.Home.ordinal) goHome(animate = true)
@@ -361,16 +376,26 @@ fun StillLauncher(
             Overlay.INSIGHTS -> InsightsPage(
                 apps = state.apps,
                 agenda = agenda,
+                heldCount = held.size.takeIf { filterSettings.on },
+                onOpenHeld = { overlay = Overlay.HELD_NOTIFICATIONS },
                 onOpenSettings = { overlay = Overlay.SETTINGS },
                 onAllowUsageAccess = { context.startActivity(viewModel.usageAccessIntent()) },
                 onClose = { overlay = null },
             )
-            Overlay.SETTINGS, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS, Overlay.SCHEDULES, Overlay.GATES, Overlay.PRECISION -> SettingsScreen(
+            Overlay.HELD_NOTIFICATIONS -> HeldNotificationsPage(
+                apps = state.apps,
+                onOpenApp = ::launchApp,
+                onOpenSettings = { overlay = Overlay.NOTIFICATION_FILTER },
+                onClose = { overlay = Overlay.INSIGHTS },
+            )
+            Overlay.SETTINGS, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS, Overlay.SCHEDULES, Overlay.GATES,
+            Overlay.NOTIFICATION_FILTER, Overlay.PRECISION -> SettingsScreen(
                 page = when (current) {
                     Overlay.HIDDEN_APPS -> SettingsPage.HIDDEN_APPS
                     Overlay.BLOCKED_APPS -> SettingsPage.BLOCKED_APPS
                     Overlay.SCHEDULES -> SettingsPage.SCHEDULES
                     Overlay.GATES -> SettingsPage.GATES
+                    Overlay.NOTIFICATION_FILTER -> SettingsPage.NOTIFICATION_FILTER
                     Overlay.PRECISION -> SettingsPage.PRECISION
                     else -> SettingsPage.MAIN
                 },
@@ -381,6 +406,7 @@ fun StillLauncher(
                         SettingsPage.BLOCKED_APPS -> Overlay.BLOCKED_APPS
                         SettingsPage.SCHEDULES -> Overlay.SCHEDULES
                         SettingsPage.GATES -> Overlay.GATES
+                        SettingsPage.NOTIFICATION_FILTER -> Overlay.NOTIFICATION_FILTER
                         SettingsPage.PRECISION -> Overlay.PRECISION
                     }
                 },
@@ -406,6 +432,7 @@ fun StillLauncher(
                 onOpenAppInfo = { context.startActivity(viewModel.appInfoIntent()) },
                 doubleTapToLock = state.doubleTapToLock,
                 onSetDoubleTapToLock = viewModel::setDoubleTapToLock,
+                onOpenHeldNotifications = { overlay = Overlay.HELD_NOTIFICATIONS },
             )
         }
     }

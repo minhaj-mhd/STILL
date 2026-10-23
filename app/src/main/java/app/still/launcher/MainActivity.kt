@@ -22,6 +22,7 @@ class MainActivity : ComponentActivity() {
 
     // A channel keeps the request until the UI collects it, even when it arrives before the first frame.
     private val todayRequests = Channel<Unit>(Channel.CONFLATED)
+    private val heldNotificationRequests = Channel<Unit>(Channel.CONFLATED)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
@@ -29,13 +30,14 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null) handleOpenToday(intent)
+        if (savedInstanceState == null) handleOpenRequests(intent)
         setContent {
             StillTheme {
                 StillLauncher(
                     viewModel = viewModel,
                     homePresses = homePresses,
                     todayRequests = todayRequests.receiveAsFlow(),
+                    heldNotificationRequests = heldNotificationRequests.receiveAsFlow(),
                 )
             }
         }
@@ -48,16 +50,21 @@ class MainActivity : ComponentActivity() {
         if (intent.hasCategory(Intent.CATEGORY_HOME) || intent.getBooleanExtra(EXTRA_GO_HOME, false)) {
             homePresses.tryEmit(Unit)
         }
-        handleOpenToday(intent)
+        handleOpenRequests(intent)
     }
 
-    /** Tapping a reminder notification opens STILL on the Today page. */
-    private fun handleOpenToday(intent: Intent?) {
+    /**
+     * Tapping a reminder notification opens STILL on the Today page; tapping the held-back count
+     * opens the held-back notifications.
+     */
+    private fun handleOpenRequests(intent: Intent?) {
         if (intent?.getBooleanExtra(EXTRA_OPEN_TODAY, false) == true) todayRequests.trySend(Unit)
+        if (intent?.getBooleanExtra(EXTRA_OPEN_HELD_NOTIFICATIONS, false) == true) heldNotificationRequests.trySend(Unit)
     }
 
     companion object {
         const val EXTRA_OPEN_TODAY = "app.still.launcher.OPEN_TODAY"
         const val EXTRA_GO_HOME = "app.still.launcher.GO_HOME"
+        const val EXTRA_OPEN_HELD_NOTIFICATIONS = "app.still.launcher.OPEN_HELD_NOTIFICATIONS"
     }
 }

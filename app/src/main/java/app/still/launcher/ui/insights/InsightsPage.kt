@@ -2,6 +2,7 @@ package app.still.launcher.ui.insights
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +58,9 @@ private const val TOP_APPS = 5
 fun InsightsPage(
     apps: List<LauncherApp>,
     agenda: TodayAgenda?,
+    /** Notifications the filter holds back; null while the filter is off. */
+    heldCount: Int?,
+    onOpenHeld: () -> Unit,
     onOpenSettings: () -> Unit,
     onAllowUsageAccess: () -> Unit,
     onClose: () -> Unit,
@@ -98,6 +102,7 @@ fun InsightsPage(
             ) {
                 ScreenTimeSection(apps, summary, hasUsageAccess, onAllowUsageAccess)
                 TodaySection(agenda)
+                heldCount?.let { HeldSection(it, onOpenHeld) }
                 focusStats?.let { FocusSection(it) }
                 if (streaks.isNotEmpty()) StreaksSection(streaks)
             }
@@ -207,6 +212,19 @@ private fun TodaySection(agenda: TodayAgenda?) {
                 style = MaterialTheme.typography.titleMedium,
             )
         }
+    }
+}
+
+/** "12 held back ›": how many notifications the filter is holding, and the way to them. */
+@Composable
+private fun HeldSection(count: Int, onOpen: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FieldLabel(stringResource(R.string.insights_held))
+        Text(
+            text = pluralStringResource(R.plurals.insights_held_count, count, count) + "  ›",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.clickable(onClick = onOpen),
+        )
     }
 }
 

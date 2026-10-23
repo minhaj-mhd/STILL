@@ -15,6 +15,8 @@ import app.still.launcher.data.gates.TaskGate
 import app.still.launcher.data.gates.TaskGateDao
 import app.still.launcher.data.notes.Note
 import app.still.launcher.data.notes.NoteDao
+import app.still.launcher.data.notifications.HeldNotification
+import app.still.launcher.data.notifications.HeldNotificationDao
 import app.still.launcher.data.productivity.Converters
 import app.still.launcher.data.productivity.DismissedReminder
 import app.still.launcher.data.productivity.Habit
@@ -27,20 +29,21 @@ import app.still.launcher.data.productivity.Task
  * app/schemas; every version bump needs a migration so existing data survives updates.
  *
  * Version 2 added [DismissedReminder]; 3 added [Note]; 4 added [AppBlock]; 5 added [BlockingSchedule];
- * 6 added [TaskGate] and [GateEvent].
+ * 6 added [TaskGate] and [GateEvent]; 7 added [HeldNotification].
  */
 @Database(
     entities = [
         Task::class, Habit::class, OccurrenceRecord::class, DismissedReminder::class, Note::class,
-        AppBlock::class, BlockingSchedule::class, TaskGate::class, GateEvent::class,
+        AppBlock::class, BlockingSchedule::class, TaskGate::class, GateEvent::class, HeldNotification::class,
     ],
-    version = 6,
+    version = 7,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
         AutoMigration(from = 5, to = 6),
+        AutoMigration(from = 6, to = 7),
     ],
 )
 @TypeConverters(Converters::class)
@@ -55,6 +58,8 @@ abstract class StillDatabase : RoomDatabase() {
     abstract fun blockingScheduleDao(): BlockingScheduleDao
 
     abstract fun taskGateDao(): TaskGateDao
+
+    abstract fun heldNotificationDao(): HeldNotificationDao
 
     companion object {
         fun create(context: Context): StillDatabase =
