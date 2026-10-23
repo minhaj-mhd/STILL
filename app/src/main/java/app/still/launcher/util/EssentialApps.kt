@@ -47,17 +47,23 @@ class EssentialApps(context: Context) {
     /** [canGate], and not one of the apps the user keeps [alwaysOpen]. */
     fun canGate(packageName: String, alwaysOpen: Set<String>): Boolean = packageName !in alwaysOpen && canGate(packageName)
 
-    private var clock: String? = null
-    private var clockCheckedAt = 0L
+    /** The phone's own phone app, which home's phone button opens unless another is chosen. */
+    fun phoneApp(): String? = telecom?.defaultDialerPackage
 
+    /** The phone's own camera app, which home's camera button opens unless another is chosen. */
+    fun cameraApp(): String? = cachedHandler(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
+
+    private fun clockApp(): String? = cachedHandler(AlarmClock.ACTION_SHOW_ALARMS)
+
+    /** When each default handler was looked up, and what it was. */
+    private val handlers = HashMap<String, Pair<Long, String?>>()
+
+    /** [defaultHandler] for [action], looked up again after [RECHECK_MILLIS]. */
     @Synchronized
-    private fun clockApp(): String? {
+    private fun cachedHandler(action: String): String? {
         val now = SystemClock.elapsedRealtime()
-        if (clockCheckedAt == 0L || now - clockCheckedAt > RECHECK_MILLIS) {
-            clock = defaultHandler(Intent(AlarmClock.ACTION_SHOW_ALARMS))
-            clockCheckedAt = now
-        }
-        return clock
+        handlers[action]?.let { (checkedAt, packageName) -> if (now - checkedAt <= RECHECK_MILLIS) return packageName }
+        return defaultHandler(Intent(action)).also { handlers[action] = now to it }
     }
 
     /** The defaults can change, so they're looked up again now and then rather than once. */

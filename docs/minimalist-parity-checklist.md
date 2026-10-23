@@ -21,6 +21,8 @@ Android: `HOME` intent filter, `RoleManager.ROLE_HOME`, `LauncherApps`
 - [ ] App shortcuts on the home screen: pinned shortcuts from other apps (`CONFIRM_PIN_SHORTCUT`), create/remove, duplicate detection, "(X shortcut)" label
 - [ ] Optional quick-access buttons on home: phone dialer and camera (each toggleable, "button visible on home screen")
 - [ ] Choose which app the dialer/camera/alarm shortcuts open ("use default app" or pick one)
+
+STILL (stage 4): phone and camera buttons sit in home's bottom corners as the app's one-colour logo. Customise > Corner buttons sets each to Off, the phone's own app (default) or any app; a chosen app that's uninstalled falls back to the default. They open through STILL like any app, so blocks and gates apply. The clock already opens the alarms; choosing its app is not built.
 - [ ] Home banners: missing-permission warning (e.g. Accessibility lost after update/reboot) with one-tap fix
 - [ ] Seasonal "snowfall" effect (toggle)
 - [ ] Works as non-default launcher too (separate "no home" entry activity)
@@ -31,7 +33,7 @@ Android: Compose gesture detectors; status bar expand via `StatusBarManager`/ref
 
 - [ ] Swipe left → all apps page
 - [ ] Swipe up → open search (toggle)
-- [ ] Swipe down → expand notification shade (toggle; fallback message on phones that don't support it)
+- [ ] Swipe down → expand notification shade (toggle; fallback message on phones that don't support it). **STILL: built in stage 4** with Precision mode's public "open notifications" action (no hidden status-bar API). On by default, toggle under Settings > Gestures; without Precision mode it offers to set it up, like double-tap to lock.
 - [ ] Double-tap → lock screen (needs device admin in Minimalist). **STILL: built in stage 3 step 4** with the Precision mode Accessibility service's lock action, which keeps fingerprint/face unlock working (device-admin locking forces the PIN on the next unlock). On by default, toggle under Settings > Gestures.
 
 ## 3. All apps page (STILL right page) — Keep

@@ -37,6 +37,11 @@ data class LauncherSettings(
     val timeUpBlockMinutes: Int = 0,
     /** Double-tap empty space on home to lock the screen; needs Precision mode. */
     val doubleTapToLock: Boolean = true,
+    /** Swipe down on home to open the notifications; needs Precision mode. */
+    val swipeDownNotifications: Boolean = true,
+    /** What home's corner buttons open. */
+    val phoneButton: CornerChoice = CornerChoice(),
+    val cameraButton: CornerChoice = CornerChoice(),
     /** Swiping to the app list puts the cursor in search and brings up the keyboard. */
     val appListKeyboard: Boolean = false,
     /** Apps that have taken a lot of today fade in the app list. */
@@ -85,6 +90,9 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
                 launchDelaySeconds = prefs[LAUNCH_DELAY_SECONDS] ?: LauncherSettings.DEFAULT_LAUNCH_DELAY_SECONDS,
                 timeUpBlockMinutes = prefs[TIME_UP_BLOCK_MINUTES] ?: 0,
                 doubleTapToLock = prefs[DOUBLE_TAP_TO_LOCK] ?: true,
+                swipeDownNotifications = prefs[SWIPE_DOWN_NOTIFICATIONS] ?: true,
+                phoneButton = CornerChoice(prefs[PHONE_BUTTON_ON] ?: true, prefs[PHONE_BUTTON_APP]),
+                cameraButton = CornerChoice(prefs[CAMERA_BUTTON_ON] ?: true, prefs[CAMERA_BUTTON_APP]),
                 appListKeyboard = prefs[APP_LIST_KEYBOARD] ?: false,
                 appListFade = prefs[APP_LIST_FADE] ?: true,
                 precisionWanted = prefs[PRECISION_WANTED] ?: false,
@@ -282,6 +290,21 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs -> prefs[APP_LIST_FADE] = on }
     }
 
+    suspend fun setSwipeDownNotifications(on: Boolean) {
+        dataStore.edit { prefs -> prefs[SWIPE_DOWN_NOTIFICATIONS] = on }
+    }
+
+    suspend fun setCornerButton(button: CornerButton, choice: CornerChoice) {
+        val (onKey, appKey) = when (button) {
+            CornerButton.PHONE -> PHONE_BUTTON_ON to PHONE_BUTTON_APP
+            CornerButton.CAMERA -> CAMERA_BUTTON_ON to CAMERA_BUTTON_APP
+        }
+        dataStore.edit { prefs ->
+            prefs[onKey] = choice.on
+            if (choice.appKey == null) prefs.remove(appKey) else prefs[appKey] = choice.appKey
+        }
+    }
+
     suspend fun setPrecisionWanted(wanted: Boolean) {
         dataStore.edit { prefs -> prefs[PRECISION_WANTED] = wanted }
     }
@@ -319,6 +342,11 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val LAUNCH_DELAY_SECONDS = intPreferencesKey("launchDelaySeconds")
         val TIME_UP_BLOCK_MINUTES = intPreferencesKey("timeUpBlockMinutes")
         val DOUBLE_TAP_TO_LOCK = booleanPreferencesKey("doubleTapToLock")
+        val SWIPE_DOWN_NOTIFICATIONS = booleanPreferencesKey("swipeDownNotifications")
+        val PHONE_BUTTON_ON = booleanPreferencesKey("phoneButtonOn")
+        val PHONE_BUTTON_APP = stringPreferencesKey("phoneButtonApp")
+        val CAMERA_BUTTON_ON = booleanPreferencesKey("cameraButtonOn")
+        val CAMERA_BUTTON_APP = stringPreferencesKey("cameraButtonApp")
         val APP_LIST_KEYBOARD = booleanPreferencesKey("appListKeyboard")
         val APP_LIST_FADE = booleanPreferencesKey("appListFade")
         val PRECISION_WANTED = booleanPreferencesKey("precisionWanted")

@@ -87,6 +87,8 @@ fun SettingsScreen(
     onOpenAppInfo: () -> Unit,
     doubleTapToLock: Boolean,
     onSetDoubleTapToLock: (Boolean) -> Unit,
+    swipeDownNotifications: Boolean,
+    onSetSwipeDownNotifications: (Boolean) -> Unit,
     appListKeyboard: Boolean,
     onSetAppListKeyboard: (Boolean) -> Unit,
     appListFade: Boolean,
@@ -119,6 +121,8 @@ fun SettingsScreen(
             precisionOn = precisionOn,
             doubleTapToLock = doubleTapToLock,
             onSetDoubleTapToLock = onSetDoubleTapToLock,
+            swipeDownNotifications = swipeDownNotifications,
+            onSetSwipeDownNotifications = onSetSwipeDownNotifications,
             appListKeyboard = appListKeyboard,
             onSetAppListKeyboard = onSetAppListKeyboard,
             appListFade = appListFade,
@@ -201,6 +205,8 @@ private fun MainSettings(
     precisionOn: Boolean,
     doubleTapToLock: Boolean,
     onSetDoubleTapToLock: (Boolean) -> Unit,
+    swipeDownNotifications: Boolean,
+    onSetSwipeDownNotifications: (Boolean) -> Unit,
     appListKeyboard: Boolean,
     onSetAppListKeyboard: (Boolean) -> Unit,
     appListFade: Boolean,
@@ -352,6 +358,14 @@ private fun MainSettings(
                 checked = doubleTapToLock,
                 onCheckedChange = onSetDoubleTapToLock,
             )
+            SwitchRow(
+                title = stringResource(R.string.settings_swipe_down),
+                detail = stringResource(
+                    if (precisionOn) R.string.settings_swipe_down_detail else R.string.settings_swipe_down_needs_precision,
+                ),
+                checked = swipeDownNotifications,
+                onCheckedChange = onSetSwipeDownNotifications,
+            )
         }
 
         Section(stringResource(R.string.settings_section_about)) {
@@ -400,8 +414,9 @@ private fun PermissionRow(title: String, detail: String, isOn: Boolean, onTurnOn
     }
 }
 
+/** A row that opens more: its name, and its current value with an arrow. */
 @Composable
-private fun NavigationRow(title: String, value: String, onClick: () -> Unit) {
+internal fun NavigationRow(title: String, value: String, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier

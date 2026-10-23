@@ -20,6 +20,9 @@ import app.still.launcher.data.FolderOpening
 import app.still.launcher.data.FolderStyle
 import app.still.launcher.data.AppScreenTime
 import app.still.launcher.data.BlockingRepository
+import app.still.launcher.data.CornerButton
+import app.still.launcher.data.CornerChoice
+import app.still.launcher.data.cornerApp
 import app.still.launcher.data.GateRepository
 import app.still.launcher.data.LauncherPreferences
 import app.still.launcher.data.LauncherSettings
@@ -106,6 +109,9 @@ data class LauncherApp(
 /** A folder on home with its apps, in the order they were added; hidden and uninstalled apps are left out. */
 data class HomeFolder(val id: String, val name: String, val apps: List<LauncherApp>)
 
+/** One of home's corner buttons: what was chosen, the app it opens (null when off), and the phone's own app for it. */
+data class HomeButton(val choice: CornerChoice = CornerChoice(), val app: LauncherApp? = null, val defaultApp: LauncherApp? = null)
+
 data class LauncherUiState(
     /** All apps, hidden ones included, sorted by display label. */
     val apps: List<LauncherApp> = emptyList(),
@@ -119,6 +125,9 @@ data class LauncherUiState(
     val doubleTapToLock: Boolean = true,
     val appListKeyboard: Boolean = false,
     val appListFade: Boolean = true,
+    val swipeDownNotifications: Boolean = true,
+    val phoneButton: HomeButton = HomeButton(),
+    val cameraButton: HomeButton = HomeButton(),
     /** Precision mode was turned on, so home says so if it goes off. */
     val precisionWanted: Boolean = false,
     /** What task gates keep closed right now, and which items keep them closed. */
@@ -201,6 +210,11 @@ class LauncherViewModel(
                 }
                 .sortedWith(compareBy(collator) { it.label })
             val byKey = apps.associateBy { it.key }
+            fun homeButton(choice: CornerChoice, defaultPackage: String?): HomeButton {
+                // The phone's own app for it, in the personal profile.
+                val default = apps.firstOrNull { it.component.packageName == defaultPackage && !it.isWorkProfile }
+                return HomeButton(choice, cornerApp(choice, choice.appKey?.let(byKey::get), default), default)
+            }
             // Gates cover a package in every profile; name it after the personal app, which comes
             // last here so it wins.
             val labels = apps.sortedByDescending { it.isWorkProfile }.associate { it.component.packageName to it.label }
@@ -213,6 +227,9 @@ class LauncherViewModel(
                 doubleTapToLock = settings.doubleTapToLock,
                 appListKeyboard = settings.appListKeyboard,
                 appListFade = settings.appListFade,
+                swipeDownNotifications = settings.swipeDownNotifications,
+                phoneButton = homeButton(settings.phoneButton, essentialApps.phoneApp()),
+                cameraButton = homeButton(settings.cameraButton, essentialApps.cameraApp()),
                 precisionWanted = settings.precisionWanted,
                 gateLocks = gateLocks(closed) { labels[it] },
                 gateAlwaysOpen = alwaysOpen,
@@ -387,8 +404,18 @@ class LauncherViewModel(
     /** Locks the screen; false when Precision mode is off. */
     fun lockScreen(): Boolean = precision.lockScreen()
 
+    fun openNotifications(): Boolean = precision.openNotifications()
+
     fun setGateAlwaysOpen(packages: Set<String>) {
         viewModelScope.launch { preferences.setGateAlwaysOpen(packages) }
+    }
+
+    fun setSwipeDownNotifications(on: Boolean) {
+        viewModelScope.launch { preferences.setSwipeDownNotifications(on) }
+    }
+
+    fun setCornerButton(button: CornerButton, choice: CornerChoice) {
+        viewModelScope.launch { preferences.setCornerButton(button, choice) }
     }
 
     fun setDoubleTapToLock(on: Boolean) {

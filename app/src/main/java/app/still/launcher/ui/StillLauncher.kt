@@ -135,7 +135,8 @@ fun StillLauncher(
     var timeAskKey by rememberSaveable { mutableStateOf<String?>(null) }
     var timeUpKey by rememberSaveable { mutableStateOf<String?>(null) }
     var timeUpMinutes by rememberSaveable { mutableIntStateOf(0) }
-    var showLockHelp by rememberSaveable { mutableStateOf(false) }
+    // A gesture that needs Precision mode was used while it's off.
+    var precisionHelp by rememberSaveable { mutableStateOf<PrecisionHelp?>(null) }
     var gateScreenKey by rememberSaveable { mutableStateOf<String?>(null) }
     var limitScreenKey by rememberSaveable { mutableStateOf<String?>(null) }
     var limitEmergencyKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -248,7 +249,7 @@ fun StillLauncher(
         folderMenuId = null
         renamingFolderId = null
         openFolderId = null
-        showLockHelp = false
+        precisionHelp = null
         editor = null
         overlay = null
     }
@@ -379,10 +380,17 @@ fun StillLauncher(
                     onLongPress = { menuAppKey = it.key },
                     onSwipeUp = { overlay = Overlay.INSIGHTS },
                     onDoubleTap = if (state.doubleTapToLock) {
-                        { if (!viewModel.lockScreen()) showLockHelp = true }
+                        { if (!viewModel.lockScreen()) precisionHelp = PrecisionHelp.LOCK }
                     } else {
                         null
                     },
+                    onSwipeDown = if (state.swipeDownNotifications) {
+                        { if (!viewModel.openNotifications()) precisionHelp = PrecisionHelp.NOTIFICATIONS }
+                    } else {
+                        null
+                    },
+                    phoneButton = state.phoneButton.app,
+                    cameraButton = state.cameraButton.app,
                     precisionLost = precisionLost,
                     onTurnOnPrecision = { overlay = Overlay.PRECISION },
                     onDismissPrecisionLost = viewModel::forgetPrecision,
@@ -497,6 +505,8 @@ fun StillLauncher(
                 onOpenAppInfo = { context.startActivity(viewModel.appInfoIntent()) },
                 doubleTapToLock = state.doubleTapToLock,
                 onSetDoubleTapToLock = viewModel::setDoubleTapToLock,
+                swipeDownNotifications = state.swipeDownNotifications,
+                onSetSwipeDownNotifications = viewModel::setSwipeDownNotifications,
                 appListKeyboard = state.appListKeyboard,
                 onSetAppListKeyboard = viewModel::setAppListKeyboard,
                 appListFade = state.appListFade,
@@ -706,21 +716,25 @@ fun StillLauncher(
         )
     }
 
-    if (showLockHelp) {
+    precisionHelp?.let { help ->
         AlertDialog(
-            onDismissRequest = { showLockHelp = false },
-            title = { Text(stringResource(R.string.lock_needs_precision_title)) },
-            text = { Text(stringResource(R.string.lock_needs_precision_body)) },
+            onDismissRequest = { precisionHelp = null },
+            title = {
+                Text(stringResource(if (help == PrecisionHelp.LOCK) R.string.lock_needs_precision_title else R.string.notifications_needs_precision_title))
+            },
+            text = {
+                Text(stringResource(if (help == PrecisionHelp.LOCK) R.string.lock_needs_precision_body else R.string.notifications_needs_precision_body))
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        showLockHelp = false
+                        precisionHelp = null
                         overlay = Overlay.PRECISION
                     },
                 ) { Text(stringResource(R.string.lock_set_up)) }
             },
             dismissButton = {
-                TextButton(onClick = { showLockHelp = false }) { Text(stringResource(R.string.lock_not_now)) }
+                TextButton(onClick = { precisionHelp = null }) { Text(stringResource(R.string.lock_not_now)) }
             },
         )
     }
@@ -796,3 +810,6 @@ private const val PRECISION_CONNECT_MILLIS = 3_000L
 
 /** How long Precision mode's blocked screen waits for a block that just started to show up. */
 private const val BLOCK_SHOWS_WITHIN_MILLIS = 2_000L
+
+/** Gestures that need Precision mode, for the dialog shown when it's off. */
+private enum class PrecisionHelp { LOCK, NOTIFICATIONS }

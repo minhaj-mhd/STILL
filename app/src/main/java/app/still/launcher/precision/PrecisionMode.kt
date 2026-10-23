@@ -72,6 +72,9 @@ class PrecisionMode(context: Context) {
     /** Locks the screen like the power button does, so fingerprint and face unlock still work. */
     fun lockScreen(): Boolean = service?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN) == true
 
+    /** Pulls down the notifications, as a swipe from the top of the screen does. */
+    fun openNotifications(): Boolean = service?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS) == true
+
     /** Turns the service off until the user turns it on again in Android's settings. */
     fun turnOff() {
         service?.disableSelf()

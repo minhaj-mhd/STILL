@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
@@ -48,6 +49,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +67,7 @@ import app.still.launcher.data.FolderOpening
 import app.still.launcher.data.FolderStyle
 import app.still.launcher.ui.HomeFolder
 import app.still.launcher.ui.LauncherApp
+import app.still.launcher.ui.components.AppIcon
 import app.still.launcher.ui.components.AppItem
 import app.still.launcher.ui.components.TaskRing
 import app.still.launcher.ui.components.TickRing
@@ -101,6 +105,8 @@ fun HomePage(
     onLaunch: (LauncherApp) -> Unit,
     onLongPress: (LauncherApp) -> Unit,
     onSwipeUp: () -> Unit,
+    /** Swiping down; null when the gesture is turned off. */
+    onSwipeDown: (() -> Unit)?,
     /** Double-tapping empty space; null when the gesture is turned off. */
     onDoubleTap: (() -> Unit)?,
     /** Precision mode was on and Android turned it off. */
@@ -120,6 +126,9 @@ fun HomePage(
     onLongPressHome: () -> Unit,
     /** Favourites were dragged into a new order. */
     onReorderFavorites: (List<LauncherApp>) -> Unit,
+    /** What the bottom corners open; null leaves a corner empty. */
+    phoneButton: LauncherApp?,
+    cameraButton: LauncherApp?,
     modifier: Modifier = Modifier,
 ) {
     val openFolder = folders.firstOrNull { it.id == openFolderId }
@@ -130,7 +139,7 @@ fun HomePage(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .swipeUp(onSwipeUp)
+            .verticalSwipes(onSwipeUp, onSwipeDown)
             .homeTaps(
                 onTap = if (openFolder != null) ({ onOpenFolder(null) }) else null,
                 onDoubleTap = onDoubleTap,
@@ -232,17 +241,53 @@ fun HomePage(
                 Favorites(favorites, appDisplay, onLaunch, onLongPress, onReorderFavorites)
             }
         }
+        if (phoneButton != null || cameraButton != null) {
+            // The logos line up with the edges of everything above; their touch areas reach past.
+            val inset = (CORNER_TOUCH - CORNER_ICON) / 2
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+            ) {
+                CornerButton(phoneButton, onLaunch, Modifier.offset(x = -inset))
+                CornerButton(cameraButton, onLaunch, Modifier.offset(x = inset))
+            }
+        }
     }
 }
 
+/** A corner button: [app]'s one-colour logo, kept quiet. An empty corner when there's no app. */
+@Composable
+private fun CornerButton(app: LauncherApp?, onLaunch: (LauncherApp) -> Unit, modifier: Modifier = Modifier) {
+    if (app == null) {
+        Spacer(modifier.size(CORNER_TOUCH))
+        return
+    }
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(CORNER_TOUCH)
+            .clip(CircleShape)
+            .clickable { onLaunch(app) }
+            .semantics { contentDescription = app.label },
+    ) {
+        AppIcon(app, size = CORNER_ICON, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+private val CORNER_TOUCH = 48.dp
+private val CORNER_ICON = 26.dp
+
 /**
- * Calls [onSwipeUp] after an upward drag of at least [SWIPE_UP_DISTANCE]. Taps and sideways
- * swipes (to the other pages) pass through untouched.
+ * Calls [onSwipeUp] or [onSwipeDown] after a drag of at least [SWIPE_DISTANCE] that way. Taps
+ * and sideways swipes (to the other pages) pass through untouched.
  */
 @Composable
-private fun Modifier.swipeUp(onSwipeUp: () -> Unit): Modifier {
+private fun Modifier.verticalSwipes(onSwipeUp: () -> Unit, onSwipeDown: (() -> Unit)?): Modifier {
     val currentOnSwipeUp by rememberUpdatedState(onSwipeUp)
-    val distance = with(LocalDensity.current) { SWIPE_UP_DISTANCE.toPx() }
+    val currentOnSwipeDown by rememberUpdatedState(onSwipeDown)
+    val distance = with(LocalDensity.current) { SWIPE_DISTANCE.toPx() }
     return pointerInput(Unit) {
         var dragged = 0f
         detectVerticalDragGestures(
@@ -251,12 +296,17 @@ private fun Modifier.swipeUp(onSwipeUp: () -> Unit): Modifier {
                 dragged += amount
                 change.consume()
             },
-            onDragEnd = { if (dragged <= -distance) currentOnSwipeUp() },
+            onDragEnd = {
+                when {
+                    dragged <= -distance -> currentOnSwipeUp()
+                    dragged >= distance -> currentOnSwipeDown?.invoke()
+                }
+            },
         )
     }
 }
 
-private val SWIPE_UP_DISTANCE = 72.dp
+private val SWIPE_DISTANCE = 72.dp
 
 /**
  * Taps on empty space: [onTap] (closing an open folder), [onDoubleTap] (locking) and

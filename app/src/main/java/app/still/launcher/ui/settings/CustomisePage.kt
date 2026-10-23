@@ -18,6 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,10 +33,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.still.launcher.R
 import app.still.launcher.data.AccentColor
 import app.still.launcher.data.AppDisplay
+import app.still.launcher.data.CornerButton
 import app.still.launcher.data.FolderOpening
 import app.still.launcher.data.FolderStyle
 import app.still.launcher.data.LauncherSettings
 import app.still.launcher.data.WallpaperChoice
+import app.still.launcher.ui.HomeButton
+import app.still.launcher.ui.LauncherUiState
 import app.still.launcher.ui.LauncherViewModel
 import app.still.launcher.ui.components.Chip
 import app.still.launcher.ui.components.ChipRow
@@ -45,13 +51,16 @@ import app.still.launcher.ui.theme.stillPalette
 
 /**
  * Settings > Customise: wallpaper (STILL's colours, a pattern, or the phone's own, dimmed),
- * accent, how apps show, and how folders look and open. Changes apply at once.
+ * accent, how apps show, how folders look and open, and what home's corner buttons open.
+ * Changes apply at once.
  */
 @Composable
 fun CustomisePage(onBack: () -> Unit, viewModel: LauncherViewModel = viewModel(factory = LauncherViewModel.Factory)) {
     val context = LocalContext.current
     val appearance by viewModel.appearance.collectAsStateWithLifecycle()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // The corner button whose app is being chosen.
+    var picking by remember { mutableStateOf<CornerButton?>(null) }
     BackHandler(onBack = onBack)
 
     EditorScaffold(title = stringResource(R.string.customise_title), onDone = onBack) {
@@ -126,7 +135,54 @@ fun CustomisePage(onBack: () -> Unit, viewModel: LauncherViewModel = viewModel(f
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        Column {
+            FieldLabel(stringResource(R.string.customise_corner_buttons))
+            CornerButton.entries.forEach { button ->
+                NavigationRow(title = stringResource(button.label()), value = cornerValue(state.homeButton(button))) { picking = button }
+            }
+        }
     }
+
+    picking?.let { button ->
+        CornerButtonSheet(
+            title = stringResource(button.title()),
+            button = state.homeButton(button),
+            apps = state.apps,
+            onChoose = { choice ->
+                viewModel.setCornerButton(button, choice)
+                picking = null
+            },
+            onDismiss = { picking = null },
+        )
+    }
+}
+
+private fun LauncherUiState.homeButton(button: CornerButton): HomeButton = when (button) {
+    CornerButton.PHONE -> phoneButton
+    CornerButton.CAMERA -> cameraButton
+}
+
+/** What a corner button opens, as its row says it: off, a chosen app, or the phone's own one. */
+@Composable
+private fun cornerValue(button: HomeButton): String {
+    val chosen = button.app?.takeIf { button.choice.appKey == it.key }
+    return when {
+        !button.choice.on -> stringResource(R.string.corner_off)
+        chosen != null -> chosen.label
+        button.defaultApp != null -> stringResource(R.string.corner_default_app, button.defaultApp.label)
+        else -> stringResource(R.string.corner_choose)
+    }
+}
+
+private fun CornerButton.label(): Int = when (this) {
+    CornerButton.PHONE -> R.string.corner_phone
+    CornerButton.CAMERA -> R.string.corner_camera
+}
+
+private fun CornerButton.title(): Int = when (this) {
+    CornerButton.PHONE -> R.string.corner_phone_title
+    CornerButton.CAMERA -> R.string.corner_camera_title
 }
 
 /** A round colour to pick, its name under it; the phone's wallpaper shows as an outlined circle. */

@@ -259,6 +259,14 @@
     <string name="customise_folder_style">Folders</string>
     <string name="customise_folder_opening">Folder opening</string>
     <string name="customise_opening_hint">Orbit places a folder\'s apps around the clock; it suits short names or icons.</string>
+    <string name="customise_corner_buttons">Corner buttons</string>
+    <string name="corner_phone">Phone</string>
+    <string name="corner_camera">Camera</string>
+    <string name="corner_phone_title">Phone button</string>
+    <string name="corner_camera_title">Camera button</string>
+    <string name="corner_off">Off</string>
+    <string name="corner_default_app">%1$s (default)</string>
+    <string name="corner_choose">Choose an app</string>
     <string name="wallpaper_black">Black</string>
     <string name="wallpaper_night">Night</string>
     <string name="wallpaper_forest">Forest</string>
@@ -382,13 +390,13 @@
 
     <!-- Precision mode -->
     <string name="precision_service_label">STILL Precision mode</string>
-    <string name="precision_service_description">Lets STILL notice which app is in front, so your blocks, schedules, launch delays and time reminders apply however you open an app, and lets you lock the screen by double-tapping home. STILL can\'t read what\'s on screen or what you type, and nothing leaves your phone.</string>
+    <string name="precision_service_description">Lets STILL notice which app is in front, so your blocks, schedules, launch delays and time reminders apply however you open an app, and lets you lock the screen by double-tapping home and open your notifications by swiping down on it. STILL can\'t read what\'s on screen or what you type, and nothing leaves your phone.</string>
     <string name="precision_title">Precision mode</string>
     <string name="precision_intro">Without it, STILL only steps in when you open apps from STILL. Apps opened from Recents, a notification or a link get past your blocks.</string>
     <string name="precision_what_it_does">What it does</string>
     <string name="precision_does_everywhere">• Blocks, schedules, launch delays and time reminders apply however you open an app.</string>
     <string name="precision_does_time_up">• When time\'s up, STILL steps in front of the app instead of only sending a notification.</string>
-    <string name="precision_does_lock">• Double-tap empty space on home to lock the screen.</string>
+    <string name="precision_does_lock">• Double-tap empty space on home to lock the screen, and swipe down to open your notifications.</string>
     <string name="precision_what_it_sees">What STILL sees</string>
     <string name="precision_sees">Precision mode uses Android\'s Accessibility service only to notice which app is in front. STILL can\'t read what\'s on screen, what you type or your passwords. Nothing is saved, and nothing leaves your phone.</string>
     <string name="precision_agree">Agree and turn on</string>
@@ -415,6 +423,11 @@
     <string name="settings_double_tap_lock_needs_precision">Double-tap empty space on home. Needs Precision mode.</string>
     <string name="lock_needs_precision_title">Locking needs Precision mode</string>
     <string name="lock_needs_precision_body">Turn on Precision mode to lock the screen with a double-tap. You can turn this gesture off in Settings.</string>
+    <string name="settings_swipe_down">Swipe down for notifications</string>
+    <string name="settings_swipe_down_detail">Swipe down anywhere on home</string>
+    <string name="settings_swipe_down_needs_precision">Swipe down anywhere on home. Needs Precision mode.</string>
+    <string name="notifications_needs_precision_title">Swiping down needs Precision mode</string>
+    <string name="notifications_needs_precision_body">Turn on Precision mode to open your notifications by swiping down on home. You can turn this gesture off in Settings.</string>
     <string name="lock_set_up">Set up</string>
     <string name="lock_not_now">Not now</string>
 
