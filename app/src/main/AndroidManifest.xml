@@ -6,6 +6,10 @@
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <!-- Required to send AlarmClock.ACTION_SHOW_ALARMS when the clock is tapped. -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <!-- Reminders: show notifications, ring at the exact minute, and survive a reboot. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- See every launchable app without the restricted QUERY_ALL_PACKAGES permission. -->
     <queries>
@@ -47,6 +51,24 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- Reminder alarms and notification buttons; only STILL's own pending intents reach it. -->
+        <receiver
+            android:name=".reminders.ReminderReceiver"
+            android:exported="false" />
+
+        <!-- Re-arms the next reminder after events that clear or shift alarms. -->
+        <receiver
+            android:name=".reminders.SystemEventReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

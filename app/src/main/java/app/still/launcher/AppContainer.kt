@@ -6,6 +6,10 @@ import app.still.launcher.data.AppRepository
 import app.still.launcher.data.LauncherPreferences
 import app.still.launcher.data.ProductivityRepository
 import app.still.launcher.data.StillDatabase
+import app.still.launcher.reminders.ReminderScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 private val Context.launcherDataStore by preferencesDataStore(name = "launcher")
 
@@ -13,7 +17,11 @@ private val Context.launcherDataStore by preferencesDataStore(name = "launcher")
 class AppContainer(context: Context) {
     private val database = StillDatabase.create(context)
 
+    /** For work that outlives a screen, e.g. broadcast receivers and reminder scheduling. */
+    val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     val preferences = LauncherPreferences(context.launcherDataStore)
     val appRepository = AppRepository(context)
     val productivityRepository = ProductivityRepository(database.productivityDao())
+    val reminderScheduler = ReminderScheduler(context, productivityRepository, applicationScope)
 }

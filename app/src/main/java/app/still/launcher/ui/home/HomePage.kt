@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,9 +31,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.still.launcher.R
+import app.still.launcher.productivity.Reminder
 import app.still.launcher.ui.LauncherApp
 import app.still.launcher.ui.components.AppLabel
 import app.still.launcher.ui.components.rememberCurrentMinute
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -44,6 +47,10 @@ fun HomePage(
     dueTasks: Int,
     overdueTasks: Int,
     onDueTasksClick: () -> Unit,
+    reminders: List<Reminder>,
+    today: LocalDate,
+    onReminderDone: (Reminder) -> Unit,
+    onReminderDismiss: (Reminder) -> Unit,
     onLaunch: (LauncherApp) -> Unit,
     onLongPress: (LauncherApp) -> Unit,
     modifier: Modifier = Modifier,
@@ -60,6 +67,33 @@ fun HomePage(
         }
         Clock(onClick = onClockClick)
         if (dueTasks > 0) DueTasks(dueTasks, overdueTasks, onDueTasksClick)
+        if (reminders.isNotEmpty()) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 16.dp),
+            ) {
+                reminders.take(MAX_REMINDER_CARDS).forEach { reminder ->
+                    key(reminder.key) {
+                        ReminderCard(
+                            reminder = reminder,
+                            today = today,
+                            onDone = { onReminderDone(reminder) },
+                            onDismiss = { onReminderDismiss(reminder) },
+                            onOpen = onDueTasksClick,
+                        )
+                    }
+                }
+                val hidden = reminders.size - MAX_REMINDER_CARDS
+                if (hidden > 0) {
+                    Text(
+                        text = pluralStringResource(R.plurals.home_more_reminders, hidden, hidden),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clickable(onClick = onDueTasksClick),
+                    )
+                }
+            }
+        }
         Box(
             contentAlignment = Alignment.CenterStart,
             modifier = Modifier
@@ -113,6 +147,9 @@ private fun Clock(onClick: () -> Unit) {
         )
     }
 }
+
+/** More reminders than this are summarised as "+N more" so favorites keep their space. */
+private const val MAX_REMINDER_CARDS = 3
 
 /** "3 tasks due · 1 overdue" under the date; tapping it opens the Today page. Hidden when nothing is due. */
 @Composable

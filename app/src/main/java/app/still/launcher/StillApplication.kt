@@ -10,5 +10,6 @@ class StillApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        container.reminderScheduler.start()
     }
 }

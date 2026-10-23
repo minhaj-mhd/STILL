@@ -12,10 +12,14 @@ import app.still.launcher.data.productivity.HabitMeasure
 import app.still.launcher.data.productivity.ItemType
 import app.still.launcher.data.productivity.Priority
 import app.still.launcher.data.productivity.Task
+import app.still.launcher.productivity.ACTIVE_REMINDER_LOOKBACK_DAYS
 import app.still.launcher.productivity.HabitEntry
+import app.still.launcher.productivity.Reminder
 import app.still.launcher.productivity.TaskEntry
 import app.still.launcher.productivity.TodayAgenda
+import app.still.launcher.productivity.activeReminders
 import app.still.launcher.productivity.buildAgenda
+import app.still.launcher.reminders.ReminderScheduler
 import app.still.launcher.schedule.Quota
 import app.still.launcher.schedule.QuotaPeriod
 import app.still.launcher.schedule.Recurrence
@@ -26,11 +30,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 /** How often a habit added from the quick-add sheet repeats; the full editor offers more. */
 sealed interface QuickFrequency {
@@ -38,9 +45,24 @@ sealed interface QuickFrequency {
     data class TimesPerWeek(val count: Int) : QuickFrequency
 }
 
-class TodayViewModel(private val repository: ProductivityRepository) : ViewModel() {
+class TodayViewModel(
+    private val repository: ProductivityRepository,
+    private val reminders: ReminderScheduler,
+) : ViewModel() {
 
-    private val today = MutableStateFlow(LocalDate.now())
+    /** The current minute, reported by the UI (see [setNow]). */
+    private val now = MutableStateFlow(LocalDateTime.now())
+    private val today = now.map { it.toLocalDate() }.distinctUntilChanged()
+
+    /** Whether anything has a time of day, i.e. whether reminder permissions matter. */
+    val hasReminders: StateFlow<Boolean> = combine(repository.tasks, repository.habits) { tasks, habits ->
+        tasks.any { it.completedAt == null && it.schedule?.times.orEmpty().isNotEmpty() } ||
+            habits.any { it.schedule?.times.orEmpty().isNotEmpty() }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun canNotify(): Boolean = reminders.canNotify()
+
+    fun canScheduleExactAlarms(): Boolean = reminders.canScheduleExact()
 
     /** Null until the database has been read once. */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -57,9 +79,38 @@ class TodayViewModel(private val repository: ProductivityRepository) : ViewModel
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    /** The UI reports the date whenever it changes (midnight, time zone change, resume). */
-    fun setToday(date: LocalDate) {
-        today.value = date
+    /**
+     * Reminders that went off and haven't been dealt with, shown as cards on the home screen
+     * until they're done, swiped away, or the item is removed.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val activeReminders: StateFlow<List<Reminder>> = now
+        .flatMapLatest { time ->
+            val date = time.toLocalDate()
+            combine(
+                repository.tasks,
+                repository.habits,
+                repository.records(date.minusDays(ACTIVE_REMINDER_LOOKBACK_DAYS), date),
+                repository.dismissedReminderKeys,
+            ) { tasks, habits, records, dismissed ->
+                activeReminders(time, tasks, habits, records, dismissed)
+            }
+        }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** The UI reports the time every minute and on resume, so the date and reminder cards stay current. */
+    fun setNow(time: LocalDateTime) {
+        now.value = time.withSecond(0).withNano(0)
+    }
+
+    /** "Done" on a home reminder card; works like the notification's Done button. */
+    fun completeReminder(reminder: Reminder) {
+        viewModelScope.launch { reminders.markDone(reminder) }
+    }
+
+    fun dismissReminder(reminder: Reminder) {
+        viewModelScope.launch { reminders.dismiss(reminder) }
     }
 
     fun setTaskDone(entry: TaskEntry, done: Boolean) {
@@ -103,7 +154,7 @@ class TodayViewModel(private val repository: ProductivityRepository) : ViewModel
                 title = title.trim(),
                 measure = measure,
                 target = target,
-                schedule = Schedule(start = today.value, recurrence = Recurrence.Daily()),
+                schedule = Schedule(start = now.value.toLocalDate(), recurrence = Recurrence.Daily()),
             )
             is QuickFrequency.TimesPerWeek -> Habit(
                 title = title.trim(),
@@ -122,7 +173,7 @@ class TodayViewModel(private val repository: ProductivityRepository) : ViewModel
         val Factory = viewModelFactory {
             initializer {
                 val container = (this[APPLICATION_KEY] as StillApplication).container
-                TodayViewModel(container.productivityRepository)
+                TodayViewModel(container.productivityRepository, container.reminderScheduler)
             }
         }
     }

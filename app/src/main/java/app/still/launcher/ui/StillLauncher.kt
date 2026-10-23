@@ -29,6 +29,7 @@ import app.still.launcher.R
 import app.still.launcher.ui.apps.AppActionsSheet
 import app.still.launcher.ui.apps.AppsPage
 import app.still.launcher.ui.apps.RenameAppDialog
+import app.still.launcher.ui.components.rememberCurrentMinute
 import app.still.launcher.ui.editor.EditorHost
 import app.still.launcher.ui.editor.EditorTarget
 import app.still.launcher.ui.editor.EditorTargetSaver
@@ -49,6 +50,7 @@ private enum class Page { Productivity, Home, Apps }
 fun StillLauncher(
     viewModel: LauncherViewModel,
     homePresses: Flow<Unit>,
+    todayRequests: Flow<Unit>,
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -56,6 +58,10 @@ fun StillLauncher(
     // Shared with the Today page, so home's due count always matches what the Today page lists.
     val todayViewModel: TodayViewModel = viewModel(factory = TodayViewModel.Factory)
     val agenda by todayViewModel.agenda.collectAsStateWithLifecycle()
+    val activeReminders by todayViewModel.activeReminders.collectAsStateWithLifecycle()
+    // One clock for everything time-based: the Today page's date and home's reminder cards.
+    val now by rememberCurrentMinute()
+    LaunchedEffect(now) { todayViewModel.setNow(now.toLocalDateTime()) }
     val pagerState = rememberPagerState(initialPage = Page.Home.ordinal) { Page.entries.size }
     val scope = rememberCoroutineScope()
 
@@ -106,6 +112,14 @@ fun StillLauncher(
         }
     }
 
+    // A reminder notification was tapped: show the Today page.
+    LaunchedEffect(todayRequests) {
+        todayRequests.collect {
+            editor = null
+            pagerState.animateScrollToPage(Page.Productivity.ordinal)
+        }
+    }
+
     // A launcher has nowhere to go back to: Back only returns to the home page.
     BackHandler {
         if (pagerState.currentPage != Page.Home.ordinal) goHome(animate = true)
@@ -139,6 +153,10 @@ fun StillLauncher(
                     dueTasks = agenda?.dueTaskCount ?: 0,
                     overdueTasks = agenda?.overdueTaskCount ?: 0,
                     onDueTasksClick = { scope.launch { pagerState.animateScrollToPage(Page.Productivity.ordinal) } },
+                    reminders = activeReminders,
+                    today = now.toLocalDate(),
+                    onReminderDone = todayViewModel::completeReminder,
+                    onReminderDismiss = todayViewModel::dismissReminder,
                     onLaunch = ::launchApp,
                     onLongPress = { menuAppKey = it.key },
                 )

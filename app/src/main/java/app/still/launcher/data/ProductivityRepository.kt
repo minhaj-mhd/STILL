@@ -1,5 +1,6 @@
 package app.still.launcher.data
 
+import app.still.launcher.data.productivity.DismissedReminder
 import app.still.launcher.data.productivity.Habit
 import app.still.launcher.data.productivity.ItemType
 import app.still.launcher.data.productivity.OccurrenceRecord
@@ -7,6 +8,8 @@ import app.still.launcher.data.productivity.ProductivityDao
 import app.still.launcher.data.productivity.Task
 import app.still.launcher.schedule.Occurrence
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.LocalDate
 
@@ -19,6 +22,23 @@ class ProductivityRepository(private val dao: ProductivityDao) {
 
     /** Occurrence records from [from] to [to], both inclusive. */
     fun records(from: LocalDate, to: LocalDate): Flow<List<OccurrenceRecord>> = dao.observeRecords(from, to)
+
+    /** Emits whenever any task, habit or record changes. */
+    val changes: Flow<Unit> = combine(dao.observeTasks(), dao.observeHabits(), dao.observeRecordsVersion()) { _, _, _ -> }
+
+    /** Keys of reminder cards swiped off the home screen. */
+    val dismissedReminderKeys: Flow<Set<String>> = dao.observeDismissedReminderKeys().map { it.toSet() }
+
+    suspend fun dismissReminder(key: String, date: LocalDate) = dao.insertDismissedReminder(DismissedReminder(key, date))
+
+    /** Forgets dismissals for occurrences before [date]; they can't come back to home anyway. */
+    suspend fun forgetDismissedRemindersBefore(date: LocalDate) = dao.deleteDismissedRemindersBefore(date)
+
+    suspend fun getActiveTasks(): List<Task> = dao.getActiveTasks()
+
+    suspend fun getActiveHabits(): List<Habit> = dao.getActiveHabits()
+
+    suspend fun getRecords(from: LocalDate, to: LocalDate): List<OccurrenceRecord> = dao.getRecords(from, to)
 
     /** Every record of one habit, for streaks and history. */
     fun habitRecords(habitId: Long): Flow<List<OccurrenceRecord>> = dao.observeRecordsFor(ItemType.HABIT, habitId)

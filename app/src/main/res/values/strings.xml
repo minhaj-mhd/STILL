@@ -12,6 +12,10 @@
         <item quantity="one">%d overdue</item>
         <item quantity="other">%d overdue</item>
     </plurals>
+    <plurals name="home_more_reminders">
+        <item quantity="one">+%d more reminder</item>
+        <item quantity="other">+%d more reminders</item>
+    </plurals>
     <string name="home_favorites_empty">Long-press an app in the app list to add it here.\nSwipe left to see all apps.</string>
 
     <!-- Apps page -->
@@ -100,6 +104,16 @@
     <string name="item_amount_title">How much for “%1$s”?</string>
     <string name="item_amount_save">Save</string>
     <string name="item_edit">Edit</string>
+
+    <!-- Reminders -->
+    <string name="reminder_channel_name">Reminders</string>
+    <string name="reminder_channel_description">Tasks and habits at the times you set</string>
+    <string name="reminder_due_at">Due at %1$s</string>
+    <string name="reminder_action_done">Done</string>
+    <string name="reminder_action_snooze">Snooze 10 min</string>
+    <string name="reminder_permission_notifications">Turn on notifications so your reminders can ring.</string>
+    <string name="reminder_permission_alarms">Allow alarms so reminders ring exactly on time.</string>
+    <string name="reminder_permission_allow">Allow</string>
 
     <!-- Editors -->
     <string name="editor_done">Done</string>

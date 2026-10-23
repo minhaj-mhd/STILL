@@ -2,6 +2,7 @@ package app.still.launcher.data.productivity
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
@@ -23,6 +24,28 @@ abstract class ProductivityDao {
 
     @Query("SELECT * FROM occurrence_records WHERE itemType = :type AND itemId = :itemId")
     abstract fun observeRecordsFor(type: ItemType, itemId: Long): Flow<List<OccurrenceRecord>>
+
+    /** Changes whenever any record is added, changed or removed. */
+    @Query("SELECT COUNT(*) || ':' || IFNULL(MAX(updatedAt), 0) FROM occurrence_records")
+    abstract fun observeRecordsVersion(): Flow<String>
+
+    @Query("SELECT `key` FROM dismissed_reminders")
+    abstract fun observeDismissedReminderKeys(): Flow<List<String>>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    abstract suspend fun insertDismissedReminder(dismissed: DismissedReminder)
+
+    @Query("DELETE FROM dismissed_reminders WHERE date < :before")
+    abstract suspend fun deleteDismissedRemindersBefore(before: LocalDate)
+
+    @Query("SELECT * FROM tasks WHERE archived = 0")
+    abstract suspend fun getActiveTasks(): List<Task>
+
+    @Query("SELECT * FROM habits WHERE archived = 0")
+    abstract suspend fun getActiveHabits(): List<Habit>
+
+    @Query("SELECT * FROM occurrence_records WHERE date BETWEEN :from AND :to")
+    abstract suspend fun getRecords(from: LocalDate, to: LocalDate): List<OccurrenceRecord>
 
     @Query("SELECT * FROM tasks WHERE id = :taskId")
     abstract suspend fun getTask(taskId: Long): Task?

@@ -13,7 +13,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,7 +33,6 @@ import app.still.launcher.data.productivity.Task
 import app.still.launcher.productivity.HabitEntry
 import app.still.launcher.productivity.TaskEntry
 import app.still.launcher.productivity.TodayAgenda
-import app.still.launcher.ui.components.rememberCurrentMinute
 import app.still.launcher.ui.editor.EditorTarget
 
 /** Left page: what's due today, overdue tasks, today's habits, and tasks without a date. */
@@ -45,9 +43,7 @@ fun TodayPage(
     viewModel: TodayViewModel = viewModel(factory = TodayViewModel.Factory),
 ) {
     val agenda by viewModel.agenda.collectAsStateWithLifecycle()
-    val now by rememberCurrentMinute()
-    val date = now.toLocalDate()
-    LaunchedEffect(date) { viewModel.setToday(date) }
+    val hasReminders by viewModel.hasReminders.collectAsStateWithLifecycle()
 
     var adding by rememberSaveable { mutableStateOf(false) }
     var taskMenu by remember { mutableStateOf<TaskEntry?>(null) }
@@ -77,6 +73,9 @@ fun TodayPage(
             modifier = Modifier.fillMaxSize(),
         ) {
             item(key = "header") { Header(agenda) }
+            if (hasReminders) {
+                item(key = "reminder-permission") { ReminderPermissionBanner(viewModel) }
+            }
             agenda?.let { current ->
                 if (current.isEmpty) {
                     item(key = "empty") {
