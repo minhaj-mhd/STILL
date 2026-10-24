@@ -417,6 +417,20 @@
     <string name="pause_back_to">Back to %1$s</string>
     <string name="pause_used_of">%1$s · %2$s of %3$s today</string>
 
+    <!-- Focus mode -->
+    <string name="focus_mode_label">Focus mode</string>
+    <string name="focus_mode_for">Focus mode · %1$s</string>
+    <string name="focus_mode_just_started">Focus mode · just started</string>
+    <string name="focus_hold_start">Keep holding</string>
+    <plurals name="focus_hold_end">
+        <item quantity="one">Keep holding · %1$ds</item>
+        <item quantity="other">Keep holding · %1$ds</item>
+    </plurals>
+    <string name="focus_locked_title">%1$s is locked in focus mode</string>
+    <string name="focus_locked_body">Only the apps on your home screen open until focus mode ends. To end it, hold the clock ring for 30 seconds.</string>
+    <string name="focus_needs_precision_title">Focus mode is on</string>
+    <string name="focus_needs_precision_body">Without Precision mode, apps opened from Recents or notifications get past it. Turn Precision mode on to lock those too.</string>
+
     <!-- Inner practice: the day's quality -->
     <string name="keynote_today">Today\'s quality</string>
     <string name="keynote_steadiness">Steadiness</string>

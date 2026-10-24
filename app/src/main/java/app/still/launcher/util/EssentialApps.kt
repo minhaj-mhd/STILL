@@ -53,7 +53,8 @@ class EssentialApps(context: Context) {
     /** The phone's own camera app, which home's camera button opens unless another is chosen. */
     fun cameraApp(): String? = cachedHandler(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
 
-    private fun clockApp(): String? = cachedHandler(AlarmClock.ACTION_SHOW_ALARMS)
+    /** The phone's own clock app, which focus mode keeps open so alarms can be dismissed. */
+    fun clockApp(): String? = cachedHandler(AlarmClock.ACTION_SHOW_ALARMS)
 
     /** When each default handler was looked up, and what it was. */
     private val handlers = HashMap<String, Pair<Long, String?>>()

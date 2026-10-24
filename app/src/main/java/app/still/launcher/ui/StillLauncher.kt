@@ -58,6 +58,7 @@ import app.still.launcher.ui.apps.LaunchDelayScreen
 import app.still.launcher.ui.apps.TimeIntentSheet
 import app.still.launcher.ui.apps.TimeUpScreen
 import app.still.launcher.ui.apps.WhyPauseScreen
+import app.still.launcher.ui.focusmode.FocusLockedScreen
 import app.still.launcher.ui.keynote.HomeKeynote
 import app.still.launcher.ui.keynote.KeynoteCard
 import app.still.launcher.ui.keynote.KeynoteViewModel
@@ -132,7 +133,10 @@ fun StillLauncher(
         viewModel.setNow(now.toInstant())
         keynoteViewModel.setNow(now.toLocalDateTime())
     }
-    val pagerState = rememberPagerState(initialPage = Page.Home.ordinal) { Page.entries.size }
+    // Focus mode leaves home and the left page; the app list isn't there to swipe to.
+    val pagerState = rememberPagerState(initialPage = Page.Home.ordinal) {
+        if (state.focusModeSince != null) Page.Apps.ordinal else Page.entries.size
+    }
     val scope = rememberCoroutineScope()
 
     var query by rememberSaveable { mutableStateOf("") }
@@ -159,6 +163,7 @@ fun StillLauncher(
     var limitEmergencyKey by rememberSaveable { mutableStateOf<String?>(null) }
     var emergencyKey by rememberSaveable { mutableStateOf<String?>(null) }
     var appLimitSheetKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var focusLockedKey by rememberSaveable { mutableStateOf<String?>(null) }
     var appLimitScreenKey by rememberSaveable { mutableStateOf<String?>(null) }
     var appLimitReason by rememberSaveable { mutableStateOf<AppLimitReason?>(null) }
     var visitUpMinutes by rememberSaveable { mutableIntStateOf(0) }
@@ -191,6 +196,8 @@ fun StillLauncher(
     val limitEmergencyApp = state.apps.firstOrNull { it.key == limitEmergencyKey }
     val emergencyApp = state.apps.firstOrNull { it.key == emergencyKey }
     val appLimitSheetApp = state.apps.firstOrNull { it.key == appLimitSheetKey }
+    val focusLockedApp = state.apps.firstOrNull { it.key == focusLockedKey }
+    val focusOn = state.focusModeSince != null
     val appLimitScreenApp = state.apps.firstOrNull { it.key == appLimitScreenKey }
     val pauseApp = state.apps.firstOrNull { it.key == pauseKey }
 
@@ -266,6 +273,7 @@ fun StillLauncher(
         // Read live, as Precision mode reads it, so both agree on whether the app's own limits keep it closed.
         val appClosed = viewModel.appLimitStatus(app)?.closed
         when {
+            viewModel.focusLocks(app) -> focusLockedKey = app.key
             app.isBlocked -> blockedScreenKey = app.key
             app.isLimited -> limitScreenKey = app.key
             appClosed != null -> {
@@ -300,6 +308,7 @@ fun StillLauncher(
         limitScreenKey = null
         limitEmergencyKey = null
         appLimitSheetKey = null
+        focusLockedKey = null
         appLimitScreenKey = null
         pauseKey = null
         momentsOpen = false
@@ -333,6 +342,7 @@ fun StillLauncher(
             closeAll()
             goHome(animate = false)
             when (request.kind) {
+                InterventionKind.FOCUS -> focusLockedKey = app.key
                 InterventionKind.BLOCKED -> {
                     // A block that just started (a schedule, or time's up) can take a moment to
                     // reach the app list; the blocked screen closes itself if it isn't there.
@@ -389,6 +399,8 @@ fun StillLauncher(
     // The held-back count in the notification shade was tapped.
     LaunchedEffect(heldNotificationRequests) {
         heldNotificationRequests.collect {
+            // Held-back notifications are part of Insights, which focus mode keeps closed.
+            if (viewModel.uiState.value.focusModeSince != null) return@collect
             closeAll()
             goHome(animate = false)
             overlay = Overlay.HELD_NOTIFICATIONS
@@ -446,14 +458,15 @@ fun StillLauncher(
                     onReminderDone = todayViewModel::completeReminder,
                     onReminderDismiss = todayViewModel::dismissReminder,
                     onLaunch = ::launchApp,
-                    onLongPress = { menuAppKey = it.key },
-                    onSwipeUp = { overlay = Overlay.INSIGHTS },
+                    // In focus mode home's apps open, but menus, Insights, Customise and gestures don't.
+                    onLongPress = { if (!focusOn) menuAppKey = it.key },
+                    onSwipeUp = { if (!focusOn) overlay = Overlay.INSIGHTS },
                     onDoubleTap = if (state.doubleTapToLock) {
                         { if (!viewModel.lockScreen()) precisionHelp = PrecisionHelp.LOCK }
                     } else {
                         null
                     },
-                    onSwipeDown = if (state.swipeDownNotifications) {
+                    onSwipeDown = if (state.swipeDownNotifications && !focusOn) {
                         { if (!viewModel.openNotifications()) precisionHelp = PrecisionHelp.NOTIFICATIONS }
                     } else {
                         null
@@ -488,9 +501,17 @@ fun StillLauncher(
                     appDisplay = state.appDisplay,
                     openFolderId = openFolderId,
                     onOpenFolder = { openFolderId = it },
-                    onFolderLongPress = { folderMenuId = it.id },
-                    onLongPressHome = { overlay = Overlay.HOME_CUSTOMISE },
-                    onReorderFavorites = viewModel::reorderFavorites,
+                    onFolderLongPress = { if (!focusOn) folderMenuId = it.id },
+                    onLongPressHome = { if (!focusOn) overlay = Overlay.HOME_CUSTOMISE },
+                    onReorderFavorites = { if (!focusOn) viewModel.reorderFavorites(it) },
+                    focusSince = state.focusModeSince,
+                    onFocusHold = {
+                        val starting = !focusOn
+                        closeAll()
+                        viewModel.toggleFocusMode()
+                        // Without Precision mode, apps opened from Recents or notifications get past it.
+                        if (starting && !precisionRunning) precisionHelp = PrecisionHelp.FOCUS
+                    },
                 )
                 Page.Apps -> AppsPage(
                     apps = state.apps,
@@ -618,6 +639,15 @@ fun StillLauncher(
     // Editors cover everything else, including Settings when a schedule is opened from there.
     // Their own Back handler takes priority over the pages'.
     editor?.let { target -> EditorHost(target, onClose = { editor = null }) }
+
+    // Focus mode keeps every app off home closed; it closes itself when focus mode ends.
+    focusLockedApp?.let { app ->
+        if (!focusOn) {
+            LaunchedEffect(app.key) { focusLockedKey = null }
+        } else {
+            FocusLockedScreen(app.label, onClose = { focusLockedKey = null })
+        }
+    }
 
     // Opening a blocked app lands here instead; it closes itself when the block runs out.
     blockedScreenApp?.let { app ->
@@ -912,10 +942,26 @@ fun StillLauncher(
         AlertDialog(
             onDismissRequest = { precisionHelp = null },
             title = {
-                Text(stringResource(if (help == PrecisionHelp.LOCK) R.string.lock_needs_precision_title else R.string.notifications_needs_precision_title))
+                Text(
+                    stringResource(
+                        when (help) {
+                            PrecisionHelp.LOCK -> R.string.lock_needs_precision_title
+                            PrecisionHelp.NOTIFICATIONS -> R.string.notifications_needs_precision_title
+                            PrecisionHelp.FOCUS -> R.string.focus_needs_precision_title
+                        },
+                    ),
+                )
             },
             text = {
-                Text(stringResource(if (help == PrecisionHelp.LOCK) R.string.lock_needs_precision_body else R.string.notifications_needs_precision_body))
+                Text(
+                    stringResource(
+                        when (help) {
+                            PrecisionHelp.LOCK -> R.string.lock_needs_precision_body
+                            PrecisionHelp.NOTIFICATIONS -> R.string.notifications_needs_precision_body
+                            PrecisionHelp.FOCUS -> R.string.focus_needs_precision_body
+                        },
+                    ),
+                )
             },
             confirmButton = {
                 TextButton(
@@ -1004,4 +1050,4 @@ private const val PRECISION_CONNECT_MILLIS = 3_000L
 private const val BLOCK_SHOWS_WITHIN_MILLIS = 2_000L
 
 /** Gestures that need Precision mode, for the dialog shown when it's off. */
-private enum class PrecisionHelp { LOCK, NOTIFICATIONS }
+private enum class PrecisionHelp { LOCK, NOTIFICATIONS, FOCUS }

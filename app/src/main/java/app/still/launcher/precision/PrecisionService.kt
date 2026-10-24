@@ -131,12 +131,15 @@ class PrecisionService : AccessibilityService() {
 
     private fun ruleFor(packageName: String, now: Instant): ForegroundRule {
         val rules = rules ?: return ForegroundRule.NONE
-        if (container.essentialApps.isEssential(packageName)) return ForegroundRule.NONE
+        // Focus mode closes even the essential apps it doesn't keep open, Settings among them.
+        val focusLocked = container.focusMode.locks(packageName)
+        if (container.essentialApps.isEssential(packageName)) return ForegroundRule(focusLocked = focusLocked)
         val zone = ZoneId.systemDefault()
         val scheduled = scheduledBlocks(rules.schedules, LocalDateTime.ofInstant(now, zone))
         val alwaysOpen = rules.settings.gateAlwaysOpenPackages
         val gates = container.taskGates.closedGates(now) { it == packageName && container.essentialApps.canGate(it, alwaysOpen) }
         return ForegroundRule(
+            focusLocked = focusLocked,
             blocked = activeBlock(packageName, rules.blocks, scheduled, now, zone) != null,
             gated = gates.isNotEmpty(),
             limited = container.dailyLimit.keepsClosed(packageName, now.toEpochMilli()),

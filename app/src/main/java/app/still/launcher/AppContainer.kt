@@ -7,6 +7,7 @@ import app.still.launcher.data.AppRepository
 import app.still.launcher.data.BlockingRepository
 import app.still.launcher.data.GateRepository
 import app.still.launcher.focus.FocusTimer
+import app.still.launcher.focusmode.FocusModeMonitor
 import app.still.launcher.gates.TaskGateMonitor
 import app.still.launcher.keynote.UnlockMonitor
 import app.still.launcher.limit.AppLimitMonitor
@@ -52,6 +53,7 @@ class AppContainer(context: Context) {
     val focusTimer = FocusTimer(context, preferences, productivityRepository, applicationScope)
     val practiceRepository = PracticeRepository(database.practiceDao())
     val unlockMonitor = UnlockMonitor(screenTimeRepository)
+    val focusMode = FocusModeMonitor(context, preferences, essentialApps, applicationScope)
     val appLimits = AppLimitMonitor(context, preferences, dailyLimit, appTimeReminders, precisionMode, practiceRepository, focusTimer, applicationScope)
     val notificationFilter = NotificationFilter(context, database.heldNotificationDao(), preferences, essentialApps, applicationScope)
 }

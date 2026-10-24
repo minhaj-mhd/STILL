@@ -2,6 +2,8 @@ package app.still.launcher.precision
 
 /** What STILL knows about an app as it comes to the front. */
 data class ForegroundRule(
+    /** Focus mode is on and the app isn't reachable from home. */
+    val focusLocked: Boolean = false,
     /** A block or a schedule covers it right now. */
     val blocked: Boolean = false,
     /** A task gate keeps it closed until tasks or habits are done. */
@@ -20,6 +22,9 @@ data class ForegroundRule(
 
 /** How STILL steps in front of an app. */
 enum class InterventionKind {
+    /** Focus mode keeps the app closed. */
+    FOCUS,
+
     /** Show the blocked screen. */
     BLOCKED,
 
@@ -99,6 +104,7 @@ class ForegroundGate(val graceMillis: Long = DEFAULT_GRACE_MILLIS) {
         }
         if (intervened) return null
         val kind = when {
+            rule.focusLocked -> InterventionKind.FOCUS
             rule.blocked -> InterventionKind.BLOCKED
             rule.limited -> InterventionKind.LIMIT
             rule.appClosed -> InterventionKind.APP_LIMIT

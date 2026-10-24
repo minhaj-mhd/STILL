@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import app.still.launcher.focus.FocusSession
@@ -82,6 +83,8 @@ data class LauncherSettings(
     val askWhyOn: Boolean = true,
     /** The day the morning quality card was put off, so it doesn't ask again that day. */
     val keynotePutOffOn: LocalDate? = null,
+    /** When focus mode started, in epoch milliseconds; null while it's off. */
+    val focusModeSince: Long? = null,
 ) {
     /** App limits, the app list's fading and the daily quality's summary all need each app's time today. */
     val needsAppUsage: Boolean get() = appListFade || appLimits.isNotEmpty() || dailyQuality
@@ -132,6 +135,7 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
                 unlocksOnHome = prefs[UNLOCKS_ON_HOME] ?: true,
                 askWhyOn = prefs[ASK_WHY_ON] ?: true,
                 keynotePutOffOn = prefs[KEYNOTE_PUT_OFF_ON]?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+                focusModeSince = prefs[FOCUS_MODE_SINCE],
             )
         }
         // Other keys, such as visits to limited apps, change often; only pass on real changes.
@@ -250,6 +254,11 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setAskWhyOn(on: Boolean) {
         dataStore.edit { prefs -> prefs[ASK_WHY_ON] = on }
+    }
+
+    /** Starts focus mode at [millis], or ends it with null. */
+    suspend fun setFocusModeSince(millis: Long?) {
+        dataStore.edit { prefs -> if (millis == null) prefs.remove(FOCUS_MODE_SINCE) else prefs[FOCUS_MODE_SINCE] = millis }
     }
 
     suspend fun setKeynotePutOff(day: LocalDate) {
@@ -442,6 +451,7 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val UNLOCKS_ON_HOME = booleanPreferencesKey("unlocksOnHome")
         val ASK_WHY_ON = booleanPreferencesKey("askWhyOn")
         val KEYNOTE_PUT_OFF_ON = stringPreferencesKey("keynotePutOffOn")
+        val FOCUS_MODE_SINCE = longPreferencesKey("focusModeSince")
         val appLimitsSerializer: KSerializer<Map<String, AppLimitEntry>> = MapSerializer(String.serializer(), AppLimitEntry.serializer())
         val visitsSerializer: KSerializer<Map<String, AppVisit>> = MapSerializer(String.serializer(), AppVisit.serializer())
         // Typed explicitly, as for Room's converters.

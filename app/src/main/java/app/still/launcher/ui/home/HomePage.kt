@@ -3,7 +3,10 @@ package app.still.launcher.ui.home
 import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,10 +36,17 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
@@ -60,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.still.launcher.R
 import app.still.launcher.focus.FocusSession
+import app.still.launcher.focusmode.holdMillisFor
 import app.still.launcher.limit.LimitState
 import app.still.launcher.productivity.ItemProgress
 import app.still.launcher.productivity.Reminder
@@ -80,10 +91,12 @@ import app.still.launcher.ui.components.holdToDrag
 import app.still.launcher.ui.components.formatTime
 import app.still.launcher.ui.components.rememberCurrentMinute
 import app.still.launcher.ui.theme.stillPalette
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Composable
@@ -140,8 +153,15 @@ fun HomePage(
     unlocks: UnlockObservation?,
     /** The morning card asking for today's quality, while it's due. */
     keynoteCard: (@Composable () -> Unit)?,
+    /** When focus mode started; null while it's off. */
+    focusSince: Long?,
+    /** The ring was held long enough to start or end focus mode. */
+    onFocusHold: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Focus mode frames the whole screen.
+    val accent = stillPalette.accent
+    val frameAlpha by animateFloatAsState(if (focusSince != null) 1f else 0f, label = "focus frame")
     val openFolder = folders.firstOrNull { it.id == openFolderId }
     BackHandler(enabled = openFolder != null) { onOpenFolder(null) }
     // Spotlight and Orbit put the folder centre stage, so the clock steps back.
@@ -150,6 +170,19 @@ fun HomePage(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .drawWithContent {
+                drawContent()
+                if (frameAlpha > 0f) {
+                    val inset = FRAME_INSET.toPx()
+                    drawRoundRect(
+                        color = accent.copy(alpha = frameAlpha),
+                        topLeft = Offset(inset, inset),
+                        size = Size(size.width - 2 * inset, size.height - 2 * inset),
+                        cornerRadius = CornerRadius(FRAME_RADIUS.toPx()),
+                        style = Stroke(FRAME_WIDTH.toPx()),
+                    )
+                }
+            }
             .verticalSwipes(onSwipeUp, onSwipeDown)
             .homeTaps(
                 onTap = if (openFolder != null) ({ onOpenFolder(null) }) else null,
@@ -174,7 +207,14 @@ fun HomePage(
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
             Box(contentAlignment = Alignment.Center) {
-                BezelClock(limit, progress, onClick = onClockClick, modifier = Modifier.graphicsLayer { alpha = clockAlpha })
+                BezelClock(
+                    limit = limit,
+                    progress = progress,
+                    focusOn = focusSince != null,
+                    onClick = onClockClick,
+                    onHoldDone = onFocusHold,
+                    modifier = Modifier.graphicsLayer { alpha = clockAlpha },
+                )
                 if (openFolder != null && folderOpening == FolderOpening.ORBIT) {
                     key(openFolder.id) {
                         Box(Modifier.requiredSize(BEZEL_SIZE + ORBIT_REACH)) {
@@ -186,6 +226,7 @@ fun HomePage(
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.graphicsLayer { alpha = clockAlpha }) {
                 Spacer(Modifier.height(8.dp))
                 DateLine(limit)
+                focusSince?.let { FocusLine(it) }
                 keynote?.let { KeynoteLine(it, onKeynoteClick) }
                 ProgressLine(progress, onDueTasksClick)
                 unlocks?.let { UnlockLine(it) }
@@ -466,11 +507,26 @@ private val ORBIT_REACH = 40.dp
  * per item on today's list. Tapping it opens the alarms.
  */
 @Composable
-private fun BezelClock(limit: LimitState?, progress: List<ItemProgress>, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun BezelClock(
+    limit: LimitState?,
+    progress: List<ItemProgress>,
+    focusOn: Boolean,
+    onClick: () -> Unit,
+    onHoldDone: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val locale = LocalLocale.current.platformLocale
     val now by rememberCurrentMinute()
     val palette = stillPalette
+    val haptics = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    // How far through the hold, 0 to 1; 0 while the ring isn't held.
+    var held by remember { mutableFloatStateOf(0f) }
+    val holdMillis = holdMillisFor(focusOn)
+    val currentHoldMillis by rememberUpdatedState(holdMillis)
+    val currentOnClick by rememberUpdatedState(onClick)
+    val currentOnHoldDone by rememberUpdatedState(onHoldDone)
     val ringColor = when {
         limit?.isReached == true -> palette.danger
         limit?.isWarning == true -> palette.warning
@@ -483,9 +539,58 @@ private fun BezelClock(limit: LimitState?, progress: List<ItemProgress>, onClick
         modifier = modifier
             .size(BEZEL_SIZE)
             .clip(CircleShape)
-            .clickable(onClick = onClick),
+            // A tap opens the alarms; holding starts focus mode (or, held far longer, ends it).
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown()
+                    down.consume()
+                    val total = currentHoldMillis
+                    var done = false
+                    val timer = scope.launch {
+                        val start = withFrameMillis { it }
+                        while (true) {
+                            val elapsed = withFrameMillis { it } - start
+                            held = (elapsed.toFloat() / total).coerceIn(0f, 1f)
+                            if (elapsed >= total) {
+                                done = true
+                                held = 0f
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                currentOnHoldDone()
+                                break
+                            }
+                        }
+                    }
+                    var lastMillis = down.uptimeMillis
+                    do {
+                        val event = awaitPointerEvent()
+                        // Kept, so the pages don't swipe and home's long-press doesn't fire meanwhile.
+                        event.changes.forEach {
+                            it.consume()
+                            lastMillis = it.uptimeMillis
+                        }
+                    } while (event.changes.any { it.pressed })
+                    timer.cancel()
+                    held = 0f
+                    if (!done && lastMillis - down.uptimeMillis < viewConfiguration.longPressTimeoutMillis) currentOnClick()
+                }
+            },
     ) {
         TickRing(fraction = limit?.fraction ?: 0f, lit = ringColor, unlit = palette.faint, modifier = Modifier.fillMaxSize())
+        Canvas(Modifier.fillMaxSize()) {
+            val fraction = held
+            if (fraction > 0f) {
+                val width = HOLD_ARC_WIDTH.toPx()
+                drawArc(
+                    color = palette.accent,
+                    startAngle = -90f,
+                    sweepAngle = 360f * fraction,
+                    useCenter = false,
+                    topLeft = Offset(width / 2, width / 2),
+                    size = Size(size.width - width, size.height - width),
+                    style = Stroke(width, cap = StrokeCap.Round),
+                )
+            }
+        }
         TaskRing(progress, done = palette.accent, overdue = palette.warning, pending = palette.faint, modifier = Modifier.size(TASK_RING_SIZE))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
@@ -494,12 +599,22 @@ private fun BezelClock(limit: LimitState?, progress: List<ItemProgress>, onClick
                 fontWeight = FontWeight.Light,
                 color = MaterialTheme.colorScheme.onBackground,
             )
-            limit?.takeIf { it.isOn }?.let {
+            val heldMillis = (held * holdMillis).toLong()
+            if (heldMillis > HOLD_HINT_AFTER_MILLIS) {
+                val secondsLeft = ((holdMillis - heldMillis + 999) / 1000).toInt()
                 Text(
-                    text = if (it.isReached) stringResource(R.string.home_times_up) else stringResource(R.string.limit_left, formatDuration(it.left)),
+                    text = if (focusOn) pluralStringResource(R.plurals.focus_hold_end, secondsLeft, secondsLeft) else stringResource(R.string.focus_hold_start),
                     style = MaterialTheme.typography.labelLarge,
-                    color = ringColor,
+                    color = palette.accent,
                 )
+            } else {
+                limit?.takeIf { it.isOn }?.let {
+                    Text(
+                        text = if (it.isReached) stringResource(R.string.home_times_up) else stringResource(R.string.limit_left, formatDuration(it.left)),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = ringColor,
+                    )
+                }
             }
         }
     }
@@ -507,6 +622,28 @@ private fun BezelClock(limit: LimitState?, progress: List<ItemProgress>, onClick
 
 private val BEZEL_SIZE = 236.dp
 private val TASK_RING_SIZE = 172.dp
+private val HOLD_ARC_WIDTH = 4.dp
+
+/** A press shorter than this is a tap, so it doesn't flash "Keep holding". */
+private const val HOLD_HINT_AFTER_MILLIS = 300L
+
+/** Focus mode's frame around the whole screen, following its rounded corners. */
+private val FRAME_INSET = 4.dp
+private val FRAME_WIDTH = 3.dp
+private val FRAME_RADIUS = 32.dp
+
+/** "Focus mode · 42m" under the date while focus mode is on. */
+@Composable
+private fun FocusLine(since: Long) {
+    val now by rememberCurrentMinute()
+    val minutes = Duration.between(Instant.ofEpochMilli(since), now.toInstant()).toMinutes()
+    Text(
+        text = if (minutes < 1) stringResource(R.string.focus_mode_just_started) else stringResource(R.string.focus_mode_for, formatDuration(Duration.ofMinutes(minutes))),
+        style = MaterialTheme.typography.titleSmall,
+        color = stillPalette.accent,
+        modifier = Modifier.padding(top = 2.dp),
+    )
+}
 
 /** The date, or that the day's phone time is up. */
 @Composable

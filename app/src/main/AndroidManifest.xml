@@ -15,11 +15,16 @@
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
-    <!-- See every launchable app without the restricted QUERY_ALL_PACKAGES permission. -->
+    <!-- See every launchable app without the restricted QUERY_ALL_PACKAGES permission, and the
+         other home apps, whose Recents focus mode leaves alone. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
         </intent>
     </queries>
 

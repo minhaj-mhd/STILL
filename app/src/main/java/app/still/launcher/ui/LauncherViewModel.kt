@@ -34,6 +34,7 @@ import app.still.launcher.data.practice.ChoiceAnswer
 import app.still.launcher.data.practice.ChoiceSource
 import app.still.launcher.data.ScreenTimeRepository
 import app.still.launcher.data.WallpaperChoice
+import app.still.launcher.focusmode.FocusModeMonitor
 import app.still.launcher.gates.EmergencyOpen
 import app.still.launcher.gates.GateInputs
 import app.still.launcher.gates.GateCheck
@@ -178,6 +179,8 @@ data class LauncherUiState(
     val dailyQuality: Boolean = true,
     val unlocksOnHome: Boolean = true,
     val askWhyOn: Boolean = true,
+    /** When focus mode started; null while it's off. */
+    val focusModeSince: Long? = null,
 )
 
 class LauncherViewModel(
@@ -194,6 +197,7 @@ class LauncherViewModel(
     private val appIcons: AppIcons,
     private val appLimits: AppLimitMonitor,
     private val practice: PracticeRepository,
+    private val focusMode: FocusModeMonitor,
 ) : ViewModel() {
 
     /** The current minute, so blocks end on time without anything else changing. */
@@ -289,6 +293,7 @@ class LauncherViewModel(
                 dailyQuality = settings.dailyQuality,
                 unlocksOnHome = settings.unlocksOnHome,
                 askWhyOn = settings.askWhyOn,
+                focusModeSince = settings.focusModeSince,
             )
         }
             .flowOn(Dispatchers.Default)
@@ -343,6 +348,14 @@ class LauncherViewModel(
 
     /** Where [app] stands against its own limits right now, read the way Precision mode reads it; null when it has none. */
     fun appLimitStatus(app: LauncherApp): AppLimitStatus? = if (app.canBlock) appLimits.status(app.component.packageName) else null
+
+    /** Whether focus mode keeps [app] closed right now. */
+    fun focusLocks(app: LauncherApp): Boolean = focusMode.locks(app.component.packageName)
+
+    /** Starts focus mode, or ends it when it's on. */
+    fun toggleFocusMode() {
+        viewModelScope.launch { if (focusMode.isOn) focusMode.end() else focusMode.start() }
+    }
 
     /** The pause to show before opening [app] now, or null to open it without asking. */
     fun pauseFor(app: LauncherApp): Pause? = appLimits.pauseFor(app.component.packageName)
@@ -573,6 +586,7 @@ class LauncherViewModel(
                     container.appIcons,
                     container.appLimits,
                     container.practiceRepository,
+                    container.focusMode,
                 )
             }
         }

@@ -127,6 +127,15 @@ class ForegroundGateTest {
     }
 
     @Test
+    fun `focus mode covers an app on every visit, even with a pass, before anything else`() {
+        val locked = ForegroundRule(focusLocked = true, blocked = true, asksFirst = true)
+        gate.allow("insta", minutes(10))
+        assertEquals(InterventionKind.FOCUS, gate.onForeground("insta", 0, locked))
+        gate.onForeground("still", 1_000, none)
+        assertEquals(InterventionKind.FOCUS, gate.onForeground("insta", 2_000, locked))
+    }
+
+    @Test
     fun `after stepping in, staying in the app is handled, not let through`() {
         assertFalse(gate.hasSteppedIn)
         assertEquals(InterventionKind.BLOCKED, gate.onForeground("insta", 0, blocked))
