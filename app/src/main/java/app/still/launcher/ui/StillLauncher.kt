@@ -263,11 +263,13 @@ fun StillLauncher(
     }
 
     fun launchApp(app: LauncherApp) {
+        // Read live, as Precision mode reads it, so both agree on whether the app's own limits keep it closed.
+        val appClosed = viewModel.appLimitStatus(app)?.closed
         when {
             app.isBlocked -> blockedScreenKey = app.key
             app.isLimited -> limitScreenKey = app.key
-            app.isAppClosed -> {
-                appLimitReason = if (app.appLimit?.closed == AppClosed.DONE_TODAY) AppLimitReason.DONE_TODAY else AppLimitReason.WAITING
+            appClosed != null -> {
+                appLimitReason = if (appClosed == AppClosed.DONE_TODAY) AppLimitReason.DONE_TODAY else AppLimitReason.WAITING
                 appLimitScreenKey = app.key
             }
             app.isGated -> gateScreenKey = app.key
@@ -347,12 +349,10 @@ fun StillLauncher(
                     }
                     if (limited != null) limitScreenKey = app.key else launchApp(app)
                 }
+                // The app's own limits are read live in launchApp, so it shows the screen Precision mode asked for.
                 InterventionKind.APP_LIMIT -> {
                     viewModel.setNow(Instant.now())
-                    val closed = withTimeoutOrNull(BLOCK_SHOWS_WITHIN_MILLIS) {
-                        viewModel.uiState.first { current -> current.apps.any { it.key == app.key && it.isAppClosed } }
-                    }
-                    launchApp(closed?.apps?.firstOrNull { it.key == app.key } ?: app)
+                    launchApp(app)
                 }
                 InterventionKind.VISIT_UP -> {
                     visitUpMinutes = request.plannedMinutes
@@ -676,9 +676,10 @@ fun StillLauncher(
     // screen goes once the reason does.
     appLimitScreenApp?.let { app ->
         val reason = appLimitReason
+        val status = viewModel.appLimitStatus(app)
         val stillApplies = when (reason) {
-            AppLimitReason.DONE_TODAY -> app.appLimit?.closed == AppClosed.DONE_TODAY
-            AppLimitReason.WAITING -> app.appLimit?.closed == AppClosed.WAITING
+            AppLimitReason.DONE_TODAY -> status?.closed == AppClosed.DONE_TODAY
+            AppLimitReason.WAITING -> status?.closed == AppClosed.WAITING
             AppLimitReason.VISIT_UP -> true
             null -> false
         }
@@ -688,7 +689,7 @@ fun StillLauncher(
             AppLimitScreen(
                 appLabel = app.label,
                 reason = reason,
-                status = app.appLimit,
+                status = status,
                 visitMinutes = visitUpMinutes,
                 nextDay = dayStart(state.limitDay.plusDays(1), state.limitSettings.dayStartHour),
                 onClose = { appLimitScreenKey = null },

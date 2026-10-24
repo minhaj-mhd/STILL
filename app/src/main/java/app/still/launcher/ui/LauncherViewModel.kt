@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import app.still.launcher.BuildConfig
 import app.still.launcher.StillApplication
 import app.still.launcher.apps.recentlyInstalled
 import app.still.launcher.blocking.activeBlock
@@ -53,6 +54,7 @@ import app.still.launcher.limit.limitDay
 import app.still.launcher.limit.withLimit
 import app.still.launcher.limit.LimitSettings
 import app.still.launcher.limit.LimitState
+import app.still.launcher.precision.ForegroundRule
 import app.still.launcher.precision.Intervention
 import app.still.launcher.precision.PrecisionMode
 import app.still.launcher.reminders.AppTimeReminders
@@ -321,9 +323,15 @@ class LauncherViewModel(
         return launched
     }
 
-    /** STILL is on screen again, so any app visit in progress has ended. */
+    /**
+     * STILL is on screen again, so whatever app was in front has left and any visit has ended.
+     * Precision mode is told directly, rather than trusting it saw STILL's window come up.
+     */
     fun onShown() {
-        appLimits.onLauncherShown(System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        precision.gate.onForeground(BuildConfig.APPLICATION_ID, now, ForegroundRule.NONE)
+        appLimits.onForeground(BuildConfig.APPLICATION_ID, now)
+        appLimits.onLauncherShown(now)
     }
 
     /** Saves [limit] for [app]: tightening counts now, loosening waits for tomorrow. */
@@ -332,6 +340,9 @@ class LauncherViewModel(
         val day = uiState.value.limitDay
         viewModelScope.launch { preferences.updateAppLimit(app.component.packageName) { it.withLimit(limit, day) } }
     }
+
+    /** Where [app] stands against its own limits right now, read the way Precision mode reads it; null when it has none. */
+    fun appLimitStatus(app: LauncherApp): AppLimitStatus? = if (app.canBlock) appLimits.status(app.component.packageName) else null
 
     /** The pause to show before opening [app] now, or null to open it without asking. */
     fun pauseFor(app: LauncherApp): Pause? = appLimits.pauseFor(app.component.packageName)

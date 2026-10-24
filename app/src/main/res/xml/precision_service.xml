@@ -2,6 +2,8 @@
 <!--
     Precision mode only needs to know which app is in front: it listens for window changes and
     can't read window content. Locking the screen is a global action and needs nothing more.
+    Events aren't held back to be merged (notificationTimeout 0): switching apps quickly sends
+    several at once, and merging them can drop the one for the app that came to the front.
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
@@ -11,5 +13,5 @@
     android:canRetrieveWindowContent="false"
     android:description="@string/precision_service_description"
     android:isAccessibilityTool="false"
-    android:notificationTimeout="100"
+    android:notificationTimeout="0"
     tools:targetApi="31" />

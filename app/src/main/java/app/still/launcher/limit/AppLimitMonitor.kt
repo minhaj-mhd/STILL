@@ -110,10 +110,11 @@ class AppLimitMonitor(
         if (visit?.leftMillis != null && visit.isOngoing(nowMillis, graceMillis)) put(packageName, visit.copy(leftMillis = null))
     }
 
-    /** Precision mode let [packageName] through: a visit starts, unless one is going on. */
+    /** Precision mode let [packageName] through: a visit starts, unless one is going on or its limits keep it closed. */
     fun onAllowed(packageName: String, nowMillis: Long) {
         val limit = limitFor(packageName, nowMillis) ?: return
         if (_visits.value[packageName]?.isOngoing(nowMillis, graceMillis) == true) return
+        if (status(packageName, nowMillis)?.closed != null) return
         startVisit(packageName, labelOf(packageName), limit, nowMillis)
     }
 

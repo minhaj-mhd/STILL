@@ -127,6 +127,25 @@ class ForegroundGateTest {
     }
 
     @Test
+    fun `after stepping in, staying in the app is handled, not let through`() {
+        assertFalse(gate.hasSteppedIn)
+        assertEquals(InterventionKind.BLOCKED, gate.onForeground("insta", 0, blocked))
+        assertNull(gate.onForeground("insta", 1_000, none))
+        assertTrue(gate.hasSteppedIn)
+        assertNull(gate.onForeground("still", 2_000, none))
+        assertFalse(gate.hasSteppedIn)
+    }
+
+    @Test
+    fun `time's up while in the app counts as stepped in until the app changes`() {
+        assertNull(gate.onForeground("insta", 0, none))
+        assertFalse(gate.hasSteppedIn)
+        assertTrue(gate.onTimeUp("insta"))
+        assertNull(gate.onForeground("insta", 1_000, none))
+        assertTrue(gate.hasSteppedIn)
+    }
+
+    @Test
     fun `passes only grow`() {
         gate.allow("insta", minutes(10))
         gate.allow("insta", 60_000)

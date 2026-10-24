@@ -59,6 +59,21 @@ class PrecisionService : AccessibilityService() {
                 recheck()
             }
         }
+        // Window events can still go missing when apps switch quickly. With Usage access, see
+        // which app Android says is in front every few seconds, and catch up if it's another.
+        scope.launch {
+            var since = System.currentTimeMillis()
+            while (true) {
+                delay(PROBE_MILLIS)
+                val now = System.currentTimeMillis()
+                if (container.screenTimeRepository.hasAccess()) {
+                    container.screenTimeRepository.appInFront(since - PROBE_OVERLAP_MILLIS)?.let { front ->
+                        if (front != precision.gate.foreground) check(front)
+                    }
+                }
+                since = now
+            }
+        }
         // Schedules start, blocks end and tasks fall due with the clock alone, so look at the app
         // in front now and then.
         scope.launch {
@@ -103,7 +118,8 @@ class PrecisionService : AccessibilityService() {
         container.appLimits.onForeground(packageName, now.toEpochMilli())
         val kind = precision.gate.onForeground(packageName, now.toEpochMilli(), ruleFor(packageName, now))
         if (kind == null) {
-            container.appLimits.onAllowed(packageName, now.toEpochMilli())
+            // Only an app let through starts a visit; one STILL already stepped in front of hasn't.
+            if (!precision.gate.hasSteppedIn) container.appLimits.onAllowed(packageName, now.toEpochMilli())
             return
         }
         precision.intervene(Intervention(packageName, kind))
@@ -147,5 +163,9 @@ class PrecisionService : AccessibilityService() {
 
     private companion object {
         const val RECHECK_MILLIS = 30_000L
+        const val PROBE_MILLIS = 3_000L
+
+        /** Each look reaches a little before the last one, so an event at the seam isn't skipped. */
+        const val PROBE_OVERLAP_MILLIS = 2_000L
     }
 }

@@ -71,6 +71,13 @@ class ForegroundGate(val graceMillis: Long = DEFAULT_GRACE_MILLIS) {
     /** STILL already stepped in during this visit. */
     private var intervened = false
 
+    /**
+     * STILL already stepped in front of the app in front during this visit, so a null from
+     * [onForeground] means "already handled", not "let through".
+     */
+    val hasSteppedIn: Boolean
+        @Synchronized get() = intervened
+
     /** Lets [packageName] come to the front without asking until [untilMillis]. Passes only grow. */
     @Synchronized
     fun allow(packageName: String, untilMillis: Long) {
