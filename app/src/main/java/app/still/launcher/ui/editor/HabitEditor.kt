@@ -152,6 +152,15 @@ fun HabitEditor(
             },
         )
     }
+    // A change that would open apps this item keeps locked waits for the same slide as skipping it.
+    viewModel.pending.collectAsStateWithLifecycle().value?.let { edit ->
+        EditFrictionSheet(
+            itemName = draft?.title.orEmpty(),
+            opens = edit.opens,
+            onConfirm = viewModel::confirmPending,
+            onDismiss = viewModel::cancelPending,
+        )
+    }
     if (confirmDelete && draft != null) {
         DeleteItemConfirm(
             name = draft.title,

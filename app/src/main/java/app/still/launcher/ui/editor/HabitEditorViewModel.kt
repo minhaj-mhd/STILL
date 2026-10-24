@@ -7,10 +7,16 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.still.launcher.StillApplication
 import app.still.launcher.data.ProductivityRepository
+import app.still.launcher.data.gates.GateItem
 import app.still.launcher.data.productivity.Habit
 import app.still.launcher.data.productivity.HabitMeasure
+import app.still.launcher.data.productivity.ItemType
+import app.still.launcher.data.productivity.OccurrenceRecord
 import app.still.launcher.data.productivity.Priority
+import app.still.launcher.gates.EditGuard
+import app.still.launcher.gates.PendingEdit
 import app.still.launcher.productivity.HabitStats
+import app.still.launcher.productivity.buildAgenda
 import app.still.launcher.productivity.habitStats
 import app.still.launcher.schedule.Quota
 import app.still.launcher.schedule.QuotaPeriod
@@ -27,7 +33,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -67,12 +72,23 @@ data class HabitDraft(
         get() = if (measure == HabitMeasure.CHECK) 1.0 else targetText.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }
 }
 
-class HabitEditorViewModel(private val repository: ProductivityRepository) : ViewModel() {
+class HabitEditorViewModel(private val repository: ProductivityRepository, private val guard: EditGuard) : ViewModel() {
 
     private val _draft = MutableStateFlow<HabitDraft?>(null)
 
     /** Null while loading. */
     val draft: StateFlow<HabitDraft?> = _draft
+
+    private val _pending = MutableStateFlow<PendingEdit<HabitDraft>?>(null)
+
+    /** A change that would open apps this habit keeps locked, waiting for the slide; null when there's none. */
+    val pending: StateFlow<PendingEdit<HabitDraft>?> = _pending
+
+    /** The habit's own records, so its agenda (and quota) can be rebuilt as edited. */
+    private var itemRecords = emptyList<OccurrenceRecord>()
+
+    /** Apps the slide already let this editing session open, so they aren't asked about twice. */
+    private var confirmedOpens = emptySet<String>()
 
     private val savedHabit = MutableStateFlow<Habit?>(null)
 
@@ -92,19 +108,49 @@ class HabitEditorViewModel(private val repository: ProductivityRepository) : Vie
 
     fun open(target: EditorTarget.EditHabit) {
         _draft.value = null
+        _pending.value = null
+        confirmedOpens = emptySet()
+        itemRecords = emptyList()
         savedHabit.value = null
         discarded = false
         viewModelScope.launch {
             mutex.withLock {
                 val habit = target.habitId?.let { repository.getHabit(it) }
+                if (habit != null) {
+                    val today = LocalDate.now()
+                    itemRecords = repository.getRecords(today.minusDays(RECORD_LOOKBACK_DAYS), today)
+                        .filter { it.itemType == ItemType.HABIT && it.itemId == habit.id }
+                    guard.load()
+                }
                 savedHabit.value = habit
                 _draft.value = habit?.toDraft(target) ?: HabitDraft(target, original = null, title = target.title)
             }
         }
     }
 
+    /** Applies [change], unless it would open apps the habit keeps locked: that waits in [pending]. */
     fun update(change: (HabitDraft) -> HabitDraft) {
-        _draft.update { it?.let(change) }
+        val current = _draft.value ?: return
+        val changed = change(current)
+        val opened = opensApps(changed) - confirmedOpens
+        if (opened.isEmpty()) _draft.value = changed else _pending.value = PendingEdit(changed, opened)
+    }
+
+    /** The slide was done: make the held-back change. */
+    fun confirmPending() {
+        val pending = _pending.value ?: return
+        confirmedOpens = confirmedOpens + pending.opens
+        _draft.value = pending.draft
+        _pending.value = null
+    }
+
+    fun cancelPending() {
+        _pending.value = null
+    }
+
+    private fun opensApps(draft: HabitDraft): Set<String> {
+        val habit = draft.original ?: return emptySet()
+        return guard.opens(GateItem(ItemType.HABIT, habit.id)) { date -> buildAgenda(date, emptyList(), listOf(draft.toHabit()), itemRecords) }
     }
 
     /** Writes the draft. Called when the editor leaves the screen; an incomplete draft saves nothing. */
@@ -122,10 +168,13 @@ class HabitEditorViewModel(private val repository: ProductivityRepository) : Vie
     }
 
     companion object {
+        /** Long enough for a quota's period and the habit's history, as on the Today page. */
+        private const val RECORD_LOOKBACK_DAYS = 366L
+
         val Factory = viewModelFactory {
             initializer {
                 val container = (this[APPLICATION_KEY] as StillApplication).container
-                HabitEditorViewModel(container.productivityRepository)
+                HabitEditorViewModel(container.productivityRepository, EditGuard(container.taskGates, container.essentialApps, container.preferences))
             }
         }
     }

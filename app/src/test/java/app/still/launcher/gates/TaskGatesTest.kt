@@ -239,6 +239,47 @@ class TaskGatesTest {
         assertEquals(2, locks.itemsToGo)
     }
 
+    private fun editInputs(vararg gates: TaskGate, study: TaskEntry = dueToday(task(1, Priority.HIGH)), others: List<TaskEntry> = emptyList()) =
+        GateInputs(gates = gates.toList(), agenda = agenda(tasks = listOf(study) + others), events = emptyList())
+
+    private val studyItem = GateItem(ItemType.TASK, 1)
+
+    @Test
+    fun `lowering a task's priority opens what it kept locked`() {
+        val edited = agenda(tasks = listOf(dueToday(task(1, Priority.LOW))))
+        val opened = appsOpenedByEdit(studyItem, edited, editInputs(gate()), noon.toInstant(zone), zone) { true }
+        assertEquals(setOf("insta"), opened)
+    }
+
+    @Test
+    fun `moving a task to tomorrow or later today opens it too`() {
+        val inputs = editInputs(gate())
+        val now = noon.toInstant(zone)
+        assertEquals(setOf("insta"), appsOpenedByEdit(studyItem, agenda(), inputs, now, zone) { true })
+        val later = agenda(tasks = listOf(dueToday(task(1, Priority.HIGH), time = LocalTime.of(18, 0))))
+        assertEquals(setOf("insta"), appsOpenedByEdit(studyItem, later, inputs, now, zone) { true })
+    }
+
+    @Test
+    fun `an edit that leaves the gate closed opens nothing`() {
+        val renamed = agenda(tasks = listOf(dueToday(task(1, Priority.HIGH, title = "Study hard"))))
+        assertTrue(appsOpenedByEdit(studyItem, renamed, editInputs(gate()), noon.toInstant(zone), zone) { true }.isEmpty())
+    }
+
+    @Test
+    fun `apps another item still keeps locked don't count as opened`() {
+        val inputs = editInputs(gate(), others = listOf(dueToday(task(2, Priority.HIGH))))
+        val edited = agenda(tasks = listOf(dueToday(task(1, Priority.LOW))))
+        assertTrue(appsOpenedByEdit(studyItem, edited, inputs, noon.toInstant(zone), zone) { true }.isEmpty())
+    }
+
+    @Test
+    fun `lowering a habit's priority opens its gate`() {
+        val inputs = GateInputs(listOf(gate()), agenda(habits = listOf(habit(5, Priority.HIGH))), emptyList())
+        val edited = agenda(habits = listOf(habit(5, Priority.MEDIUM)))
+        assertEquals(setOf("insta"), appsOpenedByEdit(GateItem(ItemType.HABIT, 5), edited, inputs, noon.toInstant(zone), zone) { true })
+    }
+
     @Test
     fun `no gates, no emergency open needed`() {
         assertNull(emergencyOpenFor(emptyList(), emptyList(), today, zone))

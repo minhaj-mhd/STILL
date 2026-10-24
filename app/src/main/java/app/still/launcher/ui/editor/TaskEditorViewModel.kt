@@ -7,15 +7,20 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.still.launcher.StillApplication
 import app.still.launcher.data.ProductivityRepository
+import app.still.launcher.data.gates.GateItem
+import app.still.launcher.data.productivity.ItemType
+import app.still.launcher.data.productivity.OccurrenceRecord
 import app.still.launcher.data.productivity.Priority
 import app.still.launcher.data.productivity.Task
+import app.still.launcher.gates.EditGuard
+import app.still.launcher.gates.PendingEdit
+import app.still.launcher.productivity.buildAgenda
 import app.still.launcher.schedule.MissedPolicy
 import app.still.launcher.schedule.Recurrence
 import app.still.launcher.schedule.Schedule
 import app.still.launcher.schedule.followingStart
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -51,12 +56,23 @@ data class TaskDraft(
         else copy(due = date, recurrence = recurrence.followingStart(date), until = until?.takeIf { it >= date })
 }
 
-class TaskEditorViewModel(private val repository: ProductivityRepository) : ViewModel() {
+class TaskEditorViewModel(private val repository: ProductivityRepository, private val guard: EditGuard) : ViewModel() {
 
     private val _draft = MutableStateFlow<TaskDraft?>(null)
 
     /** Null while loading. */
     val draft: StateFlow<TaskDraft?> = _draft
+
+    private val _pending = MutableStateFlow<PendingEdit<TaskDraft>?>(null)
+
+    /** A change that would open apps this task keeps locked, waiting for the slide; null when there's none. */
+    val pending: StateFlow<PendingEdit<TaskDraft>?> = _pending
+
+    /** The task's own records, so its agenda can be rebuilt as edited. */
+    private var itemRecords = emptyList<OccurrenceRecord>()
+
+    /** Apps the slide already let this editing session open, so they aren't asked about twice. */
+    private var confirmedOpens = emptySet<String>()
 
     // Saves and loads run one at a time, so reopening right after closing reads the saved version.
     private val mutex = Mutex()
@@ -66,6 +82,9 @@ class TaskEditorViewModel(private val repository: ProductivityRepository) : View
 
     fun open(target: EditorTarget.EditTask) {
         _draft.value = null
+        _pending.value = null
+        confirmedOpens = emptySet()
+        itemRecords = emptyList()
         discarded = false
         viewModelScope.launch {
             mutex.withLock {
@@ -76,14 +95,39 @@ class TaskEditorViewModel(private val repository: ProductivityRepository) : View
                 } else {
                     val subtasks = repository.getSubtasks(task.id)
                     savedSubtaskIds = subtasks.map { it.id }
+                    val today = LocalDate.now()
+                    itemRecords = repository.getRecords(today.minusDays(RECORD_LOOKBACK_DAYS), today)
+                        .filter { it.itemType == ItemType.TASK && it.itemId == task.id }
+                    guard.load()
                     _draft.value = task.toDraft(target, subtasks)
                 }
             }
         }
     }
 
+    /** Applies [change], unless it would open apps the task keeps locked: that waits in [pending]. */
     fun update(change: (TaskDraft) -> TaskDraft) {
-        _draft.update { it?.let(change) }
+        val current = _draft.value ?: return
+        val changed = change(current)
+        val opened = opensApps(changed) - confirmedOpens
+        if (opened.isEmpty()) _draft.value = changed else _pending.value = PendingEdit(changed, opened)
+    }
+
+    /** The slide was done: make the held-back change. */
+    fun confirmPending() {
+        val pending = _pending.value ?: return
+        confirmedOpens = confirmedOpens + pending.opens
+        _draft.value = pending.draft
+        _pending.value = null
+    }
+
+    fun cancelPending() {
+        _pending.value = null
+    }
+
+    private fun opensApps(draft: TaskDraft): Set<String> {
+        val task = draft.original ?: return emptySet()
+        return guard.opens(GateItem(ItemType.TASK, task.id)) { date -> buildAgenda(date, listOf(draft.toTask()), emptyList(), itemRecords) }
     }
 
     fun addSubtask(title: String) {
@@ -109,10 +153,13 @@ class TaskEditorViewModel(private val repository: ProductivityRepository) : View
     }
 
     companion object {
+        /** Long enough for a yearly task to find its previous occurrence, as on the Today page. */
+        private const val RECORD_LOOKBACK_DAYS = 366L
+
         val Factory = viewModelFactory {
             initializer {
                 val container = (this[APPLICATION_KEY] as StillApplication).container
-                TaskEditorViewModel(container.productivityRepository)
+                TaskEditorViewModel(container.productivityRepository, EditGuard(container.taskGates, container.essentialApps, container.preferences))
             }
         }
     }

@@ -126,6 +126,38 @@ fun emergencyOpenFor(checks: List<GateCheck>, events: List<GateEvent>, today: Lo
     )
 }
 
+/** [this] agenda with [item]'s entries swapped for the ones [other] has for it. */
+fun TodayAgenda.withItemFrom(item: GateItem, other: TodayAgenda): TodayAgenda {
+    fun TaskEntry.isItem() = item.type == ItemType.TASK && task.id == item.id
+    fun HabitEntry.isItem() = item.type == ItemType.HABIT && habit.id == item.id
+    return copy(
+        overdue = overdue.filterNot { it.isItem() } + other.overdue.filter { it.isItem() },
+        today = today.filterNot { it.isItem() } + other.today.filter { it.isItem() },
+        habits = habits.filterNot { it.isItem() } + other.habits.filter { it.isItem() },
+        undated = undated.filterNot { it.isItem() } + other.undated.filter { it.isItem() },
+    )
+}
+
+/**
+ * The apps an edit to [item] would open without doing it: closed by gates at [now], and not once
+ * its entries become those in [edited], an agenda built from the edited item alone. A lower
+ * priority, a later date or time, or a smaller target all show up here, so editing gets the same
+ * friction as skipping.
+ */
+fun appsOpenedByEdit(
+    item: GateItem,
+    edited: TodayAgenda,
+    inputs: GateInputs,
+    now: Instant,
+    zone: ZoneId,
+    canGate: (String) -> Boolean,
+): Set<String> {
+    val before = closedGates(inputs, now, zone, canGate).keys
+    if (before.isEmpty()) return emptySet()
+    val after = closedGates(inputs.copy(agenda = inputs.agenda.withItemFrom(item, edited)), now, zone, canGate).keys
+    return before - after
+}
+
 /** What task gates are keeping closed right now, for the home line and the Today page. */
 data class GateLocks(
     /** For each pending item, the labels of the apps it keeps closed, sorted. */

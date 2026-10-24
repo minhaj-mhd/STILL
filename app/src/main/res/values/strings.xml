@@ -221,6 +221,9 @@
     <string name="bypass_wait">You can confirm in %1$d s</string>
     <string name="bypass_slide_skip">Slide to skip</string>
     <string name="bypass_slide_delete">Slide to delete</string>
+    <string name="bypass_edit_title">Change “%1$s”?</string>
+    <string name="bypass_edit_body">It\'s keeping %1$s locked. This change opens them without doing it.</string>
+    <string name="bypass_slide_edit">Slide to change it</string>
     <plurals name="settings_gate_count">
         <item quantity="one">%d gate</item>
         <item quantity="other">%d gates</item>
