@@ -151,8 +151,8 @@ fun HomePage(
     onKeynoteClick: () -> Unit,
     /** Today's unlocks against the usual; null when that's off or unknown. */
     unlocks: UnlockObservation?,
-    /** The morning card asking for today's quality, while it's due. */
-    keynoteCard: (@Composable () -> Unit)?,
+    /** Cards for home, such as Welcome back and the morning card asking for today's quality. */
+    cards: (@Composable () -> Unit)?,
     /** When focus mode started; null while it's off. */
     focusSince: Long?,
     /** The ring was held long enough to start or end focus mode. */
@@ -234,9 +234,9 @@ fun HomePage(
                 focus?.let { Focusing(it, onDueTasksClick) }
             }
         }
-        keynoteCard?.let { card ->
+        cards?.let { content ->
             Spacer(Modifier.height(16.dp))
-            card()
+            content()
         }
         if (reminders.isNotEmpty()) {
             Column(

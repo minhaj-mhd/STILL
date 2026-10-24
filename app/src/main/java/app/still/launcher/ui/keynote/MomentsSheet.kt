@@ -58,6 +58,7 @@ fun MomentsSheet(
     budgetApps: List<LauncherApp>,
     labelOf: (packageName: String) -> String,
     onChange: () -> Unit,
+    onQuietMinute: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -82,7 +83,10 @@ fun MomentsSheet(
                 val status = app.appLimit ?: return@forEach
                 Note(stringResource(R.string.moments_app_use, app.label, formatDuration(status.usedToday), formatDuration(Duration.ofMinutes(status.limit.dailyMinutes.toLong()))))
             }
-            TextButton(onClick = onChange) { Text(stringResource(R.string.moments_change)) }
+            Row {
+                TextButton(onClick = onChange) { Text(stringResource(R.string.moments_change)) }
+                TextButton(onClick = onQuietMinute) { Text(stringResource(R.string.quiet_open)) }
+            }
         }
     }
 }

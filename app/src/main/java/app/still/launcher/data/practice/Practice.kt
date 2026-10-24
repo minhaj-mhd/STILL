@@ -67,6 +67,9 @@ interface PracticeDao {
     @Query("SELECT * FROM keynotes WHERE day = :day")
     fun observeKeynote(day: LocalDate): Flow<Keynote?>
 
+    @Query("SELECT * FROM keynotes WHERE day BETWEEN :from AND :to ORDER BY day")
+    fun observeKeynotes(from: LocalDate, to: LocalDate): Flow<List<Keynote>>
+
     @Query("SELECT * FROM keynotes WHERE day < :day ORDER BY day DESC LIMIT 1")
     suspend fun latestKeynoteBefore(day: LocalDate): Keynote?
 }

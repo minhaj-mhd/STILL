@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,8 @@ fun WhyPauseScreen(
     quality: String?,
     onTurnBack: (ChoiceAnswer?) -> Unit,
     onOpen: (ChoiceAnswer) -> Unit,
+    /** A minute to settle instead of opening it. */
+    onQuietMinute: (ChoiceAnswer?) -> Unit,
 ) {
     var answer by rememberSaveable { mutableStateOf<ChoiceAnswer?>(null) }
     BackHandler { onTurnBack(answer) }
@@ -122,6 +125,7 @@ fun WhyPauseScreen(
                     }
                 }
             }
+            TextButton(onClick = { onQuietMinute(answer) }) { Text(stringResource(R.string.quiet_open)) }
         }
     }
 }

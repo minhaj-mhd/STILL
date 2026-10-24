@@ -34,4 +34,10 @@ Optional, under Settings > Inner practice; each part is on by default and has it
 
 Qualities and choices live in Room (database version 8); limits and visits in DataStore. Nothing leaves the phone.
 
-Not built yet: Welcome back, Quiet Minute, Gentle Day, the reader, a weekly reflection.
+Added in stage 8 (2026-10-24):
+
+- **This week** in Insights: turned back N of M times when STILL paused, unlocks a day against the week before (only with at least 3 days of history each), the qualities chosen with how many days, and tasks and habits finished. Lines with nothing to say are left out; there's still no score.
+- **Quiet Minute**, from the pause before an app ("Take a quiet minute", which counts as turning back) and from today's quality: name what's here (or skip; nothing is kept), a minute with a breathing circle (in 4 s, out 6 s) and three gentle prompts, then One small step (the Today page), A real break (home) or Reach someone (the phone app). It never changes what opens.
+- **Welcome back**: during a focus session, coming back to STILL after 30 seconds or more away shows how much is left and "What's the next small step?", with Back to it or End session.
+
+Not built yet: Gentle Day, the reader.

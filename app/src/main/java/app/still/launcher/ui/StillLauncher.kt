@@ -13,6 +13,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -25,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -36,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.still.launcher.R
@@ -64,6 +68,9 @@ import app.still.launcher.ui.keynote.KeynoteCard
 import app.still.launcher.ui.keynote.KeynoteViewModel
 import app.still.launcher.ui.keynote.LinkOption
 import app.still.launcher.ui.keynote.MomentsSheet
+import app.still.launcher.ui.keynote.QuietChoice
+import app.still.launcher.ui.keynote.QuietMinuteScreen
+import app.still.launcher.ui.keynote.WelcomeBackCard
 import app.still.launcher.data.productivity.ItemType
 import app.still.launcher.ui.apps.RenameAppDialog
 import app.still.launcher.ui.components.rememberCurrentMinute
@@ -171,6 +178,12 @@ fun StillLauncher(
     // Worked out when the app is tapped: asking changes what's due next time.
     var pause by remember { mutableStateOf<Pause?>(null) }
     var momentsOpen by rememberSaveable { mutableStateOf(false) }
+    var quietMinute by rememberSaveable { mutableStateOf(false) }
+    // When STILL last went to the background, to greet you after a while away during a focus session.
+    var leftAtMillis by rememberSaveable { mutableLongStateOf(0L) }
+    var welcomeBack by rememberSaveable { mutableStateOf(false) }
+    // A greeting belongs to the session it was for.
+    LaunchedEffect(focus == null) { if (focus == null) welcomeBack = false }
     var changingKeynote by rememberSaveable { mutableStateOf(false) }
     // Today's unfinished tasks and habits, to practise the day's quality with.
     val linkOptions = remember(agenda) {
@@ -209,7 +222,9 @@ fun StillLauncher(
         hasUsageAccess = viewModel.hasUsageAccess()
         precisionSwitchedOn = viewModel.isPrecisionSwitchedOn()
         viewModel.onShown()
-        onPauseOrDispose { }
+        val away = System.currentTimeMillis() - leftAtMillis
+        if (focus != null && leftAtMillis > 0 && away >= WELCOME_BACK_AFTER_MILLIS) welcomeBack = true
+        onPauseOrDispose { leftAtMillis = System.currentTimeMillis() }
     }
     val precisionRunning by viewModel.precisionRunning.collectAsStateWithLifecycle()
     // Android can turn Precision mode off, e.g. after an update. The service takes a moment to
@@ -312,6 +327,7 @@ fun StillLauncher(
         appLimitScreenKey = null
         pauseKey = null
         momentsOpen = false
+        quietMinute = false
         folderPickerKey = null
         newFolderForKey = null
         folderMenuId = null
@@ -476,21 +492,39 @@ fun StillLauncher(
                     keynote = keynote.keynote?.let { HomeKeynote(it.quality, keynote.moments.size) },
                     onKeynoteClick = { momentsOpen = true },
                     unlocks = keynote.unlocks,
-                    keynoteCard = if (keynote.enabled && (keynote.asking || changingKeynote)) {
-                        {
-                            KeynoteCard(
-                                initial = if (changingKeynote) keynote.keynote else keynote.previous,
-                                linkOptions = linkOptions,
-                                changing = changingKeynote,
-                                onStart = { quality, action, link ->
-                                    keynoteViewModel.startDay(quality, action, link)
-                                    changingKeynote = false
-                                },
-                                onPutOff = { if (changingKeynote) changingKeynote = false else keynoteViewModel.putOff() },
-                            )
+                    cards = run {
+                        val returning = focus?.takeIf { welcomeBack }
+                        val asking = keynote.enabled && (keynote.asking || changingKeynote)
+                        if (returning == null && !asking) {
+                            null
+                        } else {
+                            {
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    returning?.let { session ->
+                                        WelcomeBackCard(
+                                            session = session,
+                                            onBackToIt = { welcomeBack = false },
+                                            onEnd = {
+                                                todayViewModel.stopTimer()
+                                                welcomeBack = false
+                                            },
+                                        )
+                                    }
+                                    if (asking) {
+                                        KeynoteCard(
+                                            initial = if (changingKeynote) keynote.keynote else keynote.previous,
+                                            linkOptions = linkOptions,
+                                            changing = changingKeynote,
+                                            onStart = { quality, action, link ->
+                                                keynoteViewModel.startDay(quality, action, link)
+                                                changingKeynote = false
+                                            },
+                                            onPutOff = { if (changingKeynote) changingKeynote = false else keynoteViewModel.putOff() },
+                                        )
+                                    }
+                                }
+                            }
                         }
-                    } else {
-                        null
                     },
                     precisionLost = precisionLost,
                     onTurnOnPrecision = { overlay = Overlay.PRECISION },
@@ -749,8 +783,37 @@ fun StillLauncher(
                     pause = null
                     afterPause(app)
                 },
+                onQuietMinute = { answer ->
+                    // Not opening it counts as turning back.
+                    viewModel.recordChoice(app, ChoiceSource.PAUSE, answer, turnedBack = true)
+                    pauseKey = null
+                    pause = null
+                    quietMinute = true
+                },
             )
         }
+    }
+
+    // A minute to settle: from the pause before an app, or from today's quality.
+    if (quietMinute) {
+        QuietMinuteScreen(
+            onChoose = { choice ->
+                quietMinute = false
+                when (choice) {
+                    QuietChoice.SMALL_STEP -> {
+                        leftTab = LeftTab.TODAY
+                        scope.launch { pagerState.animateScrollToPage(Page.Productivity.ordinal) }
+                    }
+                    QuietChoice.BREAK -> goHome(animate = true)
+                    QuietChoice.REACH_SOMEONE -> try {
+                        context.startActivity(Intent(Intent.ACTION_DIAL).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    } catch (e: ActivityNotFoundException) {
+                        // No phone app; nothing to open.
+                    }
+                }
+            },
+            onClose = { quietMinute = false },
+        )
     }
 
     // A task gate keeps the app closed until what's left is done on the Today page. If the gate
@@ -909,6 +972,10 @@ fun StillLauncher(
                 momentsOpen = false
                 changingKeynote = true
             },
+            onQuietMinute = {
+                momentsOpen = false
+                quietMinute = true
+            },
             onDismiss = { momentsOpen = false },
         )
     }
@@ -1042,6 +1109,9 @@ fun StillLauncher(
         )
     }
 }
+
+/** Away from STILL this long during a focus session, and home says welcome back. */
+private const val WELCOME_BACK_AFTER_MILLIS = 30_000L
 
 /** How long the Precision mode service gets to connect before home says it's off. */
 private const val PRECISION_CONNECT_MILLIS = 3_000L

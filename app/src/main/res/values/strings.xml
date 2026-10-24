@@ -485,6 +485,62 @@
         <item quantity="other">%1$d unlocks · more than usual by now</item>
     </plurals>
 
+    <!-- Inner practice: this week, the Quiet Minute, Welcome back -->
+    <string name="insights_week">This week</string>
+    <plurals name="insights_turned_back">
+        <item quantity="one">Turned back %1$d of %2$d time when STILL paused</item>
+        <item quantity="other">Turned back %1$d of %2$d times when STILL paused</item>
+    </plurals>
+    <plurals name="insights_unlocks_per_day">
+        <item quantity="one">%1$d unlock a day</item>
+        <item quantity="other">%1$d unlocks a day</item>
+    </plurals>
+    <plurals name="insights_fewer_than_before">
+        <item quantity="one">%1$d fewer than the week before</item>
+        <item quantity="other">%1$d fewer than the week before</item>
+    </plurals>
+    <plurals name="insights_more_than_before">
+        <item quantity="one">%1$d more than the week before</item>
+        <item quantity="other">%1$d more than the week before</item>
+    </plurals>
+    <string name="insights_same_as_before">the same as the week before</string>
+    <string name="insights_qualities">Qualities: %1$s</string>
+    <plurals name="insights_quality_days">
+        <item quantity="one">%1$s %2$d day</item>
+        <item quantity="other">%1$s %2$d days</item>
+    </plurals>
+    <plurals name="insights_finished">
+        <item quantity="one">Finished %1$d task or habit</item>
+        <item quantity="other">Finished %1$d tasks and habits</item>
+    </plurals>
+    <string name="quiet_open">Take a quiet minute</string>
+    <string name="quiet_title">Quiet minute</string>
+    <string name="quiet_notice">What\'s here right now?</string>
+    <string name="quiet_restless">Restless</string>
+    <string name="quiet_worried">Worried</string>
+    <string name="quiet_irritated">Irritated</string>
+    <string name="quiet_tired">Tired</string>
+    <string name="quiet_unsure">Unsure</string>
+    <string name="quiet_skip">Skip</string>
+    <string name="quiet_feeling_is_here">%1$s is here, and that\'s all right.</string>
+    <string name="quiet_prompt_feet">Feel your feet on the floor, or the chair holding you.</string>
+    <string name="quiet_prompt_notice">Notice three things around you.</string>
+    <string name="quiet_prompt_breath">Let your breathing find its own pace.</string>
+    <string name="quiet_settled">I\'m settled</string>
+    <string name="quiet_choose">What would help now?</string>
+    <string name="quiet_choose_line">You can notice this, and choose what comes next.</string>
+    <string name="quiet_small_step">One small step</string>
+    <string name="quiet_break">A real break</string>
+    <string name="quiet_reach">Reach someone</string>
+    <string name="welcome_back">Welcome back.</string>
+    <plurals name="welcome_back_left">
+        <item quantity="one">%1$d minute left on %2$s.</item>
+        <item quantity="other">%1$d minutes left on %2$s.</item>
+    </plurals>
+    <string name="welcome_back_next">What\'s the next small step?</string>
+    <string name="welcome_back_end">End session</string>
+    <string name="welcome_back_resume">Back to it</string>
+
     <!-- Settings: app limits and Inner practice -->
     <string name="settings_app_limits">App limits</string>
     <string name="settings_app_limits_empty">No app has limits yet.</string>

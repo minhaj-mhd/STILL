@@ -20,6 +20,9 @@ class PracticeRepository(private val dao: PracticeDao) {
 
     fun keynote(day: LocalDate): Flow<Keynote?> = dao.observeKeynote(day)
 
+    /** The qualities chosen from [from] to [to], both included. */
+    fun keynotes(from: LocalDate, to: LocalDate): Flow<List<Keynote>> = dao.observeKeynotes(from, to)
+
     /** The most recent quality chosen before [day], to start the next one from. */
     suspend fun latestKeynoteBefore(day: LocalDate): Keynote? = dao.latestKeynoteBefore(day)
 

@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.still.launcher.R
+import app.still.launcher.keynote.WeekReflection
 import app.still.launcher.data.ScreenTimeSummary
 import app.still.launcher.productivity.TodayAgenda
 import app.still.launcher.ui.LauncherApp
@@ -82,6 +83,7 @@ fun InsightsPage(
     val summary by viewModel.screenTime.collectAsStateWithLifecycle()
     val streaks by viewModel.streaks.collectAsStateWithLifecycle()
     val focusStats by viewModel.focusStats.collectAsStateWithLifecycle()
+    val week by viewModel.week.collectAsStateWithLifecycle()
     val limit by limitViewModel.state.collectAsStateWithLifecycle()
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
@@ -109,6 +111,7 @@ fun InsightsPage(
             ) {
                 ScreenTimeSection(apps, summary, limit, hasUsageAccess, onAllowUsageAccess, onOpenDailyLimit)
                 TodaySection(agenda)
+                if (!week.isEmpty) WeekSection(week)
                 heldCount?.let { HeldSection(it, onOpenHeld) }
                 focusStats?.let { FocusSection(it) }
                 if (streaks.isNotEmpty()) StreaksSection(streaks)
@@ -237,6 +240,38 @@ private fun TodaySection(agenda: TodayAgenda?) {
                 text = pluralStringResource(R.plurals.insights_habits_done, habitsTotal, habitsDone, habitsTotal),
                 style = MaterialTheme.typography.titleMedium,
             )
+        }
+    }
+}
+
+/**
+ * The last seven days in plain facts: turning back when STILL paused, unlocks a day against the
+ * week before, the qualities chosen, and what got finished. Lines with nothing to say are left out.
+ */
+@Composable
+private fun WeekSection(week: WeekReflection) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FieldLabel(stringResource(R.string.insights_week))
+        if (week.paused > 0) {
+            Text(pluralStringResource(R.plurals.insights_turned_back, week.paused, week.turnedBack, week.paused), style = MaterialTheme.typography.titleMedium)
+        }
+        week.unlocksPerDay?.let { perDay ->
+            val before = week.unlocksBeforePerDay
+            val unlocks = pluralStringResource(R.plurals.insights_unlocks_per_day, perDay, perDay)
+            val compared = when {
+                before == null -> null
+                before > perDay -> pluralStringResource(R.plurals.insights_fewer_than_before, before - perDay, before - perDay)
+                before < perDay -> pluralStringResource(R.plurals.insights_more_than_before, perDay - before, perDay - before)
+                else -> stringResource(R.string.insights_same_as_before)
+            }
+            Text(listOfNotNull(unlocks, compared).joinToString(" · "), style = MaterialTheme.typography.titleMedium)
+        }
+        if (week.qualities.isNotEmpty()) {
+            val days = week.qualities.map { (quality, count) -> pluralStringResource(R.plurals.insights_quality_days, count, quality, count) }
+            Text(stringResource(R.string.insights_qualities, days.joinToString(" · ")), style = MaterialTheme.typography.titleMedium)
+        }
+        if (week.finished > 0) {
+            Text(pluralStringResource(R.plurals.insights_finished, week.finished, week.finished), style = MaterialTheme.typography.titleMedium)
         }
     }
 }
