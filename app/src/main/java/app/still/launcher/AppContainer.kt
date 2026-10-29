@@ -2,6 +2,7 @@ package app.still.launcher
 
 import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
+import app.still.launcher.blocking.TabOwners
 import app.still.launcher.data.AppIcons
 import app.still.launcher.data.AppRepository
 import app.still.launcher.data.BlockingRepository
@@ -23,6 +24,7 @@ import app.still.launcher.data.StillDatabase
 import app.still.launcher.precision.PrecisionMode
 import app.still.launcher.reminders.AppTimeReminders
 import app.still.launcher.reminders.ReminderScheduler
+import app.still.launcher.shortvideo.ShortVideoBlocker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -42,8 +44,11 @@ class AppContainer(context: Context) {
     val productivityRepository = ProductivityRepository(database.productivityDao())
     val notesRepository = NotesRepository(database.noteDao())
     val blockingRepository = BlockingRepository(database.appBlockDao(), database.blockingScheduleDao())
-    val screenTimeRepository = ScreenTimeRepository(context)
     val essentialApps = EssentialApps(context)
+
+    /** Which app a browser's tab counts as. STILL and Android's own screens don't open tabs. */
+    val tabOwners = TabOwners { it != context.packageName && !essentialApps.isSystemScreen(it) }
+    val screenTimeRepository = ScreenTimeRepository(context, tabOwners)
     val gateRepository = GateRepository(database.taskGateDao())
     val taskGates = TaskGateMonitor(productivityRepository, gateRepository, applicationScope)
     val precisionMode = PrecisionMode(context)
@@ -56,4 +61,5 @@ class AppContainer(context: Context) {
     val focusMode = FocusModeMonitor(context, preferences, essentialApps, applicationScope)
     val appLimits = AppLimitMonitor(context, preferences, dailyLimit, appTimeReminders, precisionMode, practiceRepository, focusTimer, applicationScope)
     val notificationFilter = NotificationFilter(context, database.heldNotificationDao(), preferences, essentialApps, applicationScope)
+    val shortVideos = ShortVideoBlocker(context, preferences, applicationScope)
 }

@@ -30,6 +30,7 @@ class MainActivity : ComponentActivity() {
     // A channel keeps the request until the UI collects it, even when it arrives before the first frame.
     private val todayRequests = Channel<Unit>(Channel.CONFLATED)
     private val heldNotificationRequests = Channel<Unit>(Channel.CONFLATED)
+    private val listRequests = Channel<String>(Channel.CONFLATED)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
@@ -53,6 +54,7 @@ class MainActivity : ComponentActivity() {
                         homePresses = homePresses,
                         todayRequests = todayRequests.receiveAsFlow(),
                         heldNotificationRequests = heldNotificationRequests.receiveAsFlow(),
+                        listRequests = listRequests.receiveAsFlow(),
                     )
                 }
             }
@@ -71,16 +73,18 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Tapping a reminder notification opens STILL on the Today page; tapping the held-back count
-     * opens the held-back notifications.
+     * opens the held-back notifications; text shared to "Import as plan" opens in the plan editor.
      */
     private fun handleOpenRequests(intent: Intent?) {
         if (intent?.getBooleanExtra(EXTRA_OPEN_TODAY, false) == true) todayRequests.trySend(Unit)
         if (intent?.getBooleanExtra(EXTRA_OPEN_HELD_NOTIFICATIONS, false) == true) heldNotificationRequests.trySend(Unit)
+        intent?.getStringExtra(EXTRA_PASTED_LIST)?.let { listRequests.trySend(it) }
     }
 
     companion object {
         const val EXTRA_OPEN_TODAY = "app.still.launcher.OPEN_TODAY"
         const val EXTRA_GO_HOME = "app.still.launcher.GO_HOME"
         const val EXTRA_OPEN_HELD_NOTIFICATIONS = "app.still.launcher.OPEN_HELD_NOTIFICATIONS"
+        const val EXTRA_PASTED_LIST = "app.still.launcher.PASTED_LIST"
     }
 }

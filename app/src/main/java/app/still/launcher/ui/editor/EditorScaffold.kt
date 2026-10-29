@@ -30,11 +30,17 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import app.still.launcher.R
 
-/** Full-screen editor frame: a title and Done on top, a scrolling column of fields below. */
+/**
+ * Full-screen editor frame: a title and Done on top, a scrolling column of fields below. Pages
+ * that don't save on leaving name their own [action], and get Cancel beside it with [onCancel].
+ */
 @Composable
 fun EditorScaffold(
     title: String,
     onDone: () -> Unit,
+    action: String = stringResource(R.string.editor_done),
+    actionEnabled: Boolean = true,
+    onCancel: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     // Surface also stops touches from reaching the pager underneath.
@@ -52,7 +58,8 @@ fun EditorScaffold(
                     .padding(start = 24.dp, end = 8.dp, top = 8.dp),
             ) {
                 Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                TextButton(onClick = onDone) { Text(stringResource(R.string.editor_done)) }
+                onCancel?.let { TextButton(onClick = it) { Text(stringResource(R.string.cancel)) } }
+                TextButton(onClick = onDone, enabled = actionEnabled) { Text(action) }
             }
             Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -130,7 +137,7 @@ fun RadioRow(text: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun transparentFieldColors() = TextFieldDefaults.colors(
+internal fun transparentFieldColors() = TextFieldDefaults.colors(
     focusedContainerColor = Color.Transparent,
     unfocusedContainerColor = Color.Transparent,
     focusedIndicatorColor = MaterialTheme.colorScheme.onBackground,

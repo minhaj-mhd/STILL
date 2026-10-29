@@ -596,6 +596,26 @@
         <item quantity="other">%d held back</item>
     </plurals>
 
+    <!-- Short videos -->
+    <string name="short_video_service_label">STILL Short videos</string>
+    <string name="short_video_service_description">Leaves YouTube Shorts and Instagram Reels as soon as they open, in the apps and in Chrome and Firefox. Android only sends this service events from those apps, and STILL only looks while one of them is in front: at how the screen is laid out in YouTube and Instagram, and in the browsers at the web address and, on YouTube and Instagram pages, the names of the page\'s parts. It keeps no record, and nothing leaves your phone.</string>
+    <string name="short_videos_title">Short videos</string>
+    <string name="short_videos_intro">Leaves YouTube Shorts and Instagram Reels as soon as they open, in the apps and in Chrome and Firefox, and leaves the rest alone: search, videos, subscriptions, posts and messages.</string>
+    <string name="short_videos_does_leave">• When a Shorts or Reels player fills the screen, STILL goes back, as the Back button does. If that lands on another one straight away, it goes home.</string>
+    <string name="short_videos_does_browsers">• In Chrome and Firefox, STILL opens the site\'s home page in place of a Shorts or Reels page, or goes back if the address bar is hidden.</string>
+    <string name="short_videos_does_anywhere">• It works however you get there: the tab, a shared link or a notification.</string>
+    <string name="short_videos_does_updates">• YouTube, Instagram and the browsers change often. If an update gets past it, STILL needs an update too.</string>
+    <string name="short_videos_sees">This is an Accessibility service of its own, so Precision mode still can\'t read your screen. Android only sends it events from YouTube, Instagram, Chrome and Firefox, and STILL only looks while one of them is in front. It could read what\'s on screen there, but in YouTube and Instagram STILL only looks at how the screen is laid out, to spot the Shorts or Reels player. In Chrome and Firefox it looks at the web address and, on YouTube and Instagram pages, at the names the page gives its parts, to spot Shorts and Reels when the address bar is hidden. It doesn\'t read your messages, what you type or what\'s on the pages you visit, keeps no record of what you watch or browse, and nothing leaves your phone.</string>
+    <string name="short_videos_on">Short videos are blocked.</string>
+    <string name="short_videos_youtube">YouTube Shorts</string>
+    <string name="short_videos_instagram">Instagram Reels</string>
+    <string name="short_videos_browsers">In Chrome and Firefox</string>
+    <string name="short_videos_browsers_detail">Reads the web address, and on YouTube and Instagram the names of the page\'s parts</string>
+    <string name="short_videos_not_installed">Not installed</string>
+    <string name="short_videos_steps">In the Accessibility settings that open next, choose STILL Short videos and turn it on.</string>
+    <string name="short_videos_stuck">Android shows STILL Short videos as on, but it isn\'t running. This can happen after STILL updates. In Accessibility settings, turn it off, then on again.</string>
+    <string name="short_videos_left">Short videos are blocked</string>
+
     <!-- Precision mode -->
     <string name="precision_service_label">STILL Precision mode</string>
     <string name="precision_service_description">Lets STILL notice which app is in front, so your blocks, schedules, launch delays and time reminders apply however you open an app, and lets you lock the screen by double-tapping home and open your notifications by swiping down on it. STILL can\'t read what\'s on screen or what you type, and nothing leaves your phone.</string>
@@ -701,15 +721,8 @@
 
     <!-- Today page -->
     <string name="today_title">Today</string>
-    <plurals name="today_left">
-        <item quantity="one">%d thing left</item>
-        <item quantity="other">%d things left</item>
-    </plurals>
-    <string name="today_all_done">All done for today</string>
     <string name="today_empty">Nothing due today.\nTap + to add a task or habit.</string>
     <string name="today_section_overdue">Overdue</string>
-    <string name="today_section_today">Due today</string>
-    <string name="today_section_habits">Habits</string>
     <string name="today_section_undated">No date</string>
     <string name="today_yesterday">Yesterday</string>
     <string name="today_skipped">Skipped</string>
@@ -720,6 +733,14 @@
     <string name="today_progress_unit">%1$s / %2$s %3$s</string>
     <string name="today_minutes_unit">min</string>
     <string name="today_add">Add task or habit</string>
+    <string name="today_late">late</string>
+    <string name="today_now">now</string>
+    <string name="today_section_any_time">Any time</string>
+    <!-- "3 of 8 done": a fraction, not a count of things, so no plural form is needed. -->
+    <string name="today_ring" tools:ignore="PluralsCandidate">%1$d of %2$d done</string>
+    <!-- "Day 2 of 14": a place in a plan, not a count of things. -->
+    <string name="today_plan_day" tools:ignore="PluralsCandidate">Day %1$d of %2$d</string>
+    <string name="today_plan_day_named" tools:ignore="PluralsCandidate">%1$s · day %2$d of %3$d</string>
 
     <!-- Notes -->
     <string name="notes_title">Notes</string>
@@ -769,6 +790,106 @@
     <string name="add_often_weekly">%d× a week</string>
     <string name="add_confirm">Add</string>
     <string name="add_more_options">More options</string>
+    <string name="add_kind_plan">Plan</string>
+    <string name="add_list_hint" tools:ignore="Typos">Day 1\n- Read chapter 3 @7:00\n  - Make notes</string>
+    <string name="add_list_help">Start each day with a line like “Day 1”, then its tasks, one per line, starting with a dash. Indent a line to make it a subtask.</string>
+    <string name="add_list_paste">Paste</string>
+    <string name="add_list_copy_prompt">Copy prompt for AI</string>
+    <string name="add_list_copied">Copied. Paste it into ChatGPT, Claude or Gemini, say what you want after it, then paste the reply here or share it to STILL.</string>
+
+    <!-- Plans -->
+    <string name="plans_title">Plans</string>
+    <plurals name="plans_going">
+        <item quantity="one">%d going</item>
+        <item quantity="other">%d going</item>
+    </plurals>
+    <string name="plans_empty">No plans yet.\nA plan is a run of days, each with its own tasks. Tap + to write one or paste one.</string>
+    <string name="plans_going_title">Going</string>
+    <string name="plans_paused">Paused</string>
+    <string name="plans_finished">Finished</string>
+    <string name="plans_new">New plan</string>
+    <string name="plan_unnamed">Untitled plan</string>
+    <!-- "Day 4 of 14": a place in a plan, not a count of things. -->
+    <string name="plan_day_of" tools:ignore="PluralsCandidate">Day %1$d of %2$d</string>
+    <plurals name="plan_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <string name="plan_finished_on">Finished %1$s</string>
+    <string name="plan_paused_since">Paused since %1$s</string>
+    <string name="plan_starts">Starts %1$s</string>
+    <string name="plan_on_track">On track</string>
+    <plurals name="plan_behind">
+        <item quantity="one">%d day behind</item>
+        <item quantity="other">%d days behind</item>
+    </plurals>
+    <plurals name="plan_overdue">
+        <item quantity="one">%d day overdue</item>
+        <item quantity="other">%d days overdue</item>
+    </plurals>
+    <string name="plan_ends">Ends %1$s</string>
+    <string name="plan_moves_along">A missed day moves the rest along.</string>
+    <string name="plan_keeps_dates">Days keep their dates.</string>
+    <string name="plan_pause">Pause</string>
+    <string name="plan_resume">Resume</string>
+    <string name="plan_edit">Edit</string>
+    <string name="plan_delete">Delete</string>
+    <string name="plan_paused_detail">Paused: its tasks are off Today until you resume, and its days wait.</string>
+    <plurals name="plan_delete_detail">
+        <item quantity="one">Its %d task will be deleted too.</item>
+        <item quantity="other">Its %d tasks will be deleted too.</item>
+    </plurals>
+    <string name="plan_dates">%1$s – %2$s</string>
+    <string name="plan_was">was %1$s</string>
+    <!-- "12 of 40 tasks done": a fraction, not a count of things. -->
+    <string name="plan_tasks_done" tools:ignore="PluralsCandidate">%1$d of %2$d tasks done</string>
+    <string name="plan_days_on_time" tools:ignore="PluralsCandidate">%1$d of %2$d days done on time</string>
+    <string name="plan_strip_legend">Each square is a day: coloured on time, amber late, red missed, outlined today.</string>
+    <string name="plan_done_on">done %1$s</string>
+    <string name="plan_day">Day %1$d</string>
+    <string name="plan_day_count" tools:ignore="PluralsCandidate">%1$d/%2$d</string>
+    <string name="plan_new">New plan</string>
+    <string name="plan_edit_title">Edit plan</string>
+    <string name="plan_create">Create</string>
+    <string name="plan_write">Write it here</string>
+    <string name="plan_paste">Paste a plan</string>
+    <string name="plan_read">Read it</string>
+    <string name="plan_name">Name</string>
+    <string name="plan_name_hint">Exam week, 30-day reset…</string>
+    <string name="plan_starts_label">Starts</string>
+    <string name="plan_falls_on">Plan days fall on</string>
+    <string name="plan_every_day">Every day</string>
+    <string name="plan_weekdays">Weekdays</string>
+    <string name="plan_pick_days">Pick days</string>
+    <string name="plan_colour">Colour</string>
+    <string name="plan_colour_teal">Teal</string>
+    <string name="plan_colour_violet">Violet</string>
+    <string name="plan_colour_coral">Coral</string>
+    <string name="plan_colour_amber">Amber</string>
+    <string name="plan_days_label">Days</string>
+    <string name="plan_task_hint">A task</string>
+    <string name="plan_remove_task">Remove task</string>
+    <string name="plan_add_task">Add a task</string>
+    <string name="plan_add_day">Add a day</string>
+    <string name="plan_left_out_habit">Line %1$d: %2$s is a habit, and plans hold tasks only, so it was left out</string>
+    <string name="plan_repeat_once">Line %1$d: %2$s repeats, but plan tasks happen once, so it\'s on its first day only</string>
+    <string name="plan_task_note">Day %1$d of %2$s. Its date comes from the plan; change the plan to move it.</string>
+    <string name="paste_check">Check these</string>
+    <string name="paste_missed_day">If a day is missed</string>
+    <string name="paste_missed_move">Move the rest along</string>
+    <string name="paste_missed_keep">Keep the dates</string>
+    <string name="paste_missed_move_detail">A day you don\'t finish stays on Today the next day, and the days after it move along too.</string>
+    <string name="paste_missed_keep_detail">Each day keeps its date; what isn\'t done shows as late.</string>
+    <string name="paste_problem_unknown_tag">Line %1$d: %2$s isn\'t a tag, so it stays in the title</string>
+    <string name="paste_problem_repeat">Line %1$d: couldn\'t read “every %2$s”, so it doesn\'t repeat</string>
+    <string name="paste_problem_until">Line %1$d: couldn\'t read “until %2$s”, so it repeats with no end</string>
+    <string name="paste_problem_habit_only">Line %1$d: %2$s only works on habits, so it was left out</string>
+    <string name="paste_problem_times">Line %1$d: a habit counted per week has no set days, so its times were left out</string>
+    <plurals name="paste_problem_too_many">
+        <item quantity="one">Only the first %d item is added</item>
+        <item quantity="other">Only the first %d items are added</item>
+    </plurals>
+    <string name="share_label">Import as plan</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
 

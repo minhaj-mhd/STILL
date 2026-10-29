@@ -1,13 +1,13 @@
 package app.still.launcher.precision
 
 import android.accessibilityservice.AccessibilityService
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.core.net.toUri
-import androidx.core.os.bundleOf
 import app.still.launcher.MainActivity
+import app.still.launcher.util.accessibilitySettingsIntent
+import app.still.launcher.util.isAccessibilityServiceSwitchedOn
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,11 +52,7 @@ class PrecisionMode(context: Context) {
      * Whether Android's settings have the service switched on, running or not. After an update
      * Android sometimes leaves it switched on without starting it again.
      */
-    fun isSwitchedOn(): Boolean {
-        val component = ComponentName(appContext, PrecisionService::class.java)
-        val enabled = Settings.Secure.getString(appContext.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
-        return enabled.split(':').any { ComponentName.unflattenFromString(it) == component }
-    }
+    fun isSwitchedOn(): Boolean = isAccessibilityServiceSwitchedOn(appContext, PrecisionService::class.java)
 
     /** The app in front, or null when Precision mode is off and STILL can't tell. */
     fun appInFront(): String? = if (isRunning) gate.foreground else null
@@ -81,20 +77,9 @@ class PrecisionMode(context: Context) {
     }
 
     /** Android's Accessibility settings, with STILL's row highlighted where Settings supports it. */
-    fun settingsIntent(): Intent {
-        val component = ComponentName(appContext, PrecisionService::class.java).flattenToString()
-        return Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            .putExtra(EXTRA_FRAGMENT_ARG_KEY, component)
-            .putExtra(EXTRA_SHOW_FRAGMENT_ARGS, bundleOf(EXTRA_FRAGMENT_ARG_KEY to component))
-    }
+    fun settingsIntent(): Intent = accessibilitySettingsIntent(appContext, PrecisionService::class.java)
 
     /** STILL's App info page, where a sideloaded install can allow restricted settings. */
     fun appInfoIntent(): Intent =
         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${appContext.packageName}".toUri())
-
-    private companion object {
-        // Undocumented extras that Settings uses to scroll to and highlight one row.
-        const val EXTRA_FRAGMENT_ARG_KEY = ":settings:fragment_args_key"
-        const val EXTRA_SHOW_FRAGMENT_ARGS = ":settings:show_fragment_args"
-    }
 }

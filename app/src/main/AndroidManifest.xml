@@ -61,6 +61,22 @@
             </intent-filter>
         </activity>
 
+        <!-- "Import as plan" in the Share menu: shared text, e.g. an AI chat's reply, opens in
+             STILL's plan editor to look over and create. It saves nothing itself. -->
+        <activity
+            android:name=".ShareListActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:label="@string/share_label"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <!-- Reminder alarms and notification buttons; only STILL's own pending intents reach it. -->
         <receiver
             android:name=".reminders.ReminderReceiver"
@@ -87,6 +103,24 @@
             <meta-data
                 android:name="android.accessibilityservice"
                 android:resource="@xml/precision_service" />
+        </service>
+
+        <!--
+            Short videos: leaves YouTube Shorts and Instagram Reels when they fill the screen. Apart
+            from Precision mode, as it reads those two apps' views; Android shows it no other app.
+            Only Android can bind it, and only after the user turns it on in Accessibility settings.
+        -->
+        <service
+            android:name=".shortvideo.ShortVideoService"
+            android:exported="true"
+            android:label="@string/short_video_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/short_video_service" />
         </service>
 
         <!--

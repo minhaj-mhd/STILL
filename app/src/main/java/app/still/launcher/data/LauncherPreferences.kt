@@ -85,6 +85,8 @@ data class LauncherSettings(
     val keynotePutOffOn: LocalDate? = null,
     /** When focus mode started, in epoch milliseconds; null while it's off. */
     val focusModeSince: Long? = null,
+    /** Short-video rules (by id) switched off; the rest block while the service is on. */
+    val shortVideoRulesOff: Set<String> = emptySet(),
 ) {
     /** App limits, the app list's fading and the daily quality's summary all need each app's time today. */
     val needsAppUsage: Boolean get() = appListFade || appLimits.isNotEmpty() || dailyQuality
@@ -136,6 +138,7 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
                 askWhyOn = prefs[ASK_WHY_ON] ?: true,
                 keynotePutOffOn = prefs[KEYNOTE_PUT_OFF_ON]?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
                 focusModeSince = prefs[FOCUS_MODE_SINCE],
+                shortVideoRulesOff = prefs[SHORT_VIDEO_RULES_OFF] ?: emptySet(),
             )
         }
         // Other keys, such as visits to limited apps, change often; only pass on real changes.
@@ -409,6 +412,10 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs -> prefs[NOTIFICATION_COUNT_SHOWN] = shown }
     }
 
+    suspend fun setShortVideoRuleOn(id: String, on: Boolean) {
+        dataStore.edit { prefs -> prefs[SHORT_VIDEO_RULES_OFF] = (prefs[SHORT_VIDEO_RULES_OFF] ?: emptySet()).with(id, !on) }
+    }
+
     suspend fun setGateAlwaysOpen(packages: Set<String>) {
         dataStore.edit { prefs -> prefs[GATE_ALWAYS_OPEN_PACKAGES] = packages }
     }
@@ -452,6 +459,7 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val ASK_WHY_ON = booleanPreferencesKey("askWhyOn")
         val KEYNOTE_PUT_OFF_ON = stringPreferencesKey("keynotePutOffOn")
         val FOCUS_MODE_SINCE = longPreferencesKey("focusModeSince")
+        val SHORT_VIDEO_RULES_OFF = stringSetPreferencesKey("shortVideoRulesOff")
         val appLimitsSerializer: KSerializer<Map<String, AppLimitEntry>> = MapSerializer(String.serializer(), AppLimitEntry.serializer())
         val visitsSerializer: KSerializer<Map<String, AppVisit>> = MapSerializer(String.serializer(), AppVisit.serializer())
         // Typed explicitly, as for Room's converters.

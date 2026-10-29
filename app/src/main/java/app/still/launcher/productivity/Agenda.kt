@@ -3,6 +3,8 @@ package app.still.launcher.productivity
 import app.still.launcher.data.productivity.Habit
 import app.still.launcher.data.productivity.ItemType
 import app.still.launcher.data.productivity.OccurrenceRecord
+import app.still.launcher.data.productivity.Plan
+import app.still.launcher.data.productivity.PlanColor
 import app.still.launcher.data.productivity.Task
 import app.still.launcher.data.productivity.toOccurrence
 import app.still.launcher.schedule.Occurrence
@@ -23,6 +25,8 @@ data class TaskEntry(
     val isOverdue: Boolean = false,
     /** The task's subtasks, oldest first; ticked off right under it on the Today page. */
     val subtasks: List<Task> = emptyList(),
+    /** Its plan and day, for a plan's task. */
+    val plan: PlanPlace? = null,
 ) {
     val isPending: Boolean get() = !isDone && !isSkipped
 }
@@ -64,15 +68,21 @@ data class TodayAgenda(
 /**
  * Builds the Today page from everything stored. [records] must cover at least the past year,
  * so recurring tasks can find their last occurrence and quotas can count their period.
- * Subtasks are left out; they belong to their parent task's details.
+ * Subtasks are left out; they belong to their parent task's details. Plan tasks are on the day
+ * they've moved to (see [withPlanDates]), so a missed plan day is due today, not overdue, and a
+ * paused plan's tasks wait with it; [plans] gives each plan's settings, name and colour.
  */
 fun buildAgenda(
     date: LocalDate,
-    tasks: List<Task>,
+    stored: List<Task>,
     habits: List<Habit>,
     records: List<OccurrenceRecord>,
     zone: ZoneId = ZoneId.systemDefault(),
+    plans: List<Plan> = emptyList(),
 ): TodayAgenda {
+    val tasks = stored.withPlanDates(plans, date, zone)
+    val plansById = plans.associateBy { it.id }
+    val planDays = tasks.filter { it.planId != null && it.planDay != null }.groupBy { it.planId }.mapValues { (_, days) -> days.maxOf { it.planDay!! } }
     val recordsByItem = records.groupBy { it.itemType to it.itemId }
     val subtasksByParent = tasks
         .filter { it.parentId != null && !it.archived }
@@ -83,7 +93,13 @@ fun buildAgenda(
         .filter { it.parentId == null && !it.archived }
         .flatMap { task ->
             val subtasks = subtasksByParent[task.id].orEmpty()
-            taskEntries(task, date, recordsByItem[ItemType.TASK to task.id].orEmpty(), zone).map { it.copy(subtasks = subtasks) }
+            val plan = task.planId?.let { id ->
+                task.planDay?.let { day ->
+                    val stored = plansById[id]
+                    PlanPlace(stored?.name.orEmpty(), day, planDays.getValue(id), stored?.color ?: PlanColor.TEAL)
+                }
+            }
+            taskEntries(task, date, recordsByItem[ItemType.TASK to task.id].orEmpty(), zone).map { it.copy(subtasks = subtasks, plan = plan) }
         }
 
     val habitEntries = habits

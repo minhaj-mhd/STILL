@@ -93,7 +93,8 @@ class PrecisionService : AccessibilityService() {
         val packageName = event.packageName?.toString() ?: return
         val className = event.className?.toString() ?: return
         // Keyboards, dialogs and the notification shade change windows too, but no app came to the front.
-        if (isActivity(packageName, className)) check(packageName)
+        // A browser's tab counts as the app that opened it, e.g. Chrome Remote Desktop rather than Chrome.
+        if (isActivity(packageName, className)) check(container.tabOwners.onFront(packageName, className))
     }
 
     override fun onInterrupt() = Unit

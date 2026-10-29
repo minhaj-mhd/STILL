@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Process
 import android.provider.Settings
 import app.still.launcher.blocking.AppUsageEvent
+import app.still.launcher.blocking.TabOwners
 import app.still.launcher.blocking.foregroundAppAfter
 import app.still.launcher.blocking.foregroundTimeByApp
 import kotlinx.coroutines.Dispatchers
@@ -23,8 +24,11 @@ data class AppScreenTime(val today: Duration, val lastSevenDays: Duration)
 /** Time per package today and over the last seven days (today included). STILL itself is left out. */
 data class ScreenTimeSummary(val today: Map<String, Duration>, val lastSevenDays: Map<String, Duration>)
 
-/** Reads screen time from Android's usage statistics, which needs the "Usage access" permission. */
-class ScreenTimeRepository(context: Context) {
+/**
+ * Reads screen time from Android's usage statistics, which needs the "Usage access" permission.
+ * A browser's tab counts as the app it belongs to ([tabOwners]).
+ */
+class ScreenTimeRepository(context: Context, private val tabOwners: TabOwners) {
 
     private val appContext = context.applicationContext
     private val usageStats = appContext.getSystemService(UsageStatsManager::class.java)
@@ -111,9 +115,9 @@ class ScreenTimeRepository(context: Context) {
                 UsageEvents.Event.SCREEN_NON_INTERACTIVE, UsageEvents.Event.DEVICE_SHUTDOWN -> AppUsageEvent.Kind.SCREEN_OFF
                 else -> null
             } ?: continue
-            result += AppUsageEvent(event.packageName, event.timeStamp, kind)
+            result += AppUsageEvent(event.packageName, event.timeStamp, kind, event.className)
         }
-        return result
+        return tabOwners.attribute(result)
     }
 
     private fun startOf(date: LocalDate, zone: ZoneId): Long = date.atStartOfDay(zone).toInstant().toEpochMilli()

@@ -22,6 +22,10 @@ fun formatTime(time: LocalTime): String =
 @Composable
 fun formatShortDate(date: LocalDate): String = formatDate(date, "EEEdMMM")
 
+/** "Friday 23", the Today page's heading. */
+@Composable
+fun formatWeekdayAndDay(date: LocalDate): String = formatDate(date, "EEEEd")
+
 /** "Fri 23 Oct 2026". */
 @Composable
 fun formatLongDate(date: LocalDate): String = formatDate(date, "EEEdMMMyyyy")

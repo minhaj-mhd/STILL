@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -46,9 +47,12 @@ import java.time.LocalDate
 
 private enum class Due { NONE, TODAY, TOMORROW, PICKED }
 
+private enum class AddKind { TASK, HABIT }
+
 /**
  * Quick add from the Today page: a title and the few choices that matter most.
- * "More options" hands the title over to the full editor.
+ * "More options" hands the title over to the full editor. Tasks and habits are added one at a
+ * time; "Plan" opens a new plan ([onNewPlan]), the one way to add many at once.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,8 +61,10 @@ fun AddItemSheet(
     onAddTask: (title: String, due: LocalDate?, priority: Priority) -> Unit,
     onAddHabit: (title: String, measure: HabitMeasure, target: Double, frequency: QuickFrequency) -> Unit,
     onMoreOptions: (isHabit: Boolean, title: String) -> Unit,
+    onNewPlan: () -> Unit,
 ) {
-    var isHabit by rememberSaveable { mutableStateOf(false) }
+    var kind by rememberSaveable { mutableStateOf(AddKind.TASK) }
+    val isHabit = kind == AddKind.HABIT
     var title by rememberSaveable { mutableStateOf("") }
 
     var due by rememberSaveable { mutableStateOf(Due.TODAY) }
@@ -108,8 +114,9 @@ fun AddItemSheet(
                 .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
         ) {
             ChipRow {
-                Chip(stringResource(R.string.add_kind_task), selected = !isHabit) { isHabit = false }
-                Chip(stringResource(R.string.add_kind_habit), selected = isHabit) { isHabit = true }
+                Chip(stringResource(R.string.add_kind_task), selected = kind == AddKind.TASK) { kind = AddKind.TASK }
+                Chip(stringResource(R.string.add_kind_habit), selected = kind == AddKind.HABIT) { kind = AddKind.HABIT }
+                Chip(stringResource(R.string.add_kind_plan), selected = false, onClick = onNewPlan)
             }
 
             OutlinedTextField(
@@ -173,6 +180,7 @@ fun AddItemSheet(
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
                 TextButton(onClick = ::submit, enabled = canAdd) { Text(stringResource(R.string.add_confirm)) }
             }
+
         }
     }
 

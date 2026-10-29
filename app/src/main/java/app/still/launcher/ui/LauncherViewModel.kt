@@ -11,6 +11,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import app.still.launcher.BuildConfig
 import app.still.launcher.StillApplication
 import app.still.launcher.apps.recentlyInstalled
+import app.still.launcher.blocking.TabOwners
 import app.still.launcher.blocking.activeBlock
 import app.still.launcher.blocking.scheduledBlocks
 import app.still.launcher.data.AccentColor
@@ -198,6 +199,7 @@ class LauncherViewModel(
     private val appLimits: AppLimitMonitor,
     private val practice: PracticeRepository,
     private val focusMode: FocusModeMonitor,
+    private val tabOwners: TabOwners,
 ) : ViewModel() {
 
     /** The current minute, so blocks end on time without anything else changing. */
@@ -323,6 +325,8 @@ class LauncherViewModel(
         val now = System.currentTimeMillis()
         // STILL has done its checks, so Precision mode lets the app come to the front.
         precision.gate.allow(app.component.packageName, now + precision.gate.graceMillis)
+        // If the app shows itself in a browser's tab, e.g. a web app, the tab counts as the app.
+        tabOwners.opening(app.component.packageName, now)
         val launched = appRepository.launch(app.component, app.user)
         if (launched) appLimits.onOpened(app.component.packageName, app.label, now)
         return launched
@@ -587,6 +591,7 @@ class LauncherViewModel(
                     container.appLimits,
                     container.practiceRepository,
                     container.focusMode,
+                    container.tabOwners,
                 )
             }
         }

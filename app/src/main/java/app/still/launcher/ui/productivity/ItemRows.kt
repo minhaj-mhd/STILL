@@ -19,6 +19,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -34,13 +38,17 @@ import app.still.launcher.productivity.TaskEntry
 import app.still.launcher.schedule.QuotaPeriod
 import app.still.launcher.ui.components.formatShortDate
 import app.still.launcher.ui.components.formatTime
+import app.still.launcher.ui.theme.planColor
+import app.still.launcher.ui.theme.stillPalette
 import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.LocalTime
 
 /**
  * Tapping anywhere on the row ticks the task off; editing is in the long-press menu. [locks]
- * names the apps a task gate keeps closed until it's done.
+ * names the apps a task gate keeps closed until it's done. On the timeline the time is beside
+ * the row ([showTime] false), and a [late] task is in the warning colour until it's done. A plan's
+ * task has its circle in the plan's colour.
  */
 @Composable
 fun TaskRow(
@@ -49,10 +57,17 @@ fun TaskRow(
     onToggle: () -> Unit,
     onLongClick: () -> Unit,
     locks: List<String> = emptyList(),
+    showTime: Boolean = true,
+    late: Boolean = false,
 ) {
+    val lateColor = stillPalette.warning.takeIf { late && entry.isPending }
     val details = listOfNotNull(
+        entry.plan?.let { plan ->
+            if (plan.name.isBlank()) stringResource(R.string.today_plan_day, plan.day, plan.days)
+            else stringResource(R.string.today_plan_day_named, plan.name, plan.day, plan.days)
+        },
         entry.occurrence?.takeIf { entry.isOverdue }?.let { relativeDate(it.date, today) },
-        entry.occurrence?.time?.let { formatTime(it) },
+        entry.occurrence?.time?.takeIf { showTime }?.let { formatTime(it) },
         stringResource(R.string.today_skipped).takeIf { entry.isSkipped },
         locksText(locks),
     )
@@ -62,9 +77,13 @@ fun TaskRow(
         priority = entry.task.priority,
         finished = !entry.isPending,
         struckThrough = entry.isDone,
-        leading = { CheckCircle(checked = entry.isDone, skipped = entry.isSkipped, onClick = onToggle) },
+        leading = {
+            val tint = lateColor ?: entry.plan?.let { planColor(it.color) }
+            CheckCircle(checked = entry.isDone, skipped = entry.isSkipped, onClick = onToggle, tint = tint)
+        },
         onClick = onToggle,
         onLongClick = onLongClick,
+        titleColor = lateColor,
     )
 }
 
@@ -95,7 +114,7 @@ fun SubtaskRow(subtask: Task, onToggle: () -> Unit) {
 /**
  * Tapping anywhere on the row logs progress; editing and streaks are in the long-press menu.
  * [locks] names the apps a task gate keeps closed until it's done; [focusUntil] is when its
- * running focus timer ends.
+ * running focus timer ends. Its circle is dashed, setting it apart from tasks.
  */
 @Composable
 fun HabitRow(
@@ -104,6 +123,7 @@ fun HabitRow(
     onLongClick: () -> Unit,
     locks: List<String> = emptyList(),
     focusUntil: LocalTime? = null,
+    showTime: Boolean = true,
 ) {
     val habit = entry.habit
     val progress = when (habit.measure) {
@@ -130,7 +150,7 @@ fun HabitRow(
         }
     }
     val details = listOfNotNull(
-        entry.occurrence.time?.let { formatTime(it) },
+        entry.occurrence.time?.takeIf { showTime }?.let { formatTime(it) },
         progress,
         quota,
         stringResource(R.string.today_skipped).takeIf { entry.isSkipped },
@@ -143,7 +163,7 @@ fun HabitRow(
         priority = habit.priority,
         finished = entry.isDone || entry.isSkipped,
         struckThrough = false,
-        leading = { CheckCircle(checked = entry.isDone, skipped = entry.isSkipped, onClick = onToggle) },
+        leading = { CheckCircle(checked = entry.isDone, skipped = entry.isSkipped, onClick = onToggle, dashed = true) },
         onClick = onToggle,
         onLongClick = onLongClick,
     )
@@ -159,9 +179,10 @@ private fun ItemRow(
     leading: @Composable () -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    titleColor: Color? = null,
 ) {
     val haptics = LocalHapticFeedback.current
-    val contentColor = if (finished) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground
+    val contentColor = titleColor ?: if (finished) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -205,10 +226,14 @@ private fun ItemRow(
     }
 }
 
-/** Round tick box with a full-size touch target: filled with a check when done, a dash when skipped. */
+/**
+ * Round tick box with a full-size touch target: filled with a check when done, a dash when
+ * skipped. Habits have a [dashed] outline; [tint] colours the outline, e.g. for late tasks.
+ */
 @Composable
-fun CheckCircle(checked: Boolean, skipped: Boolean, onClick: () -> Unit) {
+fun CheckCircle(checked: Boolean, skipped: Boolean, dashed: Boolean = false, tint: Color? = null, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
+    val outline = tint ?: colors.outline
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -220,8 +245,20 @@ fun CheckCircle(checked: Boolean, skipped: Boolean, onClick: () -> Unit) {
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(24.dp)
-                .border(1.5.dp, if (checked) colors.onBackground else colors.outline, CircleShape)
-                .then(if (checked) Modifier.background(colors.onBackground, CircleShape) else Modifier),
+                .then(
+                    when {
+                        checked -> Modifier.background(colors.onBackground, CircleShape)
+                        dashed -> Modifier.drawBehind {
+                            val stroke = 1.5.dp.toPx()
+                            drawCircle(
+                                color = outline,
+                                radius = (size.minDimension - stroke) / 2,
+                                style = Stroke(width = stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 2.5.dp.toPx()))),
+                            )
+                        }
+                        else -> Modifier.border(1.5.dp, outline, CircleShape)
+                    },
+                ),
         ) {
             when {
                 checked -> Text("✓", style = MaterialTheme.typography.labelLarge, color = colors.background)
@@ -236,7 +273,7 @@ fun CheckCircle(checked: Boolean, skipped: Boolean, onClick: () -> Unit) {
 private fun locksText(locks: List<String>): String? =
     if (locks.isEmpty()) null else stringResource(R.string.today_locks, locks.joinToString(", "))
 
-private fun priorityMark(priority: Priority): String? = when (priority) {
+internal fun priorityMark(priority: Priority): String? = when (priority) {
     Priority.NONE -> null
     Priority.LOW -> "!"
     Priority.MEDIUM -> "!!"

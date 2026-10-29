@@ -15,7 +15,7 @@ import java.time.LocalDate
 
 /**
  * Dates are stored as ISO text ("2026-10-23") so they sort and compare correctly in SQL.
- * Schedules, quotas, note checklists and task gates' items and windows are stored as JSON; unknown keys are ignored so older app versions
+ * Schedules, quotas, note checklists, plan pauses and task gates' items and windows are stored as JSON; unknown keys are ignored so older app versions
  * can still read rows written by newer ones.
  */
 class Converters {
@@ -63,6 +63,12 @@ class Converters {
     fun jsonToGateItems(text: String): List<GateItem> = json.decodeFromString(gateItemsSerializer, text)
 
     @TypeConverter
+    fun planPausesToJson(pauses: List<PlanPause>): String = json.encodeToString(planPausesSerializer, pauses)
+
+    @TypeConverter
+    fun jsonToPlanPauses(text: String): List<PlanPause> = json.decodeFromString(planPausesSerializer, text)
+
+    @TypeConverter
     fun gateWindowToJson(window: GateWindow): String = json.encodeToString(GateWindow.serializer(), window)
 
     @TypeConverter
@@ -74,5 +80,6 @@ class Converters {
         val checklistSerializer: KSerializer<List<ChecklistItem>> = ListSerializer(ChecklistItem.serializer())
         val stringListSerializer: KSerializer<List<String>> = ListSerializer(String.serializer())
         val gateItemsSerializer: KSerializer<List<GateItem>> = ListSerializer(GateItem.serializer())
+        val planPausesSerializer: KSerializer<List<PlanPause>> = ListSerializer(PlanPause.serializer())
     }
 }

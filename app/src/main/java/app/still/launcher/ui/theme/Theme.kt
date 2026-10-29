@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import app.still.launcher.data.AccentColor
 import app.still.launcher.data.LauncherSettings
 import app.still.launcher.data.WallpaperChoice
+import app.still.launcher.data.productivity.PlanColor
 
 /** The user's look: accent and wallpaper, from Customise. */
 @Immutable
@@ -76,6 +77,20 @@ private fun accentFor(accent: AccentColor, light: Boolean): Color {
     }
     val (dark, onLight) = accent.colors()
     return if (light) onLight else dark
+}
+
+/** A plan's colour on today's wallpaper: the accent of the same name. */
+@Composable
+@ReadOnlyComposable
+fun planColor(color: PlanColor): Color {
+    val accent = when (color) {
+        PlanColor.TEAL -> AccentColor.TEAL
+        PlanColor.VIOLET -> AccentColor.VIOLET
+        PlanColor.CORAL -> AccentColor.CORAL
+        PlanColor.AMBER -> AccentColor.AMBER
+    }
+    val (dark, onLight) = accent.colors()
+    return if (LocalAppearance.current.isLight) onLight else dark
 }
 
 /** The colour of each of STILL's own wallpapers; the phone's wallpaper sits on black elsewhere. */

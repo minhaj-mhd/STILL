@@ -94,6 +94,7 @@ import app.still.launcher.ui.settings.SettingsPage
 import app.still.launcher.ui.settings.SettingsScreen
 import app.still.launcher.ui.productivity.LeftPageTabs
 import app.still.launcher.ui.productivity.LeftTab
+import app.still.launcher.ui.productivity.PlansPage
 import app.still.launcher.ui.productivity.TodayPage
 import app.still.launcher.ui.productivity.TodayViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -111,7 +112,7 @@ import java.time.Instant
 private enum class Page { Productivity, Home, Apps }
 
 /** Full-screen views over the pages, opened by swiping up on home. Back goes up this list. */
-private enum class Overlay { INSIGHTS, DAILY_LIMIT, HOME_CUSTOMISE, SETTINGS, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, APP_LIMITS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION, HELD_NOTIFICATIONS }
+private enum class Overlay { INSIGHTS, DAILY_LIMIT, HOME_CUSTOMISE, SETTINGS, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, APP_LIMITS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION, SHORT_VIDEOS, HELD_NOTIFICATIONS }
 
 @Composable
 fun StillLauncher(
@@ -119,6 +120,7 @@ fun StillLauncher(
     homePresses: Flow<Unit>,
     todayRequests: Flow<Unit>,
     heldNotificationRequests: Flow<Unit>,
+    listRequests: Flow<String>,
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -423,6 +425,18 @@ fun StillLauncher(
         }
     }
 
+    // Text shared to "Import as plan": read into the plan editor over the Plans tab.
+    LaunchedEffect(listRequests) {
+        listRequests.collect { text ->
+            // Focus mode keeps the left page closed, so there's nowhere to add it to.
+            if (viewModel.uiState.value.focusModeSince != null) return@collect
+            closeAll()
+            leftTab = LeftTab.PLANS
+            pagerState.scrollToPage(Page.Productivity.ordinal)
+            editor = EditorTarget.PasteList(text)
+        }
+    }
+
     // A launcher has nowhere to go back to: Back only returns to the home page.
     BackHandler {
         if (pagerState.currentPage != Page.Home.ordinal) goHome(animate = true)
@@ -438,15 +452,15 @@ fun StillLauncher(
         ) { page ->
             when (Page.entries[page]) {
                 Page.Productivity -> {
-                    val tabs = @Composable { LeftPageTabs(leftTab) { leftTab = it } }
                     when (leftTab) {
                         LeftTab.TODAY -> TodayPage(
-                            tabs = tabs,
+                            tabs = { LeftPageTabs(leftTab, compact = true) { leftTab = it } },
                             onOpenEditor = { editor = it },
                             locks = state.gateLocks.appsByItem,
                             viewModel = todayViewModel,
                         )
-                        LeftTab.NOTES -> NotesPage(tabs = tabs, onOpenEditor = { editor = it })
+                        LeftTab.NOTES -> NotesPage(tabs = { LeftPageTabs(leftTab) { leftTab = it } }, onOpenEditor = { editor = it })
+                        LeftTab.PLANS -> PlansPage(tabs = { LeftPageTabs(leftTab) { leftTab = it } }, onOpenEditor = { editor = it })
                     }
                 }
                 Page.Home -> HomePage(
@@ -603,7 +617,7 @@ fun StillLauncher(
                 onClose = { overlay = Overlay.INSIGHTS },
             )
             Overlay.SETTINGS, Overlay.CUSTOMISE, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS, Overlay.APP_LIMITS, Overlay.SCHEDULES, Overlay.GATES,
-            Overlay.NOTIFICATION_FILTER, Overlay.PRECISION -> SettingsScreen(
+            Overlay.NOTIFICATION_FILTER, Overlay.PRECISION, Overlay.SHORT_VIDEOS -> SettingsScreen(
                 page = when (current) {
                     Overlay.CUSTOMISE -> SettingsPage.CUSTOMISE
                     Overlay.HIDDEN_APPS -> SettingsPage.HIDDEN_APPS
@@ -613,6 +627,7 @@ fun StillLauncher(
                     Overlay.GATES -> SettingsPage.GATES
                     Overlay.NOTIFICATION_FILTER -> SettingsPage.NOTIFICATION_FILTER
                     Overlay.PRECISION -> SettingsPage.PRECISION
+                    Overlay.SHORT_VIDEOS -> SettingsPage.SHORT_VIDEOS
                     else -> SettingsPage.MAIN
                 },
                 onNavigate = { page ->
@@ -626,6 +641,7 @@ fun StillLauncher(
                         SettingsPage.GATES -> Overlay.GATES
                         SettingsPage.NOTIFICATION_FILTER -> Overlay.NOTIFICATION_FILTER
                         SettingsPage.PRECISION -> Overlay.PRECISION
+                        SettingsPage.SHORT_VIDEOS -> Overlay.SHORT_VIDEOS
                     }
                 },
                 onClose = { overlay = Overlay.INSIGHTS },
@@ -672,7 +688,7 @@ fun StillLauncher(
 
     // Editors cover everything else, including Settings when a schedule is opened from there.
     // Their own Back handler takes priority over the pages'.
-    editor?.let { target -> EditorHost(target, onClose = { editor = null }) }
+    editor?.let { target -> EditorHost(target, onClose = { editor = null }, onOpen = { editor = it }) }
 
     // Focus mode keeps every app off home closed; it closes itself when focus mode ends.
     focusLockedApp?.let { app ->

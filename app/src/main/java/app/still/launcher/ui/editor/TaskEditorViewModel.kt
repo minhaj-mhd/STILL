@@ -49,6 +49,8 @@ data class TaskDraft(
     val until: LocalDate? = null,
     val keepOverdue: Boolean = true,
     val subtasks: List<SubtaskDraft> = emptyList(),
+    /** The plan a plan task belongs to, which sets its date. */
+    val planName: String? = null,
 ) {
     /** Changing the date carries a repeat pattern along; removing it also removes time and repeat. */
     fun withDue(date: LocalDate?): TaskDraft =
@@ -99,7 +101,8 @@ class TaskEditorViewModel(private val repository: ProductivityRepository, privat
                     itemRecords = repository.getRecords(today.minusDays(RECORD_LOOKBACK_DAYS), today)
                         .filter { it.itemType == ItemType.TASK && it.itemId == task.id }
                     guard.load()
-                    _draft.value = task.toDraft(target, subtasks)
+                    val plan = task.planId?.let { repository.getPlan(it) }
+                    _draft.value = task.toDraft(target, subtasks).copy(planName = plan?.name)
                 }
             }
         }

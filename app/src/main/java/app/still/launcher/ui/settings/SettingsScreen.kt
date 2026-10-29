@@ -55,9 +55,11 @@ import app.still.launcher.ui.gates.GatesPage
 import app.still.launcher.ui.gates.GatesViewModel
 import app.still.launcher.ui.notifications.NotificationFilterPage
 import app.still.launcher.ui.notifications.NotificationFilterViewModel
+import app.still.launcher.ui.shortvideo.ShortVideoPage
+import app.still.launcher.ui.shortvideo.ShortVideoViewModel
 
 /** Settings and the pages it leads to. */
-enum class SettingsPage { MAIN, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, APP_LIMITS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION }
+enum class SettingsPage { MAIN, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, APP_LIMITS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION, SHORT_VIDEOS }
 
 /**
  * Settings, reached from Insights. Shows each permission STILL uses with its state and a way to
@@ -154,6 +156,11 @@ fun SettingsScreen(
         SettingsPage.NOTIFICATION_FILTER -> NotificationFilterPage(
             apps = apps,
             onOpenHeld = onOpenHeldNotifications,
+            onBack = { onNavigate(SettingsPage.MAIN) },
+            onOpenAppInfo = onOpenAppInfo,
+        )
+        SettingsPage.SHORT_VIDEOS -> ShortVideoPage(
+            apps = apps,
             onBack = { onNavigate(SettingsPage.MAIN) },
             onOpenAppInfo = onOpenAppInfo,
         )
@@ -271,6 +278,7 @@ private fun MainSettings(
     schedulesViewModel: SchedulesViewModel = viewModel(factory = SchedulesViewModel.Factory),
     gatesViewModel: GatesViewModel = viewModel(factory = GatesViewModel.Factory),
     filterViewModel: NotificationFilterViewModel = viewModel(factory = NotificationFilterViewModel.Factory),
+    shortVideoViewModel: ShortVideoViewModel = viewModel(factory = ShortVideoViewModel.Factory),
 ) {
     val context = LocalContext.current
     var notificationsOn by remember { mutableStateOf(canNotify()) }
@@ -349,6 +357,11 @@ private fun MainSettings(
                 title = stringResource(R.string.held_settings_title),
                 value = stringResource(if (filterOn) R.string.settings_on else R.string.schedules_status_off),
             ) { onNavigate(SettingsPage.NOTIFICATION_FILTER) }
+            val shortVideosOn = shortVideoViewModel.running.collectAsStateWithLifecycle().value
+            NavigationRow(
+                title = stringResource(R.string.short_videos_title),
+                value = stringResource(if (shortVideosOn) R.string.settings_on else R.string.schedules_status_off),
+            ) { onNavigate(SettingsPage.SHORT_VIDEOS) }
             NavigationRow(
                 title = stringResource(R.string.settings_app_limits),
                 value = pluralStringResource(R.plurals.settings_app_count, appLimitCount, appLimitCount),

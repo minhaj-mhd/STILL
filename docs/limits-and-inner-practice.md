@@ -15,6 +15,20 @@ Tightening counts at once. Loosening (a higher or removed cap, a shorter wait, n
 
 Opening from STILL goes: blocked, daily phone limit, the app's own limits, task gates, the pause, launch delay, "How long?", open. Precision mode applies the same to apps opened any other way.
 
+### Apps that show themselves in a browser
+
+Added 2026-10-28, at the user's request: Chrome Remote Desktop should be allowed while Chrome isn't. It's a web app, so after it opens it shows itself in a Chrome tab inside its own task, and Android names Chrome as the app in front.
+
+`blocking/TabOwners.kt` counts a browser's tab as the app it belongs to, for Precision mode (blocks, limits, gates, focus mode) and for screen time, so the daily limit doesn't count time in an allowed web app:
+
+- **Which windows are tabs**: Chrome's Custom Tab and web app windows, the same in browsers built from Chrome, and Firefox's. Chrome's own window stays Chrome.
+- **The browser's doorway** (`ChromeLauncherActivity`, Firefox's `IntentReceiverActivity`) shows nothing and hands a link or web app on. Remote Desktop passes through it before its tab, so it counts as the app that opened it too. A link opened in Chrome itself still ends in Chrome's own window, which is Chrome.
+- **Whose tab**: the app in front just before it, or the app STILL just opened (`LauncherViewModel.launch`). STILL itself, launchers and Recents never own a tab.
+- **Coming back from Recents**: only the tab comes back, so it counts as the app that last opened one in that browser.
+- This also covers links an app opens inside itself (a Custom Tab): they count as that app.
+
+Not handled: with tabs from two apps open in the same browser, going back to the older one from Recents counts it as the newer one's app. What STILL learns is kept until it restarts.
+
 ## The pause
 
 "What are you opening it for?" with A specific purpose, An intentional break and Just checking. Open only appears after an answer, Go home (or Back to the focus session) is always the bigger button, and nothing opens on its own.

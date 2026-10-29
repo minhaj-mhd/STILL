@@ -110,21 +110,23 @@ Android: foreground-app detection (Accessibility or usage-stats polling), overla
 
 Android: Accessibility service reading view IDs and browser URL bars; breaks when target apps update
 
-- [ ] YouTube Shorts (also YouTube variants like ReVanced) — detect the Shorts player and leave/pause it
-- [ ] Instagram Reels
+**STILL: built in stage 9 (2026-10-24)** as a second, optional Accessibility service ("STILL Short videos"), apart from Precision mode so that one still can't read the screen. Android sends it events only from YouTube (and patched YouTube), Instagram, Chrome and Firefox. When the Shorts or Reels player fills at least half the screen in the apps, it goes back; in the browsers it reads the address bar and opens the site's home page in place of a Shorts or Reels page; home if that keeps landing on another one. Settings > Short videos has the disclosure and switches; see [short-videos.md](short-videos.md). Facebook, Snapchat and other browsers aren't covered yet.
+
+- [ ] YouTube Shorts (also YouTube variants like ReVanced) — detect the Shorts player and leave/pause it. **STILL: built**, leaves it.
+- [ ] Instagram Reels. **STILL: built.**
 - [ ] Facebook short videos
 - [ ] The app also references Instagram Lite, Threads, Facebook Lite, Messenger, TikTok, Reddit, X/Twitter and WhatsApp packages, likely for its "addictive apps" defaults
 - [ ] Snapchat Spotlight
-- [ ] Short-video pages in browsers by reading the URL bar: Chrome, Brave, Firefox, Opera / Opera GX / Opera Mini, Samsung Internet, DuckDuckGo, Ecosia → redirect to a "blocked" page
-- [ ] Toast "short videos blocked" when it intervenes
-- [ ] Global setting + per-app toggle in the context menu
+- [ ] Short-video pages in browsers by reading the URL bar: Chrome, Brave, Firefox, Opera / Opera GX / Opera Mini, Samsung Internet, DuckDuckGo, Ecosia → redirect to a "blocked" page. **STILL: Chrome and Firefox built** (redirect to the site's home page instead of a blocked page); the others not yet.
+- [ ] Toast "short videos blocked" when it intervenes. **STILL: built**, once per run of exits.
+- [ ] Global setting + per-app toggle in the context menu. **STILL: built** in Settings > Short videos (the service's switch plus one per app), not the long-press menu.
 
 ## 9. Precision mode (Accessibility) — Adapt
 
-STILL (stage 3 step 4): the service listens only for window-state changes (`canRetrieveWindowContent="false"`), so it knows which app is in front and nothing else. When a blocked app comes to the front from anywhere, STILL covers it with the blocked screen; launch-delay and time-reminder apps go through STILL's questions unless STILL just opened them (a pass that lasts while you stay, plus 1 minute after leaving, or until a time reminder's planned end). At time's up it shows the blocked screen or a "Time's up" screen with Leave / More time. Short-video blocking will need window content later, which means updating the disclosure.
+STILL (stage 3 step 4): the service listens only for window-state changes (`canRetrieveWindowContent="false"`), so it knows which app is in front and nothing else. When a blocked app comes to the front from anywhere, STILL covers it with the blocked screen; launch-delay and time-reminder apps go through STILL's questions unless STILL just opened them (a pass that lasts while you stay, plus 1 minute after leaving, or until a time reminder's planned end). At time's up it shows the blocked screen or a "Time's up" screen with Leave / More time. Short-video blocking needs window content, so it's a separate service (§8) and Precision mode's disclosure stays as it is.
 
 - [ ] Optional Accessibility service that makes foreground-app detection reliable (recommended on Android 14+)
-- [ ] Required for short-video blocking
+- [ ] Required for short-video blocking. **STILL: not this service**; short videos have their own (§8).
 - [ ] Explicit consent screen explaining what data it reads and that it stays on device (Play policy requirement)
 - [ ] Step-by-step guide to enable it, including "restricted settings" on sideloaded installs
 - [ ] Detect when the permission is lost (after update/reboot) and prompt from home

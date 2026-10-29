@@ -13,10 +13,12 @@ import app.still.launcher.productivity.REMINDER_LOOKAHEAD_DAYS
 import app.still.launcher.productivity.Reminder
 import app.still.launcher.productivity.nextReminderAt
 import app.still.launcher.productivity.remindersBetween
+import app.still.launcher.productivity.withPlanDates
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -58,7 +60,7 @@ class ReminderScheduler(
         val today = now.toLocalDate()
         val next = nextReminderAt(
             now,
-            repository.getActiveTasks(),
+            repository.getActiveTasks().withPlanDates(repository.getPlans(), today),
             repository.getActiveHabits(),
             repository.getRecords(today, today.plusDays(REMINDER_LOOKAHEAD_DAYS)),
         )
@@ -74,7 +76,7 @@ class ReminderScheduler(
         remindersBetween(
             from,
             now,
-            repository.getActiveTasks(),
+            repository.getActiveTasks().withPlanDates(repository.getPlans(), now.toLocalDate()),
             repository.getActiveHabits(),
             repository.getRecords(from.toLocalDate(), now.toLocalDate()),
         ).forEach(notifier::show)
@@ -116,7 +118,7 @@ class ReminderScheduler(
         val stillDue = remindersBetween(
             reminder.at.minusMinutes(1),
             reminder.at,
-            repository.getActiveTasks(),
+            repository.getActiveTasks().withPlanDates(repository.getPlans(), LocalDate.now()),
             repository.getActiveHabits(),
             repository.getRecords(date, date),
         ).any { it.key == reminder.key }

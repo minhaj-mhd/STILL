@@ -1,6 +1,7 @@
 package app.still.launcher.ui.editor
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,19 +60,31 @@ fun TaskEditor(
             PriorityChips(draft.priority) { priority -> viewModel.update { it.copy(priority = priority) } }
         }
 
-        Column {
-            FieldLabel(stringResource(R.string.editor_date))
-            val today = LocalDate.now()
-            ChipRow {
-                Chip(stringResource(R.string.add_when_today), draft.due == today) { viewModel.update { it.withDue(today) } }
-                Chip(stringResource(R.string.add_when_tomorrow), draft.due == today.plusDays(1)) {
-                    viewModel.update { it.withDue(today.plusDays(1)) }
+        val planDay = draft.original?.planDay?.takeIf { draft.original.planId != null }
+        if (planDay != null) {
+            Column {
+                FieldLabel(stringResource(R.string.editor_date))
+                Text(
+                    stringResource(R.string.plan_task_note, planDay, draft.planName?.ifBlank { null } ?: stringResource(R.string.plan_unnamed)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            Column {
+                FieldLabel(stringResource(R.string.editor_date))
+                val today = LocalDate.now()
+                ChipRow {
+                    Chip(stringResource(R.string.add_when_today), draft.due == today) { viewModel.update { it.withDue(today) } }
+                    Chip(stringResource(R.string.add_when_tomorrow), draft.due == today.plusDays(1)) {
+                        viewModel.update { it.withDue(today.plusDays(1)) }
+                    }
+                    val otherDate = draft.due?.takeIf { it != today && it != today.plusDays(1) }
+                    Chip(otherDate?.let { formatShortDate(it) } ?: stringResource(R.string.add_when_pick), otherDate != null) {
+                        pickingDate = true
+                    }
+                    Chip(stringResource(R.string.editor_no_date), draft.due == null) { viewModel.update { it.withDue(null) } }
                 }
-                val otherDate = draft.due?.takeIf { it != today && it != today.plusDays(1) }
-                Chip(otherDate?.let { formatShortDate(it) } ?: stringResource(R.string.add_when_pick), otherDate != null) {
-                    pickingDate = true
-                }
-                Chip(stringResource(R.string.editor_no_date), draft.due == null) { viewModel.update { it.withDue(null) } }
             }
         }
 
@@ -86,14 +99,17 @@ fun TaskEditor(
                     }
                 }
             }
-            RepeatEditor(due, draft.recurrence, draft.until) { recurrence, until ->
-                viewModel.update { it.copy(recurrence = recurrence, until = until) }
+            // A plan's tasks happen once, on their day, and the plan says what a missed day does.
+            if (planDay == null) {
+                RepeatEditor(due, draft.recurrence, draft.until) { recurrence, until ->
+                    viewModel.update { it.copy(recurrence = recurrence, until = until) }
+                }
+                SwitchRow(
+                    title = stringResource(R.string.editor_keep_overdue),
+                    detail = stringResource(R.string.editor_keep_overdue_detail),
+                    checked = draft.keepOverdue,
+                ) { keep -> viewModel.update { it.copy(keepOverdue = keep) } }
             }
-            SwitchRow(
-                title = stringResource(R.string.editor_keep_overdue),
-                detail = stringResource(R.string.editor_keep_overdue_detail),
-                checked = draft.keepOverdue,
-            ) { keep -> viewModel.update { it.copy(keepOverdue = keep) } }
         }
 
         EditableChecklist(

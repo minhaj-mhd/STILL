@@ -12,7 +12,9 @@ import android.telecom.TelecomManager
 
 /**
  * Apps STILL never blocks, so a block can't lock you out of calling for help or of the
- * settings needed to undo things: the phone app, Settings, and STILL itself.
+ * settings needed to undo things: the phone app, Settings, and STILL itself. Nor does it close
+ * Android's own screens that other apps open, such as "Open with", permission prompts and the
+ * file picker, or Recents.
  */
 class EssentialApps(context: Context) {
 
@@ -25,7 +27,28 @@ class EssentialApps(context: Context) {
     fun isEssential(packageName: String): Boolean =
         packageName == appContext.packageName ||
             packageName == SETTINGS_PACKAGE ||
-            packageName == telecom?.defaultDialerPackage
+            packageName == telecom?.defaultDialerPackage ||
+            isSystemScreen(packageName)
+
+    /**
+     * Android's own screens: what other apps open to choose an app, share, ask for a permission,
+     * install or pick a file, the call screens, and launchers' Recents. Closing one would close
+     * part of the app that opened it, e.g. a PDF from an allowed app.
+     */
+    fun isSystemScreen(packageName: String): Boolean = packageName in SYSTEM_SCREENS || packageName in launchers
+
+    /** Launchers, whose Recents and home animations show between apps. */
+    private val launchers: Set<String> by lazy {
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val packageManager = appContext.packageManager
+        val handlers = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.queryIntentActivities(intent, 0)
+        }
+        handlers.mapTo(HashSet()) { it.activityInfo.packageName }
+    }
 
     /**
      * Whether a task gate may close this app. Gates never close the essential apps, nor the
@@ -101,6 +124,22 @@ class EssentialApps(context: Context) {
 
         /** The "which app?" chooser comes from the system package. */
         const val SYSTEM_CHOOSER_PACKAGE = "android"
+
+        /** See [isSystemScreen]; the Google names are Pixel's builds of the same screens. */
+        val SYSTEM_SCREENS = setOf(
+            "android",
+            "com.android.systemui",
+            "com.android.intentresolver",
+            "com.android.phone",
+            "com.android.server.telecom",
+            "com.android.permissioncontroller",
+            "com.google.android.permissioncontroller",
+            "com.android.packageinstaller",
+            "com.google.android.packageinstaller",
+            "com.android.documentsui",
+            "com.google.android.documentsui",
+            "com.android.credentialmanager",
+        )
 
         const val RECHECK_MILLIS = 60_000L
 

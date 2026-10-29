@@ -4,6 +4,7 @@ import app.still.launcher.data.productivity.DismissedReminder
 import app.still.launcher.data.productivity.Habit
 import app.still.launcher.data.productivity.ItemType
 import app.still.launcher.data.productivity.OccurrenceRecord
+import app.still.launcher.data.productivity.Plan
 import app.still.launcher.data.productivity.ProductivityDao
 import app.still.launcher.data.productivity.Task
 import app.still.launcher.schedule.Occurrence
@@ -23,8 +24,8 @@ class ProductivityRepository(private val dao: ProductivityDao) {
     /** Occurrence records from [from] to [to], both inclusive. */
     fun records(from: LocalDate, to: LocalDate): Flow<List<OccurrenceRecord>> = dao.observeRecords(from, to)
 
-    /** Emits whenever any task, habit or record changes. */
-    val changes: Flow<Unit> = combine(dao.observeTasks(), dao.observeHabits(), dao.observeRecordsVersion()) { _, _, _ -> }
+    /** Emits whenever any task, habit, record or plan changes. */
+    val changes: Flow<Unit> = combine(dao.observeTasks(), dao.observeHabits(), dao.observeRecordsVersion(), dao.observePlans()) { _, _, _, _ -> }
 
     /** Keys of reminder cards swiped off the home screen. */
     val dismissedReminderKeys: Flow<Set<String>> = dao.observeDismissedReminderKeys().map { it.toSet() }
@@ -66,6 +67,28 @@ class ProductivityRepository(private val dao: ProductivityDao) {
 
     suspend fun addHabit(habit: Habit): Long = dao.insertHabit(habit)
 
+    /** Every plan, paused and finished ones too. */
+    val plans: Flow<List<Plan>> = dao.observePlans()
+
+    suspend fun getPlans(): List<Plan> = dao.getPlans()
+
+    suspend fun getPlan(planId: Long): Plan? = dao.getPlan(planId)
+
+    /** A plan's tasks, without subtasks, oldest first. */
+    suspend fun getPlanTasks(planId: Long): List<Task> = dao.getPlanTasks(planId)
+
+    /** Adds a new plan with its tasks and their subtasks in one go; returns its id. */
+    suspend fun addPlan(plan: Plan, tasks: List<Pair<Task, List<Task>>>): Long = dao.insertPlanWithTasks(plan, tasks)
+
+    /** Saves an edited plan and its tasks in one go; [removedTaskIds] are deleted with their history. */
+    suspend fun savePlan(plan: Plan, tasks: List<Task>, removedTaskIds: List<Long>) = dao.savePlan(plan, tasks, removedTaskIds)
+
+    /** Saves a plan's own settings, e.g. a pause. */
+    suspend fun updatePlan(plan: Plan) = dao.updatePlan(plan)
+
+    /** Deletes a plan with all its tasks and their history. */
+    suspend fun deletePlan(planId: Long) = dao.deletePlanWithTasks(planId)
+
     suspend fun updateHabit(habit: Habit) = dao.updateHabit(habit)
 
     /** Also deletes its history. */
@@ -80,7 +103,9 @@ class ProductivityRepository(private val dao: ProductivityDao) {
             requireNotNull(occurrence) { "A recurring task needs the occurrence being completed" }
             setProgress(ItemType.TASK, task.id, occurrence, if (done) 1.0 else 0.0, viaTimer = false)
         } else {
-            dao.updateTask(task.copy(completedAt = if (done) Instant.now() else null))
+            // The Today page's copy of a plan task carries the day it has moved to; keep the stored one.
+            val stored = dao.getTask(task.id) ?: return
+            dao.updateTask(stored.copy(completedAt = if (done) Instant.now() else null))
         }
     }
 

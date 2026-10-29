@@ -19,6 +19,21 @@ abstract class ProductivityDao {
     @Query("SELECT * FROM habits WHERE archived = 0 ORDER BY createdAt")
     abstract fun observeHabits(): Flow<List<Habit>>
 
+    @Query("SELECT * FROM plans")
+    abstract fun observePlans(): Flow<List<Plan>>
+
+    @Query("SELECT * FROM plans")
+    abstract suspend fun getPlans(): List<Plan>
+
+    @Query("SELECT * FROM plans WHERE id = :planId")
+    abstract suspend fun getPlan(planId: Long): Plan?
+
+    @Query("SELECT * FROM tasks WHERE planId = :planId AND parentId IS NULL ORDER BY createdAt")
+    abstract suspend fun getPlanTasks(planId: Long): List<Task>
+
+    @Update
+    abstract suspend fun updatePlan(plan: Plan)
+
     @Query("SELECT * FROM occurrence_records WHERE date BETWEEN :from AND :to")
     abstract fun observeRecords(from: LocalDate, to: LocalDate): Flow<List<OccurrenceRecord>>
 
@@ -99,12 +114,42 @@ abstract class ProductivityDao {
         return taskId
     }
 
-    /** Deletes a task, its subtasks, and their history. */
+    /** Adds [plan] with its tasks and their subtasks, all or nothing. Returns the plan's id. */
+    @Transaction
+    open suspend fun insertPlanWithTasks(plan: Plan, tasks: List<Pair<Task, List<Task>>>): Long {
+        val planId = insertPlan(plan)
+        tasks.forEach { (task, subtasks) -> saveTaskWithSubtasks(task.copy(planId = planId), subtasks, removedSubtaskIds = emptyList()) }
+        return planId
+    }
+
+    /**
+     * Saves an edited plan, all or nothing: [tasks] with id 0 are new, the rest are updated, and
+     * [removedTaskIds] are deleted with their subtasks and history. A plan left with no tasks goes too.
+     */
+    @Transaction
+    open suspend fun savePlan(plan: Plan, tasks: List<Task>, removedTaskIds: List<Long>) {
+        updatePlan(plan)
+        tasks.forEach { task ->
+            val joined = task.copy(planId = plan.id)
+            if (joined.id == 0L) insertTask(joined) else updateTask(joined)
+        }
+        removedTaskIds.forEach { deleteTaskTree(it) }
+    }
+
+    /** Deletes a plan with all its tasks, their subtasks and history. */
+    @Transaction
+    open suspend fun deletePlanWithTasks(planId: Long) {
+        getPlanTasks(planId).forEach { deleteTaskTree(it.id) }
+        deletePlan(planId)
+    }
+
+    /** Deletes a task, its subtasks, and their history, and its plan once the plan has no tasks left. */
     @Transaction
     open suspend fun deleteTaskTree(taskId: Long) {
         subtaskIds(taskId).forEach { deleteTaskTree(it) }
         deleteRecordsFor(ItemType.TASK, taskId)
         deleteTask(taskId)
+        deleteEmptyPlans()
     }
 
     /** Deletes a habit and its history. */
@@ -122,6 +167,15 @@ abstract class ProductivityDao {
 
     @Query("DELETE FROM habits WHERE id = :habitId")
     protected abstract suspend fun deleteHabit(habitId: Long)
+
+    @Insert
+    protected abstract suspend fun insertPlan(plan: Plan): Long
+
+    @Query("DELETE FROM plans WHERE id = :planId")
+    protected abstract suspend fun deletePlan(planId: Long)
+
+    @Query("DELETE FROM plans WHERE id NOT IN (SELECT planId FROM tasks WHERE planId IS NOT NULL)")
+    protected abstract suspend fun deleteEmptyPlans()
 
     @Query("DELETE FROM occurrence_records WHERE itemType = :type AND itemId = :itemId")
     protected abstract suspend fun deleteRecordsFor(type: ItemType, itemId: Long)

@@ -21,6 +21,7 @@ import app.still.launcher.productivity.TaskEntry
 import app.still.launcher.productivity.TodayAgenda
 import app.still.launcher.productivity.activeReminders
 import app.still.launcher.productivity.buildAgenda
+import app.still.launcher.productivity.withPlanDates
 import app.still.launcher.reminders.ReminderScheduler
 import app.still.launcher.schedule.Quota
 import app.still.launcher.schedule.QuotaPeriod
@@ -57,6 +58,9 @@ class TodayViewModel(
     private val now = MutableStateFlow(LocalDateTime.now())
     private val today = now.map { it.toLocalDate() }.distinctUntilChanged()
 
+    /** The current minute, for the Today page's "now" mark. */
+    val currentMinute: StateFlow<LocalDateTime> = now
+
     /** Whether anything has a time of day, i.e. whether reminder permissions matter. */
     val hasReminders: StateFlow<Boolean> = combine(repository.tasks, repository.habits) { tasks, habits ->
         tasks.any { it.completedAt == null && it.schedule?.times.orEmpty().isNotEmpty() } ||
@@ -75,8 +79,9 @@ class TodayViewModel(
                 repository.tasks,
                 repository.habits,
                 repository.records(date.minusDays(RECORD_LOOKBACK_DAYS), date),
-            ) { tasks, habits, records ->
-                buildAgenda(date, tasks, habits, records)
+                repository.plans,
+            ) { tasks, habits, records, plans ->
+                buildAgenda(date, tasks, habits, records, plans = plans)
             }
         }
         .flowOn(Dispatchers.Default)
@@ -95,8 +100,9 @@ class TodayViewModel(
                 repository.habits,
                 repository.records(date.minusDays(ACTIVE_REMINDER_LOOKBACK_DAYS), date),
                 repository.dismissedReminderKeys,
-            ) { tasks, habits, records, dismissed ->
-                activeReminders(time, tasks, habits, records, dismissed)
+                repository.plans,
+            ) { tasks, habits, records, dismissed, plans ->
+                activeReminders(time, tasks.withPlanDates(plans, date), habits, records, dismissed)
             }
         }
         .flowOn(Dispatchers.Default)

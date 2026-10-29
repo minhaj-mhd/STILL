@@ -1,7 +1,10 @@
 package app.still.launcher.blocking
 
-/** One usage event, reduced to what screen-time counting needs. */
-data class AppUsageEvent(val packageName: String, val timeMillis: Long, val kind: Kind) {
+/**
+ * One usage event, reduced to what screen-time counting needs. [className] is the activity, which
+ * tells a browser's tab from the browser (see [TabOwners]).
+ */
+data class AppUsageEvent(val packageName: String, val timeMillis: Long, val kind: Kind, val className: String? = null) {
     enum class Kind {
         /** An activity of the app came to the front. */
         FOREGROUND,

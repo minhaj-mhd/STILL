@@ -32,4 +32,8 @@ data class Task(
     val completedAt: Instant? = null,
     val createdAt: Instant = Instant.now(),
     val archived: Boolean = false,
+    /** Set on the tasks of a [Plan]. */
+    val planId: Long? = null,
+    /** Which day of its plan, from 1. [schedule] holds the date it was planned for; where it's due now comes from the plan. */
+    val planDay: Int? = null,
 )

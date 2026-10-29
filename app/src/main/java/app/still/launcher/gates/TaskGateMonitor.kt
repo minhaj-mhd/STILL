@@ -36,13 +36,13 @@ class TaskGateMonitor(
             val startOfDay = date.atStartOfDay(ZoneId.systemDefault()).toInstant()
             combine(
                 repository.gates,
-                productivity.tasks,
+                combine(productivity.tasks, productivity.plans, ::Pair),
                 productivity.habits,
                 productivity.records(date.minusDays(RECORD_LOOKBACK_DAYS), date),
                 repository.eventsSince(startOfDay),
-            ) { gates, tasks, habits, records, events ->
+            ) { gates, (tasks, plans), habits, records, events ->
                 // Without gates there's nothing to decide; skip building the agenda.
-                val agenda = if (gates.isEmpty()) TodayAgenda(date) else buildAgenda(date, tasks, habits, records)
+                val agenda = if (gates.isEmpty()) TodayAgenda(date) else buildAgenda(date, tasks, habits, records, plans = plans)
                 GateInputs(gates, agenda, events)
             }
         }

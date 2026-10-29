@@ -24,6 +24,7 @@ import app.still.launcher.data.productivity.Converters
 import app.still.launcher.data.productivity.DismissedReminder
 import app.still.launcher.data.productivity.Habit
 import app.still.launcher.data.productivity.OccurrenceRecord
+import app.still.launcher.data.productivity.Plan
 import app.still.launcher.data.productivity.ProductivityDao
 import app.still.launcher.data.productivity.Task
 
@@ -32,15 +33,16 @@ import app.still.launcher.data.productivity.Task
  * app/schemas; every version bump needs a migration so existing data survives updates.
  *
  * Version 2 added [DismissedReminder]; 3 added [Note]; 4 added [AppBlock]; 5 added [BlockingSchedule];
- * 6 added [TaskGate] and [GateEvent]; 7 added [HeldNotification]; 8 added [Choice] and [Keynote].
+ * 6 added [TaskGate] and [GateEvent]; 7 added [HeldNotification]; 8 added [Choice] and [Keynote];
+ * 9 added [Plan] and [Task.planId] and [Task.planDay].
  */
 @Database(
     entities = [
         Task::class, Habit::class, OccurrenceRecord::class, DismissedReminder::class, Note::class,
         AppBlock::class, BlockingSchedule::class, TaskGate::class, GateEvent::class, HeldNotification::class,
-        Choice::class, Keynote::class,
+        Choice::class, Keynote::class, Plan::class,
     ],
-    version = 8,
+    version = 10,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -49,6 +51,8 @@ import app.still.launcher.data.productivity.Task
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 6, to = 7),
         AutoMigration(from = 7, to = 8),
+        AutoMigration(from = 8, to = 9),
+        AutoMigration(from = 9, to = 10),
     ],
 )
 @TypeConverters(Converters::class)
