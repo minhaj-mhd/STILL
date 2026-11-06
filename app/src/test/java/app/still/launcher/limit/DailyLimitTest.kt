@@ -145,8 +145,20 @@ class DailyLimitTest {
     }
 
     @Test
-    fun `usage leaves out exempt apps`() {
-        val used = countedUsage(mapOf("instagram" to 60_000L, "maps" to 120_000L, "dialer" to 600_000L)) { it == "dialer" || it == "maps" }
-        assertEquals(Duration.ofMinutes(1), used)
+    fun `usage leaves out STILL, the apps that always open and allowed apps, and says which`() {
+        val millis = mapOf("instagram" to 60_000L, "maps" to 120_000L, "dialer" to 600_000L, "still" to 180_000L, "idle" to 0L)
+        val usage = LimitSettings(allowed = setOf("maps")).usage(millis, still = "still") { it == "dialer" || it == "still" }
+        assertEquals(Duration.ofMinutes(1), usage.counted)
+        assertEquals(
+            mapOf(Uncounted.ALLOWED to Duration.ofMinutes(2), Uncounted.ALWAYS_OPEN to Duration.ofMinutes(10), Uncounted.STILL to Duration.ofMinutes(3)),
+            usage.uncounted,
+        )
+    }
+
+    @Test
+    fun `allowed apps count when the setting says so`() {
+        val usage = LimitSettings(allowed = setOf("maps"), countsAllowed = true).usage(mapOf("maps" to 120_000L), still = "still") { false }
+        assertEquals(Duration.ofMinutes(2), usage.counted)
+        assertEquals(emptyMap<Uncounted, Duration>(), usage.uncounted)
     }
 }

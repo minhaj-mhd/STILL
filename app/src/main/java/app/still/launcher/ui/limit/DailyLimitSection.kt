@@ -31,6 +31,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.still.launcher.R
 import app.still.launcher.limit.LimitPlan
 import app.still.launcher.limit.LimitState
+import app.still.launcher.limit.Uncounted
 import app.still.launcher.ui.LauncherApp
 import app.still.launcher.ui.blocking.AppPickerSheet
 import app.still.launcher.ui.components.Chip
@@ -91,6 +92,7 @@ private fun DailyLimitSettings(
         }
 
         Summary(state, settings.plan.isOn || settings.pending?.plan?.isOn == true)
+        state?.takeIf { it.isOn }?.let { UncountedTime(it.uncounted) }
 
         val plan = settings.pending?.plan ?: settings.plan
         Stepper(
@@ -229,6 +231,31 @@ private fun Summary(state: LimitState?, isOn: Boolean) {
                 )
             }
         }
+    }
+}
+
+/**
+ * Time today that didn't use up the limit, by why, so the limit and the phone's own screen time
+ * can be told apart. Nothing under a minute is shown.
+ */
+@Composable
+private fun UncountedTime(uncounted: Map<Uncounted, Duration>) {
+    val shown = uncounted.filterValues { it.toMinutes() > 0 }
+    if (shown.isEmpty()) return
+    val total = shown.values.fold(Duration.ZERO, Duration::plus)
+    val parts = Uncounted.entries.mapNotNull { why ->
+        shown[why]?.let { time ->
+            val label = when (why) {
+                Uncounted.ALLOWED -> R.string.limit_uncounted_allowed
+                Uncounted.ALWAYS_OPEN -> R.string.limit_uncounted_always_open
+                Uncounted.STILL -> R.string.limit_uncounted_still
+            }
+            stringResource(label, formatDuration(time))
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(stringResource(R.string.limit_uncounted, formatDuration(total)), style = MaterialTheme.typography.bodyMedium)
+        Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

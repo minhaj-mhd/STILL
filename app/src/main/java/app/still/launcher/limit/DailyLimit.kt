@@ -130,6 +130,8 @@ data class LimitState(
     val used: Duration,
     val warnMinutes: Int,
     val resetsAt: LocalDateTime,
+    /** Time today that didn't use up the limit, by why; only what's there. */
+    val uncounted: Map<Uncounted, Duration> = emptyMap(),
 ) {
     val isOn: Boolean get() = limitMinutes > 0
     val limit: Duration get() = Duration.ofMinutes(limitMinutes.toLong())
@@ -141,6 +143,36 @@ data class LimitState(
     val fraction: Float get() = if (!isOn) 0f else (used.toMillis().toFloat() / limit.toMillis()).coerceIn(0f, 1f)
 }
 
-/** Total time counted against the limit from per-app [millisByApp], leaving out what [isExempt] names. */
-fun countedUsage(millisByApp: Map<String, Long>, isExempt: (String) -> Boolean): Duration =
-    Duration.ofMillis(millisByApp.filterKeys { !isExempt(it) }.values.sum())
+/** Why time didn't use up the limit. */
+enum class Uncounted {
+    /** Allowed apps, while [LimitSettings.countsAllowed] is off. */
+    ALLOWED,
+
+    /** The phone app, Settings and the clock, which always open. */
+    ALWAYS_OPEN,
+
+    /** STILL's own pages. */
+    STILL,
+}
+
+/** The day's time against the limit, and what was left out. */
+data class LimitUsage(val counted: Duration, val uncounted: Map<Uncounted, Duration>)
+
+/**
+ * Splits per-app [millisByApp] into time that counts against the limit and time that doesn't.
+ * [still] is STILL's own package; [alwaysOpen] names the apps that always open, STILL among them.
+ */
+fun LimitSettings.usage(millisByApp: Map<String, Long>, still: String, alwaysOpen: (String) -> Boolean): LimitUsage {
+    var counted = 0L
+    val uncounted = mutableMapOf<Uncounted, Long>()
+    millisByApp.forEach { (packageName, millis) ->
+        val why = when {
+            packageName == still -> Uncounted.STILL
+            alwaysOpen(packageName) -> Uncounted.ALWAYS_OPEN
+            !countsAllowed && packageName in allowed -> Uncounted.ALLOWED
+            else -> null
+        }
+        if (why == null) counted += millis else uncounted[why] = (uncounted[why] ?: 0L) + millis
+    }
+    return LimitUsage(Duration.ofMillis(counted), uncounted.filterValues { it > 0 }.mapValues { Duration.ofMillis(it.value) })
+}

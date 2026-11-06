@@ -339,6 +339,10 @@
     <string name="limit_allowed">After the limit, only these open</string>
     <string name="limit_always_open">Phone, Settings, Clock and STILL always open.</string>
     <string name="limit_counts_allowed">Allowed apps count too</string>
+    <string name="limit_uncounted">Not counted today: %1$s</string>
+    <string name="limit_uncounted_allowed">Allowed apps %1$s</string>
+    <string name="limit_uncounted_always_open">Phone, Settings and Clock %1$s</string>
+    <string name="limit_uncounted_still">STILL %1$s</string>
     <string name="limit_counts_allowed_detail">When off, time in them doesn\'t use up your limit</string>
     <string name="limit_raise_tomorrow">Raising it starts tomorrow</string>
     <string name="limit_raise_tomorrow_detail">Lowering it counts straight away. On the day you start a limit, you can change it freely.</string>

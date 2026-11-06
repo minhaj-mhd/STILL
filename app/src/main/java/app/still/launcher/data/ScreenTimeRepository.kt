@@ -74,12 +74,12 @@ class ScreenTimeRepository(context: Context, private val tabOwners: TabOwners) {
         }
     }
 
-    /** Milliseconds each app has been in front since [fromMillis], or null without Usage access. STILL is left out. */
-    suspend fun foregroundMillisSince(fromMillis: Long): Map<String, Long>? {
+    /** Milliseconds each app has been in front since [fromMillis], or null without Usage access. STILL is left out unless [withStill]. */
+    suspend fun foregroundMillisSince(fromMillis: Long, withStill: Boolean = false): Map<String, Long>? {
         if (!hasAccess()) return null
         return withContext(Dispatchers.IO) {
             val end = System.currentTimeMillis()
-            foregroundTimeByApp(readEvents(fromMillis, end), fromMillis, end).filterKeys { it != appContext.packageName }
+            foregroundTimeByApp(readEvents(fromMillis, end), fromMillis, end).filterKeys { withStill || it != appContext.packageName }
         }
     }
 

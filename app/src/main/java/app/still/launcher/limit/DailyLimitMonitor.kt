@@ -93,17 +93,17 @@ class DailyLimitMonitor(
         val minutes = limit.planOn(day).minutesOn(day)
         val start = dayStart(day, limit.dayStartHour).atZone(zone).toInstant().toEpochMilli()
         // App limits, the app list's fading and Inner practice count the same day, so one reading serves all.
-        val byApp = if (minutes > 0 || settings.needsAppUsage) screenTime.foregroundMillisSince(start) else null
+        // STILL's own time is read too, only to say it didn't count.
+        val withStill = if (minutes > 0 || settings.needsAppUsage) screenTime.foregroundMillisSince(start, withStill = true) else null
+        val byApp = withStill?.filterKeys { it != appContext.packageName }
         _appUsage.value = if (settings.needsAppUsage) byApp.orEmpty() else emptyMap()
-        if (byApp == null || minutes <= 0) {
+        if (withStill == null || minutes <= 0) {
             _state.value = null
             alarmManager.cancel(checkIntent())
             return@withLock
         }
-        val used = countedUsage(byApp) { packageName ->
-            essentialApps.alwaysOpenAfterLimit(packageName) || (!limit.countsAllowed && packageName in limit.allowed)
-        }
-        val state = LimitState(day, minutes, used, limit.warnMinutes, dayStart(day.plusDays(1), limit.dayStartHour))
+        val usage = limit.usage(withStill, appContext.packageName, essentialApps::alwaysOpenAfterLimit)
+        val state = LimitState(day, minutes, usage.counted, limit.warnMinutes, dayStart(day.plusDays(1), limit.dayStartHour), usage.uncounted)
         _state.value = state
         notifyOnce(state)
         scheduleNextCheck(state, now)
