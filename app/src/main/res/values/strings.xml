@@ -66,8 +66,8 @@
     <string name="insights_settings">Settings</string>
     <string name="insights_screen_time">Screen time</string>
     <string name="insights_range_today">Today</string>
-    <string name="insights_range_week">Last 7 days</string>
-    <string name="insights_daily_average">About %1$s a day</string>
+    <string name="insights_range_week">Week</string>
+    <string name="insights_range_month">Month</string>
     <string name="insights_set_limit">Set a daily limit</string>
     <string name="insights_limit_left">%1$s left of %2$s</string>
     <string name="insights_limit_reached">Time\'s up · resets at %1$s</string>
@@ -241,7 +241,6 @@
     <string name="focus_stop_timer">Stop timer</string>
     <string name="focus_until">Focusing until %1$s</string>
     <string name="home_focus">Focusing on %1$s until %2$s</string>
-    <string name="insights_focus">Focus timer · last 7 days</string>
     <plurals name="insights_focus_timer">
         <item quantity="one">%d duration habit finished with the timer</item>
         <item quantity="other">%d duration habits finished with the timer</item>
@@ -490,7 +489,6 @@
     </plurals>
 
     <!-- Inner practice: this week, the Quiet Minute, Welcome back -->
-    <string name="insights_week">This week</string>
     <plurals name="insights_turned_back">
         <item quantity="one">Turned back %1$d of %2$d time when STILL paused</item>
         <item quantity="other">Turned back %1$d of %2$d times when STILL paused</item>
@@ -499,15 +497,6 @@
         <item quantity="one">%1$d unlock a day</item>
         <item quantity="other">%1$d unlocks a day</item>
     </plurals>
-    <plurals name="insights_fewer_than_before">
-        <item quantity="one">%1$d fewer than the week before</item>
-        <item quantity="other">%1$d fewer than the week before</item>
-    </plurals>
-    <plurals name="insights_more_than_before">
-        <item quantity="one">%1$d more than the week before</item>
-        <item quantity="other">%1$d more than the week before</item>
-    </plurals>
-    <string name="insights_same_as_before">the same as the week before</string>
     <string name="insights_qualities">Qualities: %1$s</string>
     <plurals name="insights_quality_days">
         <item quantity="one">%1$s %2$d day</item>
@@ -1010,4 +999,66 @@
         <item quantity="one">%d month</item>
         <item quantity="other">%d months</item>
     </plurals>
+
+    <!-- Insights: Week and Month -->
+    <string name="insights_this_week">This week · %1$s</string>
+    <string name="insights_last_week">Last week · %1$s</string>
+    <string name="insights_earlier">Earlier</string>
+    <string name="insights_later">Later</string>
+    <string name="insights_a_day">a day</string>
+    <string name="insights_so_far">%1$s so far</string>
+    <string name="insights_in_all">%1$s in all</string>
+    <string name="insights_less_a_day">%1$s less a day than %2$s</string>
+    <string name="insights_more_a_day">%1$s more a day than %2$s</string>
+    <string name="insights_same_a_day">about the same a day as %1$s</string>
+    <string name="insights_than_last_week">last week</string>
+    <string name="insights_than_week_before">the week before</string>
+    <string name="insights_nothing_saved">Nothing saved for these days yet. STILL saves each day once it\'s over, starting with the days Android still remembers.</string>
+    <string name="insights_limit_line">Limit %1$s</string>
+    <string name="insights_apps">Apps</string>
+    <string name="insights_apps_a_day">Apps · a day</string>
+    <plurals name="insights_opens">
+        <item quantity="one">%d open</item>
+        <item quantity="other">%d opens</item>
+    </plurals>
+    <string name="insights_app_less">%1$s less than %2$s</string>
+    <string name="insights_app_more">%1$s more than %2$s</string>
+    <string name="insights_app_same">about the same as %1$s</string>
+    <string name="insights_when">When · from %1$s</string>
+    <string name="insights_weeks">Weeks</string>
+    <string name="insights_per_day">%1$s a day</string>
+    <string name="insights_less">less</string>
+    <string name="insights_more">more</string>
+    <string name="insights_stepped_in">STILL stepped in</string>
+    <plurals name="insights_kept_closed">
+        <item quantity="one">Kept an app closed %d time</item>
+        <item quantity="other">Kept an app closed %d times</item>
+    </plurals>
+    <plurals name="insights_short_videos">
+        <item quantity="one">Left Shorts or Reels %d time</item>
+        <item quantity="other">Left Shorts or Reels %d times</item>
+    </plurals>
+    <plurals name="insights_ran_out">
+        <item quantity="one">Time ran out in an app %d time</item>
+        <item quantity="other">Time ran out in an app %d times</item>
+    </plurals>
+    <plurals name="insights_over_limit_days">
+        <item quantity="one">Over the daily limit on %d day</item>
+        <item quantity="other">Over the daily limit on %d days</item>
+    </plurals>
+    <string name="insights_most_often">Most often in front of %1$s</string>
+    <string name="insights_focus_plans">Focus and plans</string>
+    <plurals name="insights_focus_mode">
+        <item quantity="one">Focus mode %1$s · %2$d session</item>
+        <item quantity="other">Focus mode %1$s · %2$d sessions</item>
+    </plurals>
+    <plurals name="insights_unlocks_fewer">
+        <item quantity="one">%1$d fewer than %2$s</item>
+        <item quantity="other">%1$d fewer than %2$s</item>
+    </plurals>
+    <plurals name="insights_unlocks_more">
+        <item quantity="one">%1$d more than %2$s</item>
+        <item quantity="other">%1$d more than %2$s</item>
+    </plurals>
+    <string name="insights_unlocks_same">the same as %1$s</string>
 </resources>

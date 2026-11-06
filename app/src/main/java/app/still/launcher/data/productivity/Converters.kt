@@ -32,6 +32,13 @@ class Converters {
     @TypeConverter
     fun millisToInstant(millis: Long): Instant = Instant.ofEpochMilli(millis)
 
+    /** Hourly totals and the like, as "12,0,340". */
+    @TypeConverter
+    fun longsToText(values: List<Long>): String = values.joinToString(",")
+
+    @TypeConverter
+    fun textToLongs(text: String): List<Long> = if (text.isEmpty()) emptyList() else text.split(',').map { it.toLong() }
+
     @TypeConverter
     fun scheduleToJson(schedule: Schedule): String = json.encodeToString(Schedule.serializer(), schedule)
 

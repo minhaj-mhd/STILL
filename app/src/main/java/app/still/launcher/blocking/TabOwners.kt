@@ -67,7 +67,7 @@ class TabOwners(private val canOpenTabs: (String) -> Boolean) {
             when (event.kind) {
                 AppUsageEvent.Kind.FOREGROUND -> event.copy(packageName = reader.onFront(event.packageName, event.className))
                 AppUsageEvent.Kind.BACKGROUND -> event.copy(packageName = reader.ownerOf(event.packageName, event.className))
-                AppUsageEvent.Kind.SCREEN_OFF -> event
+                AppUsageEvent.Kind.SCREEN_OFF, AppUsageEvent.Kind.UNLOCK -> event
             }
         }
     }

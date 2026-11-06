@@ -21,14 +21,6 @@ class UnlockMonitor(private val screenTime: ScreenTimeRepository) {
     /** Each earlier day's unlock times, as offsets from that day's start; days with none are left out. */
     private var baseline: List<List<Long>> = emptyList()
 
-    /** Unlocks on each of the [days] whole days before today, yesterday first; null without Usage access. */
-    suspend fun dailyCounts(days: Int, dayStartHour: Int, now: ZonedDateTime = ZonedDateTime.now()): List<Int>? {
-        if (!screenTime.hasAccess()) return null
-        val day = limitDay(now.toLocalDateTime(), dayStartHour)
-        fun startOf(date: LocalDate): Long = dayStart(date, dayStartHour).atZone(now.zone).toInstant().toEpochMilli()
-        return (1L..days).map { back -> screenTime.unlockTimes(startOf(day.minusDays(back)), startOf(day.minusDays(back - 1))).size }
-    }
-
     /** Today's unlocks against the usual by now, with days starting at [dayStartHour]; null without Usage access. */
     suspend fun observe(now: ZonedDateTime, dayStartHour: Int): UnlockObservation? = mutex.withLock {
         if (!screenTime.hasAccess()) return@withLock null

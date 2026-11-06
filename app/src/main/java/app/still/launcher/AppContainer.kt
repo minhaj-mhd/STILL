@@ -7,9 +7,11 @@ import app.still.launcher.data.AppIcons
 import app.still.launcher.data.AppRepository
 import app.still.launcher.data.BlockingRepository
 import app.still.launcher.data.GateRepository
+import app.still.launcher.data.HistoryRepository
 import app.still.launcher.focus.FocusTimer
 import app.still.launcher.focusmode.FocusModeMonitor
 import app.still.launcher.gates.TaskGateMonitor
+import app.still.launcher.history.UsageHistory
 import app.still.launcher.keynote.UnlockMonitor
 import app.still.launcher.limit.AppLimitMonitor
 import app.still.launcher.limit.DailyLimitMonitor
@@ -58,7 +60,9 @@ class AppContainer(context: Context) {
     val focusTimer = FocusTimer(context, preferences, productivityRepository, applicationScope)
     val practiceRepository = PracticeRepository(database.practiceDao())
     val unlockMonitor = UnlockMonitor(screenTimeRepository)
-    val focusMode = FocusModeMonitor(context, preferences, essentialApps, applicationScope)
+    val historyRepository = HistoryRepository(database.historyDao())
+    val usageHistory = UsageHistory(context, screenTimeRepository, preferences, historyRepository, essentialApps)
+    val focusMode = FocusModeMonitor(context, preferences, essentialApps, historyRepository, applicationScope)
     val appLimits = AppLimitMonitor(context, preferences, dailyLimit, appTimeReminders, precisionMode, practiceRepository, focusTimer, applicationScope)
     val notificationFilter = NotificationFilter(context, database.heldNotificationDao(), preferences, essentialApps, applicationScope)
     val shortVideos = ShortVideoBlocker(context, preferences, applicationScope)

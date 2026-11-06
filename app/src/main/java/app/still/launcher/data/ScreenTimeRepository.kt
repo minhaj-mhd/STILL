@@ -83,6 +83,12 @@ class ScreenTimeRepository(context: Context, private val tabOwners: TabOwners) {
         }
     }
 
+    /** Usage events between [fromMillis] and [toMillis], browser tabs given to their apps, or null without Usage access. */
+    suspend fun events(fromMillis: Long, toMillis: Long): List<AppUsageEvent>? {
+        if (!hasAccess()) return null
+        return withContext(Dispatchers.IO) { readEvents(fromMillis, toMillis) }
+    }
+
     /** When the phone was unlocked between [fromMillis] and [toMillis]. Requires [hasAccess]. */
     suspend fun unlockTimes(fromMillis: Long, toMillis: Long): List<Long> = withContext(Dispatchers.IO) {
         val events = usageStats.queryEvents(fromMillis, toMillis)
@@ -113,6 +119,7 @@ class ScreenTimeRepository(context: Context, private val tabOwners: TabOwners) {
                 UsageEvents.Event.ACTIVITY_RESUMED -> AppUsageEvent.Kind.FOREGROUND
                 UsageEvents.Event.ACTIVITY_PAUSED -> AppUsageEvent.Kind.BACKGROUND
                 UsageEvents.Event.SCREEN_NON_INTERACTIVE, UsageEvents.Event.DEVICE_SHUTDOWN -> AppUsageEvent.Kind.SCREEN_OFF
+                UsageEvents.Event.KEYGUARD_HIDDEN -> AppUsageEvent.Kind.UNLOCK
                 else -> null
             } ?: continue
             result += AppUsageEvent(event.packageName, event.timeStamp, kind, event.className)

@@ -11,6 +11,11 @@ import app.still.launcher.data.blocking.AppBlockDao
 import app.still.launcher.data.blocking.BlockingSchedule
 import app.still.launcher.data.blocking.BlockingScheduleDao
 import app.still.launcher.data.gates.GateEvent
+import app.still.launcher.data.history.FocusModePeriod
+import app.still.launcher.data.history.HistoryDao
+import app.still.launcher.data.history.InterventionRecord
+import app.still.launcher.data.history.UsageAppRecord
+import app.still.launcher.data.history.UsageDayRecord
 import app.still.launcher.data.gates.TaskGate
 import app.still.launcher.data.gates.TaskGateDao
 import app.still.launcher.data.notes.Note
@@ -34,15 +39,17 @@ import app.still.launcher.data.productivity.Task
  *
  * Version 2 added [DismissedReminder]; 3 added [Note]; 4 added [AppBlock]; 5 added [BlockingSchedule];
  * 6 added [TaskGate] and [GateEvent]; 7 added [HeldNotification]; 8 added [Choice] and [Keynote];
- * 9 added [Plan] and [Task.planId] and [Task.planDay].
+ * 9 added [Plan] and [Task.planId] and [Task.planDay]; 11 added [UsageDayRecord], [UsageAppRecord],
+ * [InterventionRecord] and [FocusModePeriod]; 12 added the daily limit to [UsageDayRecord].
  */
 @Database(
     entities = [
         Task::class, Habit::class, OccurrenceRecord::class, DismissedReminder::class, Note::class,
         AppBlock::class, BlockingSchedule::class, TaskGate::class, GateEvent::class, HeldNotification::class,
         Choice::class, Keynote::class, Plan::class,
+        UsageDayRecord::class, UsageAppRecord::class, InterventionRecord::class, FocusModePeriod::class,
     ],
-    version = 10,
+    version = 12,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -53,6 +60,8 @@ import app.still.launcher.data.productivity.Task
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
+        AutoMigration(from = 10, to = 11),
+        AutoMigration(from = 11, to = 12),
     ],
 )
 @TypeConverters(Converters::class)
@@ -71,6 +80,8 @@ abstract class StillDatabase : RoomDatabase() {
     abstract fun heldNotificationDao(): HeldNotificationDao
 
     abstract fun practiceDao(): PracticeDao
+
+    abstract fun historyDao(): HistoryDao
 
     companion object {
         fun create(context: Context): StillDatabase =

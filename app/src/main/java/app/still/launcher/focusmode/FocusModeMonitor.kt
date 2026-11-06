@@ -1,6 +1,7 @@
 package app.still.launcher.focusmode
 
 import android.content.Context
+import app.still.launcher.data.HistoryRepository
 import app.still.launcher.data.LauncherPreferences
 import app.still.launcher.data.LauncherSettings
 import app.still.launcher.util.EssentialApps
@@ -8,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import java.time.Instant
 
 /**
  * Focus mode: while it's on, only the apps reachable from home open, plus STILL, the phone and
@@ -18,6 +20,7 @@ class FocusModeMonitor(
     context: Context,
     private val preferences: LauncherPreferences,
     private val essentialApps: EssentialApps,
+    private val history: HistoryRepository,
     scope: CoroutineScope,
 ) {
     private val appContext = context.applicationContext
@@ -44,5 +47,10 @@ class FocusModeMonitor(
 
     suspend fun start() = preferences.setFocusModeSince(System.currentTimeMillis())
 
-    suspend fun end() = preferences.setFocusModeSince(null)
+    /** Ends focus mode, keeping the session for Insights. */
+    suspend fun end() {
+        val since = preferences.current().focusModeSince
+        preferences.setFocusModeSince(null)
+        since?.let { history.recordFocusPeriod(Instant.ofEpochMilli(it), Instant.now()) }
+    }
 }

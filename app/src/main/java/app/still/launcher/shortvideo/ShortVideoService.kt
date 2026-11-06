@@ -17,6 +17,8 @@ import android.widget.Toast
 import app.still.launcher.BuildConfig
 import app.still.launcher.R
 import app.still.launcher.StillApplication
+import app.still.launcher.data.HistoryRepository
+import app.still.launcher.data.history.InterventionType
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -33,6 +35,7 @@ class ShortVideoService : AccessibilityService() {
 
     private val scope = MainScope()
     private lateinit var blocker: ShortVideoBlocker
+    private lateinit var history: HistoryRepository
 
     /** Looking through another app's views waits on that app, so it's kept off STILL's main thread. */
     private val thread = HandlerThread("short-videos").apply { start() }
@@ -55,7 +58,9 @@ class ShortVideoService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        blocker = (application as StillApplication).container.shortVideos
+        val container = (application as StillApplication).container
+        blocker = container.shortVideos
+        history = container.historyRepository
         blocker.attach(this)
         // Only hear from the apps whose switches are on.
         scope.launch {
@@ -120,7 +125,7 @@ class ShortVideoService : AccessibilityService() {
     private fun checkApp(root: AccessibilityNodeInfo, packageName: String, rule: ShortVideoRule) {
         if (BuildConfig.DEBUG) note(packageName, visibleIds(root, PLAYER_LIKE).sorted().toString() + probeShares(root, packageName, rule))
         if (!showsShortVideo(rule, seenPlayerViews(root, packageName, rule))) return
-        leave(rule) { performGlobalAction(GLOBAL_ACTION_BACK) }
+        leave(packageName, rule) { performGlobalAction(GLOBAL_ACTION_BACK) }
     }
 
     private fun checkBrowser(root: AccessibilityNodeInfo, browser: BrowserRule) {
@@ -136,7 +141,7 @@ class ShortVideoService : AccessibilityService() {
         // The address, while it's shown.
         if (address != null) {
             place?.let(::shortVideoRuleForPlace)?.takeIf(blocker::blocks)?.let { rule ->
-                leave(rule) { openInstead(address, browser, rule.webHome) || performGlobalAction(GLOBAL_ACTION_BACK) }
+                leave(packageName, rule) { openInstead(address, browser, rule.webHome) || performGlobalAction(GLOBAL_ACTION_BACK) }
                 return
             }
         }
@@ -151,7 +156,7 @@ class ShortVideoService : AccessibilityService() {
             return
         }
         pageLookedAt[packageName] = now
-        if (showsShortVideoPage(site, seenPageElements(root, site))) leave(site) { performGlobalAction(GLOBAL_ACTION_BACK) }
+        if (showsShortVideoPage(site, seenPageElements(root, site))) leave(packageName, site) { performGlobalAction(GLOBAL_ACTION_BACK) }
     }
 
     /** The page's visible elements whose own ids start like [site]'s player's, with how much of the screen they fill. */
@@ -172,8 +177,11 @@ class ShortVideoService : AccessibilityService() {
         return seen
     }
 
-    /** Leaves a short video with [leavePage], or goes home when that keeps landing on another one. */
-    private fun leave(rule: ShortVideoRule, leavePage: () -> Boolean) {
+    /**
+     * Leaves a short video in [packageName] with [leavePage], or goes home when that keeps landing
+     * on another one. Insights counts each run of exits once.
+     */
+    private fun leave(packageName: String, rule: ShortVideoRule, leavePage: () -> Boolean) {
         val now = SystemClock.elapsedRealtime()
         exits.removeAll { now - it >= RETRY_WINDOW_MILLIS }
         val exit = shortVideoExit(exits, now)
@@ -181,7 +189,10 @@ class ShortVideoService : AccessibilityService() {
         exits += now
         val left = if (exit == ShortVideoExit.HOME) performGlobalAction(GLOBAL_ACTION_HOME) else leavePage()
         if (BuildConfig.DEBUG) trace("left ${rule.id}: $exit, done=$left")
-        if (first) mainHandler.post { Toast.makeText(this, R.string.short_videos_left, Toast.LENGTH_SHORT).show() }
+        if (first) {
+            mainHandler.post { Toast.makeText(this, R.string.short_videos_left, Toast.LENGTH_SHORT).show() }
+            scope.launch { history.recordIntervention(packageName, InterventionType.SHORT_VIDEO) }
+        }
         // Leaving can land on another short video without anything else changing; look again.
         checkPending = true
         handler.postDelayed(pendingCheck, AFTER_EXIT_MILLIS)

@@ -14,6 +14,9 @@ data class AppUsageEvent(val packageName: String, val timeMillis: Long, val kind
 
         /** The screen went off or the device shut down; nothing is in front any more. */
         SCREEN_OFF,
+
+        /** The phone was unlocked. Nothing changes in front; only history counts these. */
+        UNLOCK,
     }
 }
 
@@ -29,6 +32,7 @@ fun foregroundAppAfter(events: List<AppUsageEvent>): String? {
             AppUsageEvent.Kind.FOREGROUND -> current = event.packageName
             AppUsageEvent.Kind.BACKGROUND -> if (current == event.packageName) current = null
             AppUsageEvent.Kind.SCREEN_OFF -> current = null
+            AppUsageEvent.Kind.UNLOCK -> Unit
         }
     }
     return current
@@ -44,12 +48,25 @@ fun foregroundAppAfter(events: List<AppUsageEvent>): String? {
  */
 fun foregroundTimeByApp(events: List<AppUsageEvent>, fromMillis: Long, toMillis: Long): Map<String, Long> {
     val totals = mutableMapOf<String, Long>()
+    for (span in foregroundSpans(events, fromMillis, toMillis)) totals[span.packageName] = (totals[span.packageName] ?: 0L) + span.millis
+    return totals
+}
+
+/** A stretch of time one app was in front, within the window it was read for. */
+data class ForegroundSpan(val packageName: String, val startMillis: Long, val endMillis: Long) {
+    val millis: Long get() = endMillis - startMillis
+}
+
+/** The stretches behind [foregroundTimeByApp], in the order they ended, cut to the window. */
+fun foregroundSpans(events: List<AppUsageEvent>, fromMillis: Long, toMillis: Long): List<ForegroundSpan> {
+    val spans = mutableListOf<ForegroundSpan>()
     val inFront = mutableMapOf<String, Long>()
     val seen = mutableSetOf<String>()
 
     fun add(packageName: String, start: Long, end: Long) {
-        val duration = end.coerceAtMost(toMillis) - start.coerceAtLeast(fromMillis)
-        if (duration > 0) totals[packageName] = (totals[packageName] ?: 0L) + duration
+        val from = start.coerceAtLeast(fromMillis)
+        val to = end.coerceAtMost(toMillis)
+        if (to > from) spans += ForegroundSpan(packageName, from, to)
     }
 
     for (event in events.sortedBy { it.timeMillis }) {
@@ -69,8 +86,30 @@ fun foregroundTimeByApp(events: List<AppUsageEvent>, fromMillis: Long, toMillis:
                 inFront.forEach { (packageName, start) -> add(packageName, start, event.timeMillis) }
                 inFront.clear()
             }
+            AppUsageEvent.Kind.UNLOCK -> Unit
         }
     }
     inFront.forEach { (packageName, start) -> add(packageName, start, toMillis) }
-    return totals
+    return spans
+}
+
+/**
+ * How many times each app was opened between [fromMillis] and [toMillis]: came to the front after
+ * another app, or after the screen was off. Moving between one app's own screens isn't opening it.
+ */
+fun opensByApp(events: List<AppUsageEvent>, fromMillis: Long, toMillis: Long): Map<String, Int> {
+    val opens = mutableMapOf<String, Int>()
+    var last: String? = null
+    for (event in events.sortedBy { it.timeMillis }) {
+        if (event.timeMillis > toMillis) break
+        when (event.kind) {
+            AppUsageEvent.Kind.FOREGROUND -> {
+                if (event.packageName != last && event.timeMillis >= fromMillis) opens[event.packageName] = (opens[event.packageName] ?: 0) + 1
+                last = event.packageName
+            }
+            AppUsageEvent.Kind.SCREEN_OFF -> last = null
+            AppUsageEvent.Kind.BACKGROUND, AppUsageEvent.Kind.UNLOCK -> Unit
+        }
+    }
+    return opens
 }

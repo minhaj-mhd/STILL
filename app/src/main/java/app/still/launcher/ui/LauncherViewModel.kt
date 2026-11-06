@@ -26,6 +26,8 @@ import app.still.launcher.data.CornerButton
 import app.still.launcher.data.CornerChoice
 import app.still.launcher.data.cornerApp
 import app.still.launcher.data.GateRepository
+import app.still.launcher.data.HistoryRepository
+import app.still.launcher.data.history.InterventionType
 import app.still.launcher.data.LauncherPreferences
 import app.still.launcher.data.LauncherSettings
 import app.still.launcher.data.MonoIcon
@@ -44,6 +46,7 @@ import app.still.launcher.gates.TaskGateMonitor
 import app.still.launcher.gates.closedGates
 import app.still.launcher.gates.emergencyOpenFor
 import app.still.launcher.gates.gateLocks
+import app.still.launcher.history.UsageHistory
 import app.still.launcher.limit.AppLimit
 import app.still.launcher.limit.AppLimitEntry
 import app.still.launcher.limit.AppLimitMonitor
@@ -200,6 +203,8 @@ class LauncherViewModel(
     private val practice: PracticeRepository,
     private val focusMode: FocusModeMonitor,
     private val tabOwners: TabOwners,
+    private val history: HistoryRepository,
+    private val usageHistory: UsageHistory,
 ) : ViewModel() {
 
     /** The current minute, so blocks end on time without anything else changing. */
@@ -341,6 +346,14 @@ class LauncherViewModel(
         precision.gate.onForeground(BuildConfig.APPLICATION_ID, now, ForegroundRule.NONE)
         appLimits.onForeground(BuildConfig.APPLICATION_ID, now)
         appLimits.onLauncherShown(now)
+        // Saves yesterday's phone use once the day has turned; nothing to do the rest of the day.
+        viewModelScope.launch { usageHistory.catchUp() }
+    }
+
+    /** Notes for Insights that STILL stepped in front of the app with [key]. */
+    fun recordIntervention(key: String, type: InterventionType) {
+        val app = uiState.value.apps.firstOrNull { it.key == key } ?: return
+        viewModelScope.launch { history.recordIntervention(app.component.packageName, type) }
     }
 
     /** Saves [limit] for [app]: tightening counts now, loosening waits for tomorrow. */
@@ -592,6 +605,8 @@ class LauncherViewModel(
                     container.practiceRepository,
                     container.focusMode,
                     container.tabOwners,
+                    container.historyRepository,
+                    container.usageHistory,
                 )
             }
         }

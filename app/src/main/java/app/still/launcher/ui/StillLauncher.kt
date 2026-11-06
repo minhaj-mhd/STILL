@@ -49,6 +49,7 @@ import app.still.launcher.limit.AppClosed
 import app.still.launcher.limit.Pause
 import app.still.launcher.limit.dayStart
 import app.still.launcher.limit.LimitSettings
+import app.still.launcher.data.history.InterventionType
 import app.still.launcher.precision.InterventionKind
 import app.still.launcher.productivity.progress
 import app.still.launcher.ui.apps.AppActionsSheet
@@ -403,6 +404,25 @@ fun StillLauncher(
             }
         }
     }
+
+    // Each time STILL steps in front of an app, from here or through Precision mode, Insights counts it.
+    LaunchedEffect(focusLockedKey) { focusLockedKey?.let { viewModel.recordIntervention(it, InterventionType.FOCUS) } }
+    LaunchedEffect(blockedScreenKey) {
+        blockedScreenKey?.let { key ->
+            val bySchedule = state.apps.firstOrNull { it.key == key }?.blockedBySchedule != null
+            viewModel.recordIntervention(key, if (bySchedule) InterventionType.SCHEDULE else InterventionType.BLOCKED)
+        }
+    }
+    LaunchedEffect(limitScreenKey) { limitScreenKey?.let { viewModel.recordIntervention(it, InterventionType.DAILY_LIMIT) } }
+    LaunchedEffect(appLimitScreenKey) {
+        appLimitScreenKey?.let {
+            viewModel.recordIntervention(it, if (appLimitReason == AppLimitReason.VISIT_UP) InterventionType.VISIT_UP else InterventionType.APP_LIMIT)
+        }
+    }
+    LaunchedEffect(gateScreenKey) { gateScreenKey?.let { viewModel.recordIntervention(it, InterventionType.GATE) } }
+    LaunchedEffect(pauseKey) { pauseKey?.let { viewModel.recordIntervention(it, InterventionType.PAUSE) } }
+    LaunchedEffect(launchDelayKey) { launchDelayKey?.let { viewModel.recordIntervention(it, InterventionType.LAUNCH_DELAY) } }
+    LaunchedEffect(timeUpKey) { timeUpKey?.let { viewModel.recordIntervention(it, InterventionType.TIME_UP) } }
 
     // A reminder notification was tapped: show the Today page.
     LaunchedEffect(todayRequests) {

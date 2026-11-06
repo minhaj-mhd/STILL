@@ -20,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,29 +36,30 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.still.launcher.R
-import app.still.launcher.keynote.WeekReflection
 import app.still.launcher.data.ScreenTimeSummary
+import app.still.launcher.history.PeriodKind
+import app.still.launcher.limit.LimitState
 import app.still.launcher.productivity.TodayAgenda
 import app.still.launcher.ui.LauncherApp
-import app.still.launcher.limit.LimitState
-import app.still.launcher.ui.limit.DailyLimitViewModel
-import app.still.launcher.ui.limit.resetText
-import app.still.launcher.ui.theme.stillPalette
 import app.still.launcher.ui.components.Chip
 import app.still.launcher.ui.components.ChipRow
 import app.still.launcher.ui.components.FieldLabel
 import app.still.launcher.ui.components.formatDuration
 import app.still.launcher.ui.editor.streakText
+import app.still.launcher.ui.limit.DailyLimitViewModel
+import app.still.launcher.ui.limit.resetText
+import app.still.launcher.ui.theme.stillPalette
 import java.time.Duration
 
-private enum class Range { TODAY, WEEK }
+private enum class Range(val kind: PeriodKind?) { TODAY(null), WEEK(PeriodKind.WEEK), MONTH(PeriodKind.MONTH) }
 
 /** How many apps the top-apps list shows. */
 private const val TOP_APPS = 5
 
 /**
- * Opened by swiping up on home: screen time and the busiest apps, today's tasks and habits,
- * and running streaks. Settings is one tap away at the top.
+ * Opened by swiping up on home. Today: screen time and the busiest apps, today's tasks and
+ * habits, held notifications and running streaks. Week and Month: the saved days, gone back
+ * through one at a time. Settings is one tap away at the top.
  */
 @Composable
 fun InsightsPage(
@@ -80,10 +82,15 @@ fun InsightsPage(
         viewModel.refresh()
         onPauseOrDispose { }
     }
+    // Only apps you can open from STILL are shown; system screens and STILL itself aren't.
+    val labels = remember(apps) { apps.associate { it.component.packageName to it.label } }
+    LaunchedEffect(labels) { viewModel.setShownApps(labels.keys) }
+    var range by rememberSaveable { mutableStateOf(Range.TODAY) }
+    LaunchedEffect(range) { range.kind?.let(viewModel::show) }
+
     val summary by viewModel.screenTime.collectAsStateWithLifecycle()
     val streaks by viewModel.streaks.collectAsStateWithLifecycle()
-    val focusStats by viewModel.focusStats.collectAsStateWithLifecycle()
-    val week by viewModel.week.collectAsStateWithLifecycle()
+    val period by viewModel.period.collectAsStateWithLifecycle()
     val limit by limitViewModel.state.collectAsStateWithLifecycle()
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
@@ -107,64 +114,60 @@ fun InsightsPage(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(start = 32.dp, end = 32.dp, top = 24.dp, bottom = 48.dp),
+                    .padding(start = 32.dp, end = 32.dp, top = 16.dp, bottom = 48.dp),
             ) {
-                ScreenTimeSection(apps, summary, limit, hasUsageAccess, onAllowUsageAccess, onOpenDailyLimit)
-                TodaySection(agenda)
-                if (!week.isEmpty) WeekSection(week)
-                heldCount?.let { HeldSection(it, onOpenHeld) }
-                focusStats?.let { FocusSection(it) }
-                if (streaks.isNotEmpty()) StreaksSection(streaks)
+                ChipRow {
+                    Chip(stringResource(R.string.insights_range_today), range == Range.TODAY) { range = Range.TODAY }
+                    Chip(stringResource(R.string.insights_range_week), range == Range.WEEK) { range = Range.WEEK }
+                    Chip(stringResource(R.string.insights_range_month), range == Range.MONTH) { range = Range.MONTH }
+                }
+                if (!hasUsageAccess) NeedsAccess(onAllowUsageAccess)
+                when (range) {
+                    Range.TODAY -> {
+                        if (hasUsageAccess) ScreenTimeSection(labels, summary, limit, onOpenDailyLimit)
+                        TodaySection(agenda)
+                        heldCount?.let { HeldSection(it, onOpenHeld) }
+                        if (streaks.isNotEmpty()) StreaksSection(streaks)
+                    }
+                    else -> period?.takeIf { it.kind == range.kind }?.let { view ->
+                        PeriodSections(view, labels, onEarlier = { viewModel.move(-1) }, onLater = { viewModel.move(1) })
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ScreenTimeSection(
-    apps: List<LauncherApp>,
-    summary: ScreenTimeSummary?,
-    limit: LimitState?,
-    hasUsageAccess: Boolean,
-    onAllowUsageAccess: () -> Unit,
-    onOpenDailyLimit: () -> Unit,
-) {
-    var range by rememberSaveable { mutableStateOf(Range.TODAY) }
+private fun NeedsAccess(onAllowUsageAccess: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         FieldLabel(stringResource(R.string.insights_screen_time))
-        if (!hasUsageAccess) {
-            Text(
-                text = stringResource(R.string.screen_time_needs_access),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            TextButton(onClick = onAllowUsageAccess) { Text(stringResource(R.string.screen_time_allow)) }
-            return@Column
-        }
-        summary ?: return@Column
+        Text(
+            text = stringResource(R.string.screen_time_needs_access),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(onClick = onAllowUsageAccess) { Text(stringResource(R.string.screen_time_allow)) }
+    }
+}
 
-        ChipRow {
-            Chip(stringResource(R.string.insights_range_today), range == Range.TODAY) { range = Range.TODAY }
-            Chip(stringResource(R.string.insights_range_week), range == Range.WEEK) { range = Range.WEEK }
-        }
-        // Only apps you can open from STILL count; system screens and STILL itself don't.
-        val labels = remember(apps) { apps.associate { it.component.packageName to it.label } }
-        val usage = (if (range == Range.TODAY) summary.today else summary.lastSevenDays)
-            .filterKeys { it in labels }
-            .filterValues { !it.isZero }
+@Composable
+private fun ScreenTimeSection(
+    labels: Map<String, String>,
+    summary: ScreenTimeSummary?,
+    limit: LimitState?,
+    onOpenDailyLimit: () -> Unit,
+) {
+    summary ?: return
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        FieldLabel(stringResource(R.string.insights_screen_time))
+        val usage = summary.today.filterKeys { it in labels }.filterValues { !it.isZero }
         val total = usage.values.fold(Duration.ZERO, Duration::plus)
 
         // Tapping today's time opens the daily limit.
         Column(Modifier.clickable(onClick = onOpenDailyLimit)) {
             Text(formatDuration(total), style = MaterialTheme.typography.displaySmall)
-            if (range == Range.TODAY) LimitLine(limit)
-        }
-        if (range == Range.WEEK) {
-            Text(
-                text = stringResource(R.string.insights_daily_average, formatDuration(total.dividedBy(7))),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            LimitLine(limit)
         }
 
         if (usage.isEmpty()) {
@@ -178,7 +181,7 @@ private fun ScreenTimeSection(
             val top = usage.entries.sortedByDescending { it.value }.take(TOP_APPS)
             val longest = top.first().value.toMillis().coerceAtLeast(1)
             top.forEach { (packageName, time) ->
-                AppUsageRow(labels.getValue(packageName), time, time.toMillis().toFloat() / longest)
+                AppUsageRow(labels.getValue(packageName), formatDuration(time), null, time.toMillis().toFloat() / longest)
             }
         }
     }
@@ -197,13 +200,16 @@ private fun LimitLine(limit: LimitState?) {
     Text("$text  ›", style = MaterialTheme.typography.titleMedium, color = color)
 }
 
-/** An app's name and time, with a bar showing its share of the busiest app's time. */
+/** An app's name and time, an optional line under it, and a bar showing its share of the busiest app's time. */
 @Composable
-private fun AppUsageRow(label: String, time: Duration, fraction: Float) {
+internal fun AppUsageRow(label: String, time: String, detail: String?, fraction: Float) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row {
             Text(label, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Text(formatDuration(time), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(time, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        detail?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Box(
             Modifier
@@ -244,38 +250,6 @@ private fun TodaySection(agenda: TodayAgenda?) {
     }
 }
 
-/**
- * The last seven days in plain facts: turning back when STILL paused, unlocks a day against the
- * week before, the qualities chosen, and what got finished. Lines with nothing to say are left out.
- */
-@Composable
-private fun WeekSection(week: WeekReflection) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        FieldLabel(stringResource(R.string.insights_week))
-        if (week.paused > 0) {
-            Text(pluralStringResource(R.plurals.insights_turned_back, week.paused, week.turnedBack, week.paused), style = MaterialTheme.typography.titleMedium)
-        }
-        week.unlocksPerDay?.let { perDay ->
-            val before = week.unlocksBeforePerDay
-            val unlocks = pluralStringResource(R.plurals.insights_unlocks_per_day, perDay, perDay)
-            val compared = when {
-                before == null -> null
-                before > perDay -> pluralStringResource(R.plurals.insights_fewer_than_before, before - perDay, before - perDay)
-                before < perDay -> pluralStringResource(R.plurals.insights_more_than_before, perDay - before, perDay - before)
-                else -> stringResource(R.string.insights_same_as_before)
-            }
-            Text(listOfNotNull(unlocks, compared).joinToString(" · "), style = MaterialTheme.typography.titleMedium)
-        }
-        if (week.qualities.isNotEmpty()) {
-            val days = week.qualities.map { (quality, count) -> pluralStringResource(R.plurals.insights_quality_days, count, quality, count) }
-            Text(stringResource(R.string.insights_qualities, days.joinToString(" · ")), style = MaterialTheme.typography.titleMedium)
-        }
-        if (week.finished > 0) {
-            Text(pluralStringResource(R.plurals.insights_finished, week.finished, week.finished), style = MaterialTheme.typography.titleMedium)
-        }
-    }
-}
-
 /** "12 held back ›": how many notifications the filter is holding, and the way to them. */
 @Composable
 private fun HeldSection(count: Int, onOpen: () -> Unit) {
@@ -285,20 +259,6 @@ private fun HeldSection(count: Int, onOpen: () -> Unit) {
             text = pluralStringResource(R.plurals.insights_held_count, count, count) + "  ›",
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.clickable(onClick = onOpen),
-        )
-    }
-}
-
-/** How many duration habits the focus timer finished this week, against those logged by hand. */
-@Composable
-private fun FocusSection(stats: FocusStats) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        FieldLabel(stringResource(R.string.insights_focus))
-        Text(pluralStringResource(R.plurals.insights_focus_timer, stats.byTimer, stats.byTimer), style = MaterialTheme.typography.titleMedium)
-        Text(
-            text = pluralStringResource(R.plurals.insights_focus_by_hand, stats.byHand, stats.byHand),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
