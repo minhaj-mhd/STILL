@@ -19,5 +19,7 @@ class StillApplication : Application() {
         container.notificationFilter.rebindIfAllowed()
         // Finished days are saved whenever STILL starts too, not only when home shows.
         container.applicationScope.launch { container.usageHistory.catchUp() }
+        // Alarms don't outlast a restart or an update; set the next look for daily reads again.
+        container.applicationScope.launch { container.dailyReads.planChecks() }
     }
 }

@@ -105,7 +105,7 @@ class ReaderActivity : FragmentActivity() {
 
     override fun onPause() {
         super.onPause()
-        lastClosedAtMillis = System.currentTimeMillis()
+        OwnScreens.markLeft()
         val current = book ?: return
         val sitting = clock.stop(System.currentTimeMillis()) ?: return
         container.applicationScope.launch {
@@ -235,11 +235,6 @@ class ReaderActivity : FragmentActivity() {
     }
 
     companion object {
-        /** When a book was last put away, so home doesn't take reading for being away. */
-        @Volatile
-        var lastClosedAtMillis = 0L
-            private set
-
         private const val EXTRA_BOOK_ID = "app.still.launcher.BOOK_ID"
         private const val NAVIGATOR_TAG = "navigator"
 

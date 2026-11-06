@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import app.still.launcher.DailyReadsActivity
 import app.still.launcher.R
 import app.still.launcher.ReaderActivity
 import app.still.launcher.data.ReadRepository
@@ -74,11 +75,19 @@ fun ReadPage(
     val context = LocalContext.current
     val resources = LocalResources.current
     val library by viewModel.library.collectAsStateWithLifecycle()
+    val downloading by viewModel.downloading.collectAsStateWithLifecycle()
     var menuBook by rememberSaveable { mutableStateOf<Long?>(null) }
     var goalOpen by rememberSaveable { mutableStateOf(false) }
     var finishedOpen by rememberSaveable { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(viewModel::import) }
 
+    LaunchedEffect(viewModel) { viewModel.refreshDaily() }
+    LaunchedEffect(viewModel) {
+        viewModel.opens.collect { id -> context.startActivity(ReaderActivity.intent(context, id)) }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.problems.collect { problem -> Toast.makeText(context, problem.message(), Toast.LENGTH_SHORT).show() }
+    }
     LaunchedEffect(viewModel) {
         viewModel.imported.collect { result ->
             val message = result.fold(
@@ -104,6 +113,22 @@ fun ReadPage(
                 }
             }
             val current = library ?: return@LazyColumn
+            if (current.dailyState != DailyState.ON) {
+                item(key = "daily-invite") {
+                    DailyInvite(current.dailyState, current.hasSeries) { context.startActivity(DailyReadsActivity.intent(context)) }
+                }
+            }
+            if (current.todayReads.isNotEmpty()) {
+                item(key = "daily-title") { TodayReadsTitle { context.startActivity(DailyReadsActivity.intent(context)) } }
+                items(current.todayReads, key = { "daily:${it.series.id}" }) { entry ->
+                    TodayReadRow(
+                        entry = entry,
+                        getting = entry.read?.id in downloading,
+                        onOpen = { entry.read?.let(viewModel::openDaily) },
+                        onSeries = { context.startActivity(DailyReadsActivity.intent(context, entry.series.id)) },
+                    )
+                }
+            }
             if (current.isEmpty) {
                 item(key = "empty") {
                     Text(
@@ -269,7 +294,7 @@ private fun BookRow(entry: LibraryBook, onOpen: () -> Unit, onLongClick: () -> U
 }
 
 @Composable
-private fun ProgressTrack(fraction: Float) {
+internal fun ProgressTrack(fraction: Float) {
     Box(
         Modifier
             .fillMaxWidth()

@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.still.launcher.R
-import app.still.launcher.ReaderActivity
+import app.still.launcher.OwnScreens
 import app.still.launcher.data.AppScreenTime
 import app.still.launcher.data.practice.ChoiceSource
 import app.still.launcher.limit.AppClosed
@@ -232,8 +232,8 @@ fun StillLauncher(
         precisionSwitchedOn = viewModel.isPrecisionSwitchedOn()
         viewModel.onShown()
         val away = System.currentTimeMillis() - leftAtMillis
-        // Coming straight back from STILL Read isn't coming back from being away.
-        val wasReading = System.currentTimeMillis() - ReaderActivity.lastClosedAtMillis < FROM_READER_MILLIS
+        // Coming straight back from STILL's own screens, such as STILL Read, isn't coming back from being away.
+        val wasReading = System.currentTimeMillis() - OwnScreens.leftAtMillis < FROM_READER_MILLIS
         if (focus != null && leftAtMillis > 0 && away >= WELCOME_BACK_AFTER_MILLIS && !wasReading) welcomeBack = true
         onPauseOrDispose { leftAtMillis = System.currentTimeMillis() }
     }

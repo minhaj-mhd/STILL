@@ -1119,4 +1119,115 @@
     <string name="read_theme_sepia">Sepia</string>
     <string name="read_theme_dark">Dark</string>
     <string name="share_book_label">Add to STILL Read</string>
+
+    <!-- STILL Read: daily reads from ChatGPT scheduled chats, through Google Drive. -->
+    <string name="daily_today_title">Today\'s reads</string>
+    <string name="daily_all_series">All series</string>
+    <string name="daily_new_at">New · %1$s</string>
+    <string name="daily_minutes">%1$d min</string>
+    <string name="daily_minutes_left">%1$d min left</string>
+    <string name="daily_start">Start reading</string>
+    <string name="daily_continue">Continue</string>
+    <string name="daily_getting">Getting it…</string>
+    <string name="daily_arrives">Arrives at %1$s</string>
+    <string name="daily_nothing_checked">Nothing yet today · checked %1$s</string>
+    <string name="daily_nothing_yet">Nothing yet today</string>
+    <string name="daily_read_in">Read · %1$s</string>
+    <string name="daily_setup_label">Daily reads</string>
+    <string name="daily_setup_line">Reads from your ChatGPT scheduled chats</string>
+    <string name="daily_paused_line">Paused: Google Drive isn\'t connected</string>
+    <string name="daily_set_up">Set up</string>
+    <string name="daily_needs_you_line">Google needs you to sign in again</string>
+    <string name="daily_reconnect">Reconnect</string>
+    <string name="daily_connect">Connect</string>
+    <string name="daily_problem_setup">Google doesn\'t know STILL yet. In Google Cloud, check the Android client: package app.still.launcher and this build\'s SHA-1.</string>
+    <string name="daily_problem_offline">No connection. Daily reads come when you\'re online.</string>
+    <string name="daily_problem_unreadable">STILL couldn\'t turn this read into a book. Check it opens in Word or Drive.</string>
+    <string name="daily_problem_other">Couldn\'t reach Google Drive. Try again in a bit.</string>
+    <string name="daily_problem_needs_you">Google needs you to sign in again.</string>
+
+    <string name="daily_reads">Daily reads</string>
+    <string name="daily_intro">Your ChatGPT scheduled chats can save each read to a Google Drive folder. STILL picks them up from there, a few minutes after they land, and adds them to Read.</string>
+    <string name="daily_connect_drive">Connect Google Drive</string>
+    <string name="daily_connect_detail">Read-only. STILL only looks in the folders you add, and goes online for nothing else.</string>
+    <string name="daily_connecting">Connecting…</string>
+    <string name="daily_connected">Google Drive · connected, read-only</string>
+    <string name="daily_your_series">Your series</string>
+    <string name="daily_no_series">Add the folder each scheduled chat saves to. Each one becomes a series.</string>
+    <string name="daily_series_detail">%1$s · new at %2$s · %3$s</string>
+    <string name="daily_series_detail_untimed">%1$s · %2$s</string>
+    <string name="daily_add_folder">+ Add a chat\'s folder</string>
+    <string name="daily_on_phone">On this phone</string>
+    <string name="daily_keep">Keep downloaded</string>
+    <plurals name="daily_keep_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <string name="daily_fetching">Fetching</string>
+    <string name="daily_fetching_detail">STILL looks a few minutes after each series is due, every few hours besides, and when you open Read.</string>
+    <string name="daily_last_check">Last check %1$s · %2$s</string>
+    <string name="daily_never_checked">Not checked yet</string>
+    <string name="daily_check_now">Check now</string>
+    <string name="daily_checking">Checking…</string>
+    <string name="daily_disconnect">Disconnect Google Drive</string>
+    <string name="daily_disconnect_title">Disconnect Google Drive?</string>
+    <string name="daily_disconnect_detail">STILL stops looking for new reads. Your series and the reads on this phone stay.</string>
+    <string name="daily_disconnect_confirm">Disconnect</string>
+    <string name="daily_needs_you_title">Google needs you again</string>
+    <string name="daily_needs_you_detail">Sign in once more so STILL can keep fetching your reads.</string>
+
+    <string name="daily_series_from">Series · from ChatGPT</string>
+    <string name="daily_series_where">New at %1$s · Drive folder \"%2$s\"</string>
+    <string name="daily_series_where_untimed">Drive folder \"%1$s\"</string>
+    <plurals name="daily_on_phone_days">
+        <item quantity="one">On this phone · last %d day</item>
+        <item quantity="other">On this phone · last %d days</item>
+    </plurals>
+    <string name="daily_ready_offline">ready offline</string>
+    <string name="daily_earlier">Earlier · in Drive</string>
+    <string name="daily_today">Today</string>
+    <string name="daily_new">New</string>
+    <string name="daily_progress_of">%1$d of %2$d min</string>
+    <string name="daily_not_opened">not opened</string>
+    <string name="daily_show_month">Show %1$s</string>
+    <string name="daily_no_reads">Nothing in this folder yet. Reads show here as the chat saves them.</string>
+    <string name="daily_rename">Rename</string>
+    <string name="daily_remove_series">Remove series</string>
+    <string name="daily_remove_title">Remove %1$s?</string>
+    <string name="daily_remove_detail">Its reads leave STILL. What\'s in Drive stays, and so does your reading time.</string>
+    <string name="daily_remove_confirm">Remove</string>
+    <string name="daily_name">Name</string>
+    <string name="daily_save">Save</string>
+
+    <string name="daily_add_title">Add a chat\'s folder</string>
+    <string name="daily_add_detail">Pick the Drive folder your scheduled chat saves to.</string>
+    <string name="daily_looking">Looking in your Drive…</string>
+    <string name="daily_no_folders">No folders in your Drive yet. Ask your chat to save to one, then come back.</string>
+    <string name="daily_folder_changed">Changed %1$s</string>
+    <string name="daily_already_series">Already a series</string>
+    <string name="daily_preview">%1$s · latest %2$s</string>
+    <string name="daily_preview_empty">No reads in it yet</string>
+    <string name="daily_series_section">Series</string>
+    <string name="daily_lands_around">New reads land around</string>
+    <string name="daily_lands_unknown">Learned as reads come</string>
+    <string name="daily_get_now">Get now</string>
+    <plurals name="daily_get_now_detail">
+        <item quantity="one">Last %d day</item>
+        <item quantity="other">Last %d days</item>
+    </plurals>
+    <string name="daily_add_series">Add series</string>
+    <string name="daily_adding">Adding…</string>
+    <string name="daily_not_saving">Chat not saving to Drive yet?</string>
+    <string name="daily_prompt">Also save each read as a new Google Doc in my Google Drive folder \"%1$s\", titled with the date and a headline.</string>
+    <string name="daily_copy">Copy</string>
+    <string name="daily_copied">Copied</string>
+    <string name="daily_try_again">Try again</string>
+    <plurals name="daily_reads_count">
+        <item quantity="one">%d read</item>
+        <item quantity="other">%d reads</item>
+    </plurals>
+    <plurals name="daily_new_count">
+        <item quantity="one">%d new</item>
+        <item quantity="other">%d new</item>
+    </plurals>
 </resources>

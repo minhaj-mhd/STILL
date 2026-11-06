@@ -8,7 +8,11 @@ import app.still.launcher.data.AppRepository
 import app.still.launcher.data.BlockingRepository
 import app.still.launcher.data.GateRepository
 import app.still.launcher.data.HistoryRepository
+import app.still.launcher.data.DailyReadsRepository
 import app.still.launcher.data.ReadRepository
+import app.still.launcher.drive.DriveAuth
+import app.still.launcher.drive.DriveClient
+import app.still.launcher.read.DailyReadsSchedule
 import app.still.launcher.read.Publications
 import app.still.launcher.focus.FocusTimer
 import app.still.launcher.focusmode.FocusModeMonitor
@@ -65,6 +69,9 @@ class AppContainer(context: Context) {
     val historyRepository = HistoryRepository(database.historyDao())
     val publications = Publications(context)
     val readRepository = ReadRepository(context, database.readDao(), publications, preferences, productivityRepository)
+    val driveAuth = DriveAuth(context)
+    val dailyReadsSchedule = DailyReadsSchedule(context)
+    val dailyReads = DailyReadsRepository(context, database.readDao(), DriveClient(), driveAuth, publications, preferences, dailyReadsSchedule)
     val usageHistory = UsageHistory(context, screenTimeRepository, preferences, historyRepository, essentialApps)
     val focusMode = FocusModeMonitor(context, preferences, essentialApps, historyRepository, applicationScope)
     val appLimits = AppLimitMonitor(context, preferences, dailyLimit, appTimeReminders, precisionMode, practiceRepository, focusTimer, applicationScope)

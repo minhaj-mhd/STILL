@@ -26,6 +26,14 @@ fun formatShortDate(date: LocalDate): String = formatDate(date, "EEEdMMM")
 @Composable
 fun formatWeekdayAndDay(date: LocalDate): String = formatDate(date, "EEEEd")
 
+/** "Fri 23", for days within the week. */
+@Composable
+fun formatWeekdayShortDay(date: LocalDate): String = formatDate(date, "EEEd")
+
+/** "October", or "October 2025" outside this year. */
+@Composable
+fun formatMonth(date: LocalDate): String = formatDate(date, if (date.year == LocalDate.now().year) "MMMM" else "MMMMyyyy")
+
 /** "Fri 23 Oct 2026". */
 @Composable
 fun formatLongDate(date: LocalDate): String = formatDate(date, "EEEdMMMyyyy")

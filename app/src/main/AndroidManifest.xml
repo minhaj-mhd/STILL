@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Daily reads: STILL fetches reads from the person's own Google Drive, read-only. Nothing else goes online. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Screen time per app. Special access: the user turns it on under Settings > Usage access. -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
@@ -84,6 +86,12 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
             android:theme="@style/Theme.Still.Reader" />
 
+        <!-- STILL Read's daily reads: the series from ChatGPT's scheduled chats, and connecting Drive. -->
+        <activity
+            android:name=".DailyReadsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Still.Page" />
+
         <!-- "Add to STILL Read" in the Share menu: a PDF or EPUB is copied into STILL's library. -->
         <activity
             android:name=".ShareBookActivity"
@@ -99,6 +107,11 @@
                 <data android:mimeType="application/epub+zip" />
             </intent-filter>
         </activity>
+
+        <!-- A daily reads series is due: look in its Drive folder. -->
+        <receiver
+            android:name=".read.DailyReadsAlarm"
+            android:exported="false" />
 
         <!-- Reminder alarms and notification buttons; only STILL's own pending intents reach it. -->
         <receiver

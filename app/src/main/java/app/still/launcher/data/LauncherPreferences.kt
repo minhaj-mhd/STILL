@@ -93,11 +93,23 @@ data class LauncherSettings(
     /** STILL Read: how EPUBs look, and whether PDFs show light on dark. */
     val readText: ReadText = ReadText(),
     val readPdfNight: Boolean = false,
+    /** Daily reads: the Google account whose Drive they come from, null until connected. */
+    val driveAccount: String? = null,
+    /** Google wants the person to sign in again before STILL can reach Drive. */
+    val driveNeedsYou: Boolean = false,
+    /** How many days of daily reads stay on the phone. */
+    val dailyKeepDays: Int = DEFAULT_KEEP_DAYS,
+    /** When daily reads were last looked for, in epoch milliseconds, and how many were new. */
+    val dailyCheckedAt: Long = 0L,
+    val dailyNewAtCheck: Int = 0,
 ) {
     /** App limits, the app list's fading and the daily quality's summary all need each app's time today. */
     val needsAppUsage: Boolean get() = appListFade || appLimits.isNotEmpty() || dailyQuality
 
     companion object {
+        const val DEFAULT_KEEP_DAYS = 7
+        val KEEP_DAYS_CHOICES = listOf(7, 14, 30)
+
         const val DEFAULT_LAUNCH_DELAY_SECONDS = 15
         const val DEFAULT_WALLPAPER_DIM = 0.4f
         const val MAX_WALLPAPER_DIM = 0.8f
@@ -167,6 +179,11 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
                     theme = enumOr(prefs[READ_THEME], ReadTheme.DARK),
                 ),
                 readPdfNight = prefs[READ_PDF_NIGHT] ?: false,
+                driveAccount = prefs[DRIVE_ACCOUNT],
+                driveNeedsYou = prefs[DRIVE_NEEDS_YOU] ?: false,
+                dailyKeepDays = prefs[DAILY_KEEP_DAYS] ?: LauncherSettings.DEFAULT_KEEP_DAYS,
+                dailyCheckedAt = prefs[DAILY_CHECKED_AT] ?: 0L,
+                dailyNewAtCheck = prefs[DAILY_NEW_AT_CHECK] ?: 0,
             )
         }
         // Other keys, such as visits to limited apps, change often; only pass on real changes.
@@ -306,6 +323,29 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setReadPdfNight(on: Boolean) {
         dataStore.edit { prefs -> prefs[READ_PDF_NIGHT] = on }
+    }
+
+    /** Remembers the Google account daily reads come from; null forgets it. */
+    suspend fun setDriveAccount(account: String?) {
+        dataStore.edit { prefs ->
+            if (account == null) prefs.remove(DRIVE_ACCOUNT) else prefs[DRIVE_ACCOUNT] = account
+            prefs[DRIVE_NEEDS_YOU] = false
+        }
+    }
+
+    suspend fun setDriveNeedsYou(needsYou: Boolean) {
+        dataStore.edit { prefs -> prefs[DRIVE_NEEDS_YOU] = needsYou }
+    }
+
+    suspend fun setDailyKeepDays(days: Int) {
+        dataStore.edit { prefs -> prefs[DAILY_KEEP_DAYS] = days.coerceAtLeast(1) }
+    }
+
+    suspend fun setDailyChecked(atMillis: Long, newReads: Int) {
+        dataStore.edit { prefs ->
+            prefs[DAILY_CHECKED_AT] = atMillis
+            prefs[DAILY_NEW_AT_CHECK] = newReads
+        }
     }
 
     suspend fun setFocusModeSince(millis: Long?) {
@@ -514,6 +554,11 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val READ_FONT = stringPreferencesKey("readFont")
         val READ_THEME = stringPreferencesKey("readTheme")
         val READ_PDF_NIGHT = booleanPreferencesKey("readPdfNight")
+        val DRIVE_ACCOUNT = stringPreferencesKey("driveAccount")
+        val DRIVE_NEEDS_YOU = booleanPreferencesKey("driveNeedsYou")
+        val DAILY_KEEP_DAYS = intPreferencesKey("dailyKeepDays")
+        val DAILY_CHECKED_AT = longPreferencesKey("dailyCheckedAt")
+        val DAILY_NEW_AT_CHECK = intPreferencesKey("dailyNewAtCheck")
         val appLimitsSerializer: KSerializer<Map<String, AppLimitEntry>> = MapSerializer(String.serializer(), AppLimitEntry.serializer())
         val visitsSerializer: KSerializer<Map<String, AppVisit>> = MapSerializer(String.serializer(), AppVisit.serializer())
         // Typed explicitly, as for Room's converters.

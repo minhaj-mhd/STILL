@@ -15,6 +15,7 @@ import app.still.launcher.data.history.FocusModePeriod
 import app.still.launcher.data.history.HistoryDao
 import app.still.launcher.data.read.Book
 import app.still.launcher.data.read.ReadDao
+import app.still.launcher.data.read.ReadSeries
 import app.still.launcher.data.read.ReadingSession
 import app.still.launcher.data.history.InterventionRecord
 import app.still.launcher.data.history.UsageAppRecord
@@ -44,7 +45,7 @@ import app.still.launcher.data.productivity.Task
  * 6 added [TaskGate] and [GateEvent]; 7 added [HeldNotification]; 8 added [Choice] and [Keynote];
  * 9 added [Plan] and [Task.planId] and [Task.planDay]; 11 added [UsageDayRecord], [UsageAppRecord],
  * [InterventionRecord] and [FocusModePeriod]; 12 added the daily limit to [UsageDayRecord];
- * 13 added [Book] and [ReadingSession].
+ * 13 added [Book] and [ReadingSession]; 14 added [ReadSeries] and daily reads' columns to [Book].
  */
 @Database(
     entities = [
@@ -52,9 +53,9 @@ import app.still.launcher.data.productivity.Task
         AppBlock::class, BlockingSchedule::class, TaskGate::class, GateEvent::class, HeldNotification::class,
         Choice::class, Keynote::class, Plan::class,
         UsageDayRecord::class, UsageAppRecord::class, InterventionRecord::class, FocusModePeriod::class,
-        Book::class, ReadingSession::class,
+        Book::class, ReadingSession::class, ReadSeries::class,
     ],
-    version = 13,
+    version = 14,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -68,6 +69,7 @@ import app.still.launcher.data.productivity.Task
         AutoMigration(from = 10, to = 11),
         AutoMigration(from = 11, to = 12),
         AutoMigration(from = 12, to = 13),
+        AutoMigration(from = 13, to = 14),
     ],
 )
 @TypeConverters(Converters::class)

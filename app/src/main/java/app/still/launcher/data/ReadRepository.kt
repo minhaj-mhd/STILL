@@ -78,7 +78,7 @@ class ReadRepository(
         }
         val fallbackTitle = name.substringBeforeLast(".").ifBlank { name }
         val book = when (format) {
-            BookFormat.PDF -> pageCountOf(file)?.let { Book(title = fallbackTitle, format = format, fileName = file.name, pageCount = it) }
+            BookFormat.PDF -> pdfPageCount(file)?.let { Book(title = fallbackTitle, format = format, fileName = file.name, pageCount = it) }
             BookFormat.EPUB -> publications.open(file)?.let { publication ->
                 try {
                     Book(
@@ -150,19 +150,21 @@ class ReadRepository(
         if (minutes > logged) productivity.setHabitProgress(habit, occurrence, minutes, viaTimer = true)
     }
 
-    private fun pageCountOf(file: File): Int? = runCatching {
-        ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
-            PdfRenderer(descriptor).use { it.pageCount }
-        }
-    }.getOrNull()
-
-    private companion object {
+    companion object {
+        /** Where books, PDFs and daily reads are kept, inside STILL's own storage. */
         const val BOOKS_FOLDER = "books"
 
-        fun formatOf(mimeType: String?, name: String): BookFormat? = when {
+        private fun formatOf(mimeType: String?, name: String): BookFormat? = when {
             mimeType == "application/pdf" || name.endsWith(".pdf", ignoreCase = true) -> BookFormat.PDF
             mimeType == "application/epub+zip" || name.endsWith(".epub", ignoreCase = true) -> BookFormat.EPUB
             else -> null
         }
     }
 }
+
+/** How many pages the PDF in [file] has, or null if it can't be read. */
+internal fun pdfPageCount(file: File): Int? = runCatching {
+    ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+        PdfRenderer(descriptor).use { it.pageCount }
+    }
+}.getOrNull()
