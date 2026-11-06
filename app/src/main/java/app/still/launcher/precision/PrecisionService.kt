@@ -111,10 +111,14 @@ class PrecisionService : AccessibilityService() {
 
     private fun stop() {
         scope.cancel()
-        if (::container.isInitialized) precision.detach(this)
+        if (::container.isInitialized) {
+            precision.detach(this)
+            container.monochrome.onPrecisionStopped()
+        }
     }
 
     private fun check(packageName: String) {
+        container.monochrome.onFront(packageName)
         val now = Instant.now()
         container.appLimits.onForeground(packageName, now.toEpochMilli())
         val kind = precision.gate.onForeground(packageName, now.toEpochMilli(), ruleFor(packageName, now))

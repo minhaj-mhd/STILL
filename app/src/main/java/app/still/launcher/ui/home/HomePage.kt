@@ -55,7 +55,6 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
@@ -64,7 +63,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -90,6 +88,9 @@ import app.still.launcher.ui.components.formatDuration
 import app.still.launcher.ui.components.holdToDrag
 import app.still.launcher.ui.components.formatTime
 import app.still.launcher.ui.components.rememberCurrentMinute
+import app.still.launcher.ui.components.is24HourTime
+import app.still.launcher.ui.theme.currentAppearance
+import app.still.launcher.ui.theme.fontWeight
 import app.still.launcher.ui.theme.stillPalette
 import java.time.Duration
 import java.time.Instant
@@ -515,7 +516,6 @@ private fun BezelClock(
     onHoldDone: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     val locale = LocalLocale.current.platformLocale
     val now by rememberCurrentMinute()
     val palette = stillPalette
@@ -532,7 +532,9 @@ private fun BezelClock(
         limit?.isWarning == true -> palette.warning
         else -> palette.accent
     }
-    val timePattern = if (DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm"
+    val appearance = currentAppearance
+    val is24Hour = is24HourTime()
+    val timePattern = if (is24Hour) "HH:mm" else "h:mm"
 
     Box(
         contentAlignment = Alignment.Center,
@@ -593,12 +595,26 @@ private fun BezelClock(
         }
         TaskRing(progress, done = palette.accent, overdue = palette.warning, pending = palette.faint, modifier = Modifier.size(TASK_RING_SIZE))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = now.format(DateTimeFormatter.ofPattern(timePattern, locale)),
-                fontSize = 52.sp,
-                fontWeight = FontWeight.Light,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
+            Row {
+                Text(
+                    text = now.format(DateTimeFormatter.ofPattern(timePattern, locale)),
+                    // The clock is sized to its rings, so STILL's text size leaves it as it is.
+                    fontSize = (CLOCK_FONT_SIZE / appearance.textSize.scale).sp,
+                    fontWeight = appearance.clockWeight.fontWeight(),
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.alignByBaseline(),
+                )
+                if (!is24Hour && appearance.clockAmPm) {
+                    Text(
+                        text = now.format(DateTimeFormatter.ofPattern("a", locale)),
+                        fontSize = (AM_PM_FONT_SIZE / appearance.textSize.scale).sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .alignByBaseline()
+                            .padding(start = 4.dp),
+                    )
+                }
+            }
             val heldMillis = (held * holdMillis).toLong()
             if (heldMillis > HOLD_HINT_AFTER_MILLIS) {
                 val secondsLeft = ((holdMillis - heldMillis + 999) / 1000).toInt()
@@ -621,6 +637,8 @@ private fun BezelClock(
 }
 
 private val BEZEL_SIZE = 236.dp
+private const val CLOCK_FONT_SIZE = 52f
+private const val AM_PM_FONT_SIZE = 14f
 private val TASK_RING_SIZE = 172.dp
 private val HOLD_ARC_WIDTH = 4.dp
 

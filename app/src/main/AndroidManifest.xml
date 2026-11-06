@@ -12,6 +12,13 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Daily reads: STILL fetches reads from the person's own Google Drive, read-only. Nothing else goes online. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!--
+        Monochrome turns the screen grey through Android's colour correction. Only the person can
+        allow this, once, from a computer (adb shell pm grant); STILL works the same without it.
+    -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
     <!-- Screen time per app. Special access: the user turns it on under Settings > Usage access. -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"

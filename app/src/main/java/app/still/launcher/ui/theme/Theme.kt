@@ -15,27 +15,49 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import app.still.launcher.data.AccentColor
+import app.still.launcher.data.ClockWeight
+import app.still.launcher.data.FontChoice
+import app.still.launcher.data.TextSize
+import app.still.launcher.data.TimeFormat
 import app.still.launcher.data.LauncherSettings
 import app.still.launcher.data.WallpaperChoice
 import app.still.launcher.data.productivity.PlanColor
 
-/** The user's look: accent and wallpaper, from Customise. */
+/** The user's look from Customise: accent, wallpaper, type and time. */
 @Immutable
 data class Appearance(
     val accent: AccentColor = AccentColor.TEAL,
     val wallpaper: WallpaperChoice = WallpaperChoice.BLACK,
     val wallpaperDim: Float = LauncherSettings.DEFAULT_WALLPAPER_DIM,
+    val font: FontChoice = FontChoice.SYSTEM,
+    val textSize: TextSize = TextSize.DEFAULT,
+    val timeFormat: TimeFormat = TimeFormat.PHONE,
+    val clockAmPm: Boolean = false,
+    val clockWeight: ClockWeight = ClockWeight.LIGHT,
 ) {
     /** Paper is STILL's one light wallpaper; everything else is dark. */
     val isLight: Boolean get() = wallpaper == WallpaperChoice.PAPER
 }
+
+/** The look these settings give. */
+fun LauncherSettings.appearance(): Appearance =
+    Appearance(accent, wallpaper, wallpaperDim, font, textSize, timeFormat, clockAmPm, clockWeight)
+
+/** The look of the [StillTheme] around the caller. */
+val currentAppearance: Appearance
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppearance.current
 
 /** STILL's colours beyond Material's: the accent of the rings and folders, and the tones for warnings and limits. */
 @Immutable
@@ -144,8 +166,12 @@ fun StillTheme(appearance: Appearance = Appearance(), content: @Composable () ->
         faint = if (light) Color(0x292C2C2A) else Color(0x2EF1EFE8),
     )
     val scheme = if (light) PaperScheme else darkScheme(appearance.wallpaper.baseColor())
-    CompositionLocalProvider(LocalStillPalette provides palette, LocalAppearance provides appearance) {
-        MaterialTheme(colorScheme = scheme, content = content)
+    val typography = remember(appearance.font) { typographyIn(fontFamilyOf(appearance.font)) }
+    // STILL's text size scales on top of Android's font size, as if the person had set it there.
+    val density = LocalDensity.current
+    val scaled = remember(density, appearance.textSize) { Density(density.density, density.fontScale * appearance.textSize.scale) }
+    CompositionLocalProvider(LocalStillPalette provides palette, LocalAppearance provides appearance, LocalDensity provides scaled) {
+        MaterialTheme(colorScheme = scheme, typography = typography, content = content)
     }
 }
 

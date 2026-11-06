@@ -69,12 +69,12 @@ import app.still.launcher.ui.focusmode.FocusLockedScreen
 import app.still.launcher.ui.keynote.HomeKeynote
 import app.still.launcher.ui.keynote.KeynoteCard
 import app.still.launcher.ui.keynote.KeynoteViewModel
-import app.still.launcher.ui.keynote.LinkOption
+import app.still.launcher.ui.keynote.linkOptionsOf
 import app.still.launcher.ui.keynote.MomentsSheet
 import app.still.launcher.ui.keynote.QuietChoice
 import app.still.launcher.ui.keynote.QuietMinuteScreen
 import app.still.launcher.ui.keynote.WelcomeBackCard
-import app.still.launcher.data.productivity.ItemType
+import app.still.launcher.ui.keynote.suggestedQualities
 import app.still.launcher.ui.apps.RenameAppDialog
 import app.still.launcher.ui.components.rememberCurrentMinute
 import app.still.launcher.ui.theme.WallpaperBackground
@@ -117,7 +117,7 @@ import java.time.Instant
 private enum class Page { Productivity, Home, Apps }
 
 /** Full-screen views over the pages, opened by swiping up on home. Back goes up this list. */
-private enum class Overlay { INSIGHTS, DAILY_LIMIT, HOME_CUSTOMISE, SETTINGS, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, APP_LIMITS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION, SHORT_VIDEOS, HELD_NOTIFICATIONS }
+private enum class Overlay { INSIGHTS, DAILY_LIMIT, HOME_CUSTOMISE, SETTINGS, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, APP_LIMITS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION, SHORT_VIDEOS, MONOCHROME, HELD_NOTIFICATIONS }
 
 @Composable
 fun StillLauncher(
@@ -195,12 +195,9 @@ fun StillLauncher(
     LaunchedEffect(focus == null) { if (focus == null) welcomeBack = false }
     var changingKeynote by rememberSaveable { mutableStateOf(false) }
     // Today's unfinished tasks and habits, to practise the day's quality with.
-    val linkOptions = remember(agenda) {
-        agenda?.let { today ->
-            (today.overdue + today.today).filter { it.isPending }.map { LinkOption(ItemType.TASK, it.task.id, it.task.title) } +
-                today.habits.filter { it.isPending }.map { LinkOption(ItemType.HABIT, it.habit.id, it.habit.title) }
-        }.orEmpty().distinctBy { it.type to it.id }
-    }
+    val linkOptions = remember(agenda) { linkOptionsOf(agenda) }
+    val ownQualities by keynoteViewModel.ownQualities.collectAsStateWithLifecycle()
+    val suggestedQualities = suggestedQualities()
     // Look apps up by key so an open menu reflects changes (e.g. favorite toggled) immediately.
     val menuApp = state.apps.firstOrNull { it.key == menuAppKey }
     val renameApp = state.apps.firstOrNull { it.key == renameAppKey }
@@ -568,10 +565,12 @@ fun StillLauncher(
                                             initial = if (changingKeynote) keynote.keynote else keynote.previous,
                                             linkOptions = linkOptions,
                                             changing = changingKeynote,
+                                            own = ownQualities,
                                             onStart = { quality, action, link ->
-                                                keynoteViewModel.startDay(quality, action, link)
+                                                keynoteViewModel.startDay(quality, action, link, suggestedQualities)
                                                 changingKeynote = false
                                             },
+                                            onAddOwn = { quality, action -> keynoteViewModel.addOwnQuality(quality, action, suggestedQualities) },
                                             onPutOff = { if (changingKeynote) changingKeynote = false else keynoteViewModel.putOff() },
                                         )
                                     }
@@ -656,7 +655,7 @@ fun StillLauncher(
                 onClose = { overlay = Overlay.INSIGHTS },
             )
             Overlay.SETTINGS, Overlay.CUSTOMISE, Overlay.HIDDEN_APPS, Overlay.BLOCKED_APPS, Overlay.APP_LIMITS, Overlay.SCHEDULES, Overlay.GATES,
-            Overlay.NOTIFICATION_FILTER, Overlay.PRECISION, Overlay.SHORT_VIDEOS -> SettingsScreen(
+            Overlay.NOTIFICATION_FILTER, Overlay.PRECISION, Overlay.SHORT_VIDEOS, Overlay.MONOCHROME -> SettingsScreen(
                 page = when (current) {
                     Overlay.CUSTOMISE -> SettingsPage.CUSTOMISE
                     Overlay.HIDDEN_APPS -> SettingsPage.HIDDEN_APPS
@@ -667,6 +666,7 @@ fun StillLauncher(
                     Overlay.NOTIFICATION_FILTER -> SettingsPage.NOTIFICATION_FILTER
                     Overlay.PRECISION -> SettingsPage.PRECISION
                     Overlay.SHORT_VIDEOS -> SettingsPage.SHORT_VIDEOS
+                    Overlay.MONOCHROME -> SettingsPage.MONOCHROME
                     else -> SettingsPage.MAIN
                 },
                 onNavigate = { page ->
@@ -681,6 +681,7 @@ fun StillLauncher(
                         SettingsPage.NOTIFICATION_FILTER -> Overlay.NOTIFICATION_FILTER
                         SettingsPage.PRECISION -> Overlay.PRECISION
                         SettingsPage.SHORT_VIDEOS -> Overlay.SHORT_VIDEOS
+                        SettingsPage.MONOCHROME -> Overlay.MONOCHROME
                     }
                 },
                 onClose = { overlay = Overlay.INSIGHTS },

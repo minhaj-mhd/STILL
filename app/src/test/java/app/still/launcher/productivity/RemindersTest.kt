@@ -110,4 +110,11 @@ class RemindersTest {
         assertNull(nextReminderAt(noon, emptyList(), listOf(swim), emptyList()))
         assertNull(nextReminderAt(LocalDateTime.MIN.plusYears(1), emptyList(), emptyList(), emptyList()))
     }
+
+    @Test
+    fun `a task skipped for the day doesn't remind that day`() {
+        val revise = Task(id = 7, title = "Revise", schedule = Schedule(today, times = listOf(time(18))), skippedOn = today)
+        assertNull(nextReminderAt(noon, listOf(revise), emptyList(), emptyList()))
+        assertEquals(today.atTime(18, 0), nextReminderAt(noon, listOf(revise.copy(skippedOn = null)), emptyList(), emptyList()))
+    }
 }

@@ -1,22 +1,50 @@
 package app.still.launcher.ui.components
 
+import android.content.Context
 import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import app.still.launcher.R
+import app.still.launcher.data.TimeFormat
+import app.still.launcher.ui.theme.currentAppearance
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
+import java.util.Locale
 
-/** "08:00" or "8:00 AM", following the phone's locale. */
+/** "18:04" or "6:04 pm": 12- or 24-hour as chosen in Customise, written the locale's way. */
 @Composable
-fun formatTime(time: LocalTime): String =
-    time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(LocalLocale.current.platformLocale))
+fun formatTime(time: LocalTime): String = time.format(timeFormatter(is24HourTime(), LocalLocale.current.platformLocale))
+
+/** Whether STILL shows 24-hour time here. */
+@Composable
+fun is24HourTime(): Boolean = uses24Hour(LocalContext.current, currentAppearance.timeFormat)
+
+/** Whether [format] means 24-hour time; [TimeFormat.PHONE] asks Android. */
+fun uses24Hour(context: Context, format: TimeFormat): Boolean = when (format) {
+    TimeFormat.PHONE -> DateFormat.is24HourFormat(context)
+    TimeFormat.H24 -> true
+    TimeFormat.H12 -> false
+}
+
+/** Hours and minutes, 12- or 24-hour, in [locale]'s order and marks. */
+fun timeFormatter(is24Hour: Boolean, locale: Locale): DateTimeFormatter =
+    DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, if (is24Hour) "Hm" else "hm"), locale)
+
+/** STILL's time format for text outside Compose, such as notifications; kept in step with settings. */
+object TimeFormats {
+    @Volatile
+    var choice: TimeFormat = TimeFormat.PHONE
+
+    /** [at]'s time of day in the phone's zone. */
+    fun format(context: Context, at: Instant): String =
+        at.atZone(ZoneId.systemDefault()).toLocalTime().format(timeFormatter(uses24Hour(context, choice), Locale.getDefault()))
+}
 
 /** "Fri 23 Oct", in the phone's locale order. */
 @Composable

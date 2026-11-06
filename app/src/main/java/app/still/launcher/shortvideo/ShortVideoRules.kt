@@ -1,9 +1,10 @@
 package app.still.launcher.shortvideo
 
 /**
- * One app's short-video player, spotted by the ids of views only that full-screen player has, and
- * the same videos on the web, spotted by their address. These come from the apps' and sites'
- * current versions and can change when they update.
+ * One app's short-video player, spotted by the ids of views only that full-screen player has (or
+ * by the app's own short-video tab being the selected one), and the same videos on the web,
+ * spotted by their address. These come from the apps' and sites' current versions and can change
+ * when they update.
  */
 data class ShortVideoRule(
     /** Saved in settings to say the rule is on. */
@@ -25,6 +26,11 @@ data class ShortVideoRule(
      * own element ids on, so the player can be spotted while the address bar is hidden.
      */
     val webPlayerIds: List<String>,
+    /**
+     * View ids of the app's own tab for short videos, for an app that hides its player's ids:
+     * while that tab is the selected one, short videos are showing.
+     */
+    val tabViewIds: List<String> = emptyList(),
 )
 
 val YOUTUBE_SHORTS = ShortVideoRule(
@@ -51,7 +57,21 @@ val INSTAGRAM_REELS = ShortVideoRule(
     webPlayerIds = listOf("clipsoverlay"),
 )
 
-val SHORT_VIDEO_RULES = listOf(YOUTUBE_SHORTS, INSTAGRAM_REELS)
+val SNAPCHAT_SPOTLIGHT = ShortVideoRule(
+    id = "snapchat_spotlight",
+    packages = setOf("com.snapchat.android"),
+    resourcePackage = "com.snapchat.android",
+    // Snapchat hides its player's view ids, but its bottom bar keeps them: Spotlight is showing
+    // while its tab is the selected one.
+    playerViewIds = emptyList(),
+    webHosts = setOf("snapchat.com"),
+    webPaths = setOf("spotlight"),
+    webHome = "https://www.snapchat.com/",
+    webPlayerIds = emptyList(),
+    tabViewIds = listOf("ngs_spotlight_icon_container"),
+)
+
+val SHORT_VIDEO_RULES = listOf(YOUTUBE_SHORTS, INSTAGRAM_REELS, SNAPCHAT_SPOTLIGHT)
 
 fun shortVideoRuleFor(packageName: String): ShortVideoRule? = SHORT_VIDEO_RULES.firstOrNull { packageName in it.packages }
 
@@ -65,6 +85,10 @@ data class SeenView(val id: String, val heightShare: Float)
 fun showsShortVideo(rule: ShortVideoRule, views: Collection<SeenView>): Boolean = views.any {
     it.id.substringAfter(":id/", missingDelimiterValue = "") in rule.playerViewIds && it.heightShare >= MIN_PLAYER_SHARE
 }
+
+/** Whether the selected tabs, by full id ("package:id/name"), include [rule]'s short-video tab. */
+fun onShortVideoTab(rule: ShortVideoRule, selectedTabIds: Collection<String>): Boolean =
+    selectedTabIds.any { it.substringAfter(":id/", missingDelimiterValue = "") in rule.tabViewIds }
 
 /** A web address as far as the rules care: its host and the first part of its path, both lower case. */
 data class WebPlace(val host: String, val firstPath: String)

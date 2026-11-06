@@ -15,6 +15,10 @@ import app.still.launcher.blocking.TabOwners
 import app.still.launcher.blocking.activeBlock
 import app.still.launcher.blocking.scheduledBlocks
 import app.still.launcher.data.AccentColor
+import app.still.launcher.data.ClockWeight
+import app.still.launcher.data.FontChoice
+import app.still.launcher.data.TextSize
+import app.still.launcher.data.TimeFormat
 import app.still.launcher.data.AppDisplay
 import app.still.launcher.data.AppIcons
 import app.still.launcher.data.AppRepository
@@ -64,6 +68,7 @@ import app.still.launcher.precision.Intervention
 import app.still.launcher.precision.PrecisionMode
 import app.still.launcher.reminders.AppTimeReminders
 import app.still.launcher.ui.theme.Appearance
+import app.still.launcher.ui.theme.appearance
 import app.still.launcher.util.EssentialApps
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -316,7 +321,7 @@ class LauncherViewModel(
 
     /** Accent and wallpaper, for the theme around everything. */
     val appearance: StateFlow<Appearance> = preferences.settings
-        .map { Appearance(it.accent, it.wallpaper, it.wallpaperDim) }
+        .map { it.appearance() }
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Eagerly, Appearance())
 
@@ -523,6 +528,26 @@ class LauncherViewModel(
 
     fun setWallpaperDim(dim: Float) {
         viewModelScope.launch { preferences.setWallpaperDim(dim) }
+    }
+
+    fun setFont(font: FontChoice) {
+        viewModelScope.launch { preferences.setFont(font) }
+    }
+
+    fun setTextSize(size: TextSize) {
+        viewModelScope.launch { preferences.setTextSize(size) }
+    }
+
+    fun setTimeFormat(format: TimeFormat) {
+        viewModelScope.launch { preferences.setTimeFormat(format) }
+    }
+
+    fun setClockAmPm(shown: Boolean) {
+        viewModelScope.launch { preferences.setClockAmPm(shown) }
+    }
+
+    fun setClockWeight(weight: ClockWeight) {
+        viewModelScope.launch { preferences.setClockWeight(weight) }
     }
 
     /** Android's wallpaper picker; on a Pixel, Wallpaper and style. */

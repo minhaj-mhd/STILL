@@ -29,6 +29,7 @@ import app.still.launcher.data.NotesRepository
 import app.still.launcher.data.PracticeRepository
 import app.still.launcher.data.ProductivityRepository
 import app.still.launcher.data.StillDatabase
+import app.still.launcher.monochrome.Monochrome
 import app.still.launcher.precision.PrecisionMode
 import app.still.launcher.reminders.AppTimeReminders
 import app.still.launcher.reminders.ReminderScheduler
@@ -77,4 +78,5 @@ class AppContainer(context: Context) {
     val appLimits = AppLimitMonitor(context, preferences, dailyLimit, appTimeReminders, precisionMode, practiceRepository, focusTimer, applicationScope)
     val notificationFilter = NotificationFilter(context, database.heldNotificationDao(), preferences, essentialApps, applicationScope)
     val shortVideos = ShortVideoBlocker(context, preferences, applicationScope)
+    val monochrome = Monochrome(context, preferences, essentialApps, applicationScope)
 }

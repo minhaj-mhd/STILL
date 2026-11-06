@@ -1,6 +1,5 @@
 package app.still.launcher.ui.components
 
-import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,7 +19,6 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -55,14 +53,14 @@ fun DatePickerDialog(initial: LocalDate, onDismiss: () -> Unit, onPick: (LocalDa
     }
 }
 
-/** Material clock picker that speaks [LocalTime], in the phone's 12/24-hour setting. */
+/** Material clock picker that speaks [LocalTime], in STILL's 12- or 24-hour time. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimePickerDialog(initial: LocalTime, onDismiss: () -> Unit, onPick: (LocalTime) -> Unit) {
     val state = rememberTimePickerState(
         initialHour = initial.hour,
         initialMinute = initial.minute,
-        is24Hour = DateFormat.is24HourFormat(LocalContext.current),
+        is24Hour = is24HourTime(),
     )
     AlertDialog(
         onDismissRequest = onDismiss,

@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 
 /** Small grey heading above a group of choices. */
@@ -33,7 +34,8 @@ fun ChipRow(content: @Composable () -> Unit) {
     }
 }
 
+/** A choice; [fontFamily] shows its label in a font, as when choosing one. */
 @Composable
-fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(selected = selected, onClick = onClick, label = { Text(text) })
+fun Chip(text: String, selected: Boolean, fontFamily: FontFamily? = null, onClick: () -> Unit) {
+    FilterChip(selected = selected, onClick = onClick, label = { Text(text, fontFamily = fontFamily) })
 }

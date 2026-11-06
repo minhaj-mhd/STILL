@@ -81,7 +81,7 @@ private fun reminderCandidates(
                 .map { it.toOccurrence() }
                 .toSet()
             schedule.occurrencesBetween(after.toLocalDate(), until.toLocalDate())
-                .filter { includeHandled || it !in handled }
+                .filter { includeHandled || (it !in handled && it.date != task.skippedOn) }
                 .mapNotNull { occurrence ->
                     occurrence.time?.let { time ->
                         Reminder(ItemType.TASK, task.id, task.title, occurrence, occurrence.date.atTime(time), canMarkDone = true)

@@ -26,10 +26,11 @@ import java.io.File
 import java.time.LocalTime
 
 /**
- * The short-video service. Android sends it events from YouTube, Instagram and the browsers only
- * (see res/xml/short_video_service.xml). In the apps it looks for the Shorts or Reels player by
- * view id and goes back when one fills the screen; in a browser it reads the address bar and opens
- * the site's home page instead of a Shorts or Reels page. It keeps nothing.
+ * The short-video service. Android sends it events from YouTube, Instagram, Snapchat and the
+ * browsers only (see res/xml/short_video_service.xml). In the apps it looks for the Shorts or Reels
+ * player by view id and goes back when one fills the screen, or while Snapchat's Spotlight tab is
+ * the selected one; in a browser it reads the address bar and opens the site's home page instead of
+ * a short-video page. It keeps nothing.
  */
 class ShortVideoService : AccessibilityService() {
 
@@ -123,9 +124,78 @@ class ShortVideoService : AccessibilityService() {
     }
 
     private fun checkApp(root: AccessibilityNodeInfo, packageName: String, rule: ShortVideoRule) {
-        if (BuildConfig.DEBUG) note(packageName, visibleIds(root, PLAYER_LIKE).sorted().toString() + probeShares(root, packageName, rule))
-        if (!showsShortVideo(rule, seenPlayerViews(root, packageName, rule))) return
+        if (BuildConfig.DEBUG) {
+            // An app whose player isn't known yet has all its view ids noted, to find it. Ids with
+            // more than letters, digits and _ in them can carry names people chose, e.g. Snapchat's
+            // chat-list filters, so an app spotted by its tab only has the plain ones noted.
+            val like = when {
+                rule.tabViewIds.isNotEmpty() -> PLAIN_ID
+                rule.playerViewIds.isEmpty() -> ANY_ID
+                else -> PLAYER_LIKE
+            }
+            note(
+                packageName,
+                visibleIds(root, like).map { it.substringAfter(":id/") }.sorted().take(if (like == PLAYER_LIKE) MAX_PROBE_IDS else MAX_NOTED_IDS).toString() +
+                    probeShares(root, packageName, rule) + probeTabs(root, rule),
+            )
+        }
+        val showing = showsShortVideo(rule, seenPlayerViews(root, packageName, rule)) ||
+            onShortVideoTab(rule, selectedTabs(root, packageName, rule))
+        if (!showing) return
         leave(packageName, rule) { performGlobalAction(GLOBAL_ACTION_BACK) }
+    }
+
+    /** The full ids of [rule]'s short-video tabs that are on screen and selected. */
+    private fun selectedTabs(root: AccessibilityNodeInfo, packageName: String, rule: ShortVideoRule): List<String> =
+        listOf(packageName, rule.resourcePackage).distinct().flatMap { pkg ->
+            rule.tabViewIds.map { "$pkg:id/$it" }.filter { id ->
+                root.findAccessibilityNodeInfosByViewId(id).any { it.isVisibleToUser && isSelectedWithin(it, 0) }
+            }
+        }
+
+    /** A tab marks itself selected on its own view or on one inside it, such as its icon. */
+    private fun isSelectedWithin(node: AccessibilityNodeInfo, depth: Int): Boolean =
+        node.isSelected || (depth < MAX_TAB_DEPTH && (0 until node.childCount).any { i -> node.getChild(i)?.let { isSelectedWithin(it, depth + 1) } == true })
+
+    /**
+     * Debug builds: how each of the app's tabs is built, to find what sets the open one apart when
+     * Android isn't told it's selected: its views' kinds, labels, flags and sizes.
+     */
+    private fun probeTabs(root: AccessibilityNodeInfo, rule: ShortVideoRule): String {
+        if (rule.tabViewIds.isEmpty()) return ""
+        val tabs = ArrayList<String>()
+        fun visit(node: AccessibilityNodeInfo, depth: Int) {
+            if (depth > MAX_LOG_DEPTH || !node.isVisibleToUser) return
+            val id = node.viewIdResourceName?.substringAfter(":id/")
+            if (id != null && TAB_LIKE.containsMatchIn(id)) {
+                tabs += "${id.removePrefix("ngs_").removeSuffix("_icon_container")}{${describeTab(node, 0)}}"
+                return
+            }
+            for (i in 0 until node.childCount) node.getChild(i)?.let { visit(it, depth + 1) }
+        }
+        visit(root, 0)
+        return " tabs=$tabs"
+    }
+
+    private fun describeTab(node: AccessibilityNodeInfo, depth: Int): String {
+        val bounds = Rect().also(node::getBoundsInScreen)
+        val density = resources.displayMetrics.density
+        val parts = buildList {
+            add(node.className?.toString()?.substringAfterLast('.') ?: "?")
+            if (depth > 0) node.viewIdResourceName?.substringAfter(":id/")?.let { add("id=$it") }
+            node.contentDescription?.let { add("desc=$it") }
+            node.text?.let { add("text=$it") }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) node.stateDescription?.let { add("state=$it") }
+            if (node.isSelected) add("selected")
+            if (node.isCheckable) add(if (node.isChecked) "checked" else "uncheckable")
+            if (node.isFocused) add("focused")
+            if (!node.isEnabled) add("disabled")
+            add("${(bounds.width() / density).toInt()}x${(bounds.height() / density).toInt()}dp")
+        }
+        val kids = if (depth >= MAX_TAB_DEPTH) emptyList() else (0 until node.childCount).mapNotNull { i ->
+            node.getChild(i)?.takeIf { it.isVisibleToUser }?.let { describeTab(it, depth + 1) }
+        }
+        return parts.joinToString(" ") + if (kids.isEmpty()) "" else kids.joinToString(", ", " [", "]")
     }
 
     private fun checkBrowser(root: AccessibilityNodeInfo, browser: BrowserRule) {
@@ -324,12 +394,17 @@ class ShortVideoService : AccessibilityService() {
             AccessibilityEvent.CONTENT_CHANGE_TYPE_PANE_DISAPPEARED
         const val MAX_LOG_DEPTH = 40
         val PLAYER_LIKE = Regex("reel|clips|short", RegexOption.IGNORE_CASE)
+        val ANY_ID = Regex(".")
+        val TAB_LIKE = Regex("_icon_container$")
+        val PLAIN_ID = Regex(":id/\\w+$")
+        const val MAX_TAB_DEPTH = 4
         val BROWSER_LIKE = Regex("url|address|toolbar|omnibox|location", RegexOption.IGNORE_CASE)
         val WEB_LIKE = Regex("short|reel|clips|player|video", RegexOption.IGNORE_CASE)
         val SHORT_WORDS = Regex("\\b(shorts|reels?)\\b", RegexOption.IGNORE_CASE)
-        val PROBE_IDS = listOf("clips_items_view", "clips_container", "reel_recycler")
+        val PROBE_IDS = listOf("clips_items_view", "clips_container", "reel_recycler", "favorite")
         const val WEB_VIEW_CLASS = "android.webkit.WebView"
         const val MAX_PROBE_IDS = 40
+        const val MAX_NOTED_IDS = 150
         const val PROBE_ID_CHARS = 24
 
         /** How often a browser's page is looked through for a player while the address bar is hidden. */

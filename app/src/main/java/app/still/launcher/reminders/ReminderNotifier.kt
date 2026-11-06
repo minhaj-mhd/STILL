@@ -6,16 +6,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import android.text.format.DateFormat
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import app.still.launcher.MainActivity
 import app.still.launcher.R
+import app.still.launcher.ui.components.TimeFormats
 import app.still.launcher.productivity.Reminder
 import java.time.ZoneId
-import java.util.Date
 
 /** Posts and clears reminder notifications. */
 class ReminderNotifier(private val context: Context) {
@@ -46,7 +45,7 @@ class ReminderNotifier(private val context: Context) {
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(reminder.title)
-            .setContentText(context.getString(R.string.reminder_due_at, DateFormat.getTimeFormat(context).format(Date.from(dueAt))))
+            .setContentText(context.getString(R.string.reminder_due_at, TimeFormats.format(context, dueAt)))
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setWhen(dueAt.toEpochMilli())

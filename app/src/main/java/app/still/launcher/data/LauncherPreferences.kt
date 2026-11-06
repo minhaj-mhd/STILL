@@ -12,6 +12,9 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import app.still.launcher.focus.FocusSession
+import app.still.launcher.keynote.OwnQuality
+import app.still.launcher.keynote.withOwnQuality
+import app.still.launcher.keynote.withoutOwnQuality
 import app.still.launcher.limit.AppLimitEntry
 import app.still.launcher.limit.AppVisit
 import app.still.launcher.limit.LimitSettings
@@ -73,6 +76,22 @@ data class LauncherSettings(
     val wallpaper: WallpaperChoice = WallpaperChoice.BLACK,
     /** How much the phone's wallpaper is darkened behind home, 0 to [MAX_WALLPAPER_DIM]. */
     val wallpaperDim: Float = DEFAULT_WALLPAPER_DIM,
+    /** STILL's typeface, from Customise. */
+    val font: FontChoice = FontChoice.SYSTEM,
+    /** STILL's text size, on top of Android's own font size. */
+    val textSize: TextSize = TextSize.DEFAULT,
+    /** 12- or 24-hour time everywhere in STILL; [TimeFormat.PHONE] follows Android's own setting. */
+    val timeFormat: TimeFormat = TimeFormat.PHONE,
+    /** The home clock shows am or pm in 12-hour time. */
+    val clockAmPm: Boolean = false,
+    val clockWeight: ClockWeight = ClockWeight.LIGHT,
+    /** Monochrome: the screen turns grey while one of these apps is open, when [monochromeForApps] is on. */
+    val monochromeApps: Set<String> = emptySet(),
+    val monochromeForApps: Boolean = true,
+    /** Monochrome: the screen is grey throughout focus mode. */
+    val monochromeForFocus: Boolean = true,
+    /** How colour correction was set before STILL turned the screen grey, to put back after; null while it hasn't. */
+    val monochromeRestore: String? = null,
     /** Each app's own limits, by package. */
     val appLimits: Map<String, AppLimitEntry> = emptyMap(),
     /** Inner practice: a quality for the day on home, with a mark each time it's practised. */
@@ -83,6 +102,8 @@ data class LauncherSettings(
     val askWhyOn: Boolean = true,
     /** The day the morning quality card was put off, so it doesn't ask again that day. */
     val keynotePutOffOn: LocalDate? = null,
+    /** Qualities you added yourself, in the order you added them, offered next to the suggestions. */
+    val ownQualities: List<OwnQuality> = emptyList(),
     /** When focus mode started, in epoch milliseconds; null while it's off. */
     val focusModeSince: Long? = null,
     /** Short-video rules (by id) switched off; the rest block while the service is on. */
@@ -164,11 +185,21 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
                 accent = enumOr(prefs[ACCENT], AccentColor.TEAL),
                 wallpaper = enumOr(prefs[WALLPAPER], WallpaperChoice.BLACK),
                 wallpaperDim = prefs[WALLPAPER_DIM] ?: LauncherSettings.DEFAULT_WALLPAPER_DIM,
+                font = enumOr(prefs[FONT], FontChoice.SYSTEM),
+                textSize = enumOr(prefs[TEXT_SIZE], TextSize.DEFAULT),
+                timeFormat = enumOr(prefs[TIME_FORMAT], TimeFormat.PHONE),
+                clockAmPm = prefs[CLOCK_AM_PM] ?: false,
+                clockWeight = enumOr(prefs[CLOCK_WEIGHT], ClockWeight.LIGHT),
+                monochromeApps = prefs[MONOCHROME_APPS] ?: emptySet(),
+                monochromeForApps = prefs[MONOCHROME_FOR_APPS] ?: true,
+                monochromeForFocus = prefs[MONOCHROME_FOR_FOCUS] ?: true,
+                monochromeRestore = prefs[MONOCHROME_RESTORE],
                 appLimits = prefs[APP_LIMITS]?.let(::decodeAppLimits) ?: emptyMap(),
                 dailyQuality = prefs[DAILY_QUALITY] ?: true,
                 unlocksOnHome = prefs[UNLOCKS_ON_HOME] ?: true,
                 askWhyOn = prefs[ASK_WHY_ON] ?: true,
                 keynotePutOffOn = prefs[KEYNOTE_PUT_OFF_ON]?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+                ownQualities = prefs.ownQualities(),
                 focusModeSince = prefs[FOCUS_MODE_SINCE],
                 shortVideoRulesOff = prefs[SHORT_VIDEO_RULES_OFF] ?: emptySet(),
                 readGoalMinutes = prefs[READ_GOAL_MINUTES] ?: 0,
@@ -248,6 +279,42 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setWallpaperDim(dim: Float) {
         dataStore.edit { prefs -> prefs[WALLPAPER_DIM] = dim.coerceIn(0f, LauncherSettings.MAX_WALLPAPER_DIM) }
+    }
+
+    suspend fun setFont(font: FontChoice) {
+        dataStore.edit { prefs -> prefs[FONT] = font.name }
+    }
+
+    suspend fun setTextSize(size: TextSize) {
+        dataStore.edit { prefs -> prefs[TEXT_SIZE] = size.name }
+    }
+
+    suspend fun setTimeFormat(format: TimeFormat) {
+        dataStore.edit { prefs -> prefs[TIME_FORMAT] = format.name }
+    }
+
+    suspend fun setClockAmPm(shown: Boolean) {
+        dataStore.edit { prefs -> prefs[CLOCK_AM_PM] = shown }
+    }
+
+    suspend fun setClockWeight(weight: ClockWeight) {
+        dataStore.edit { prefs -> prefs[CLOCK_WEIGHT] = weight.name }
+    }
+
+    suspend fun setMonochromeApps(packages: Set<String>) {
+        dataStore.edit { prefs -> prefs[MONOCHROME_APPS] = packages }
+    }
+
+    suspend fun setMonochromeForApps(on: Boolean) {
+        dataStore.edit { prefs -> prefs[MONOCHROME_FOR_APPS] = on }
+    }
+
+    suspend fun setMonochromeForFocus(on: Boolean) {
+        dataStore.edit { prefs -> prefs[MONOCHROME_FOR_FOCUS] = on }
+    }
+
+    suspend fun setMonochromeRestore(restore: String?) {
+        dataStore.edit { prefs -> if (restore == null) prefs.remove(MONOCHROME_RESTORE) else prefs[MONOCHROME_RESTORE] = restore }
     }
 
     private fun Preferences.folders(): List<AppFolder> = this[FOLDERS]?.let { text ->
@@ -354,6 +421,29 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setKeynotePutOff(day: LocalDate) {
         dataStore.edit { prefs -> prefs[KEYNOTE_PUT_OFF_ON] = day.toString() }
+    }
+
+    /** Keeps [quality] and its [action] among your own, unless it's one of the [suggested] ones. */
+    suspend fun keepOwnQuality(quality: String, action: String, suggested: Collection<String>) {
+        dataStore.edit { prefs -> prefs.setOwnQualities(withOwnQuality(prefs.ownQualities(), quality, action, suggested)) }
+    }
+
+    suspend fun removeOwnQuality(quality: String) {
+        dataStore.edit { prefs -> prefs.setOwnQualities(withoutOwnQuality(prefs.ownQualities(), quality)) }
+    }
+
+    private fun Preferences.ownQualities(): List<OwnQuality> = this[OWN_QUALITIES]?.let { text ->
+        try {
+            json.decodeFromString(ownQualitiesSerializer, text)
+        } catch (e: SerializationException) {
+            null
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    } ?: emptyList()
+
+    private fun MutablePreferences.setOwnQualities(own: List<OwnQuality>) {
+        this[OWN_QUALITIES] = json.encodeToString(ownQualitiesSerializer, own)
     }
 
     /** Limits saved by a different app version that can't be read fall back to none. */
@@ -540,12 +630,22 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val ACCENT = stringPreferencesKey("accent")
         val WALLPAPER = stringPreferencesKey("wallpaper")
         val WALLPAPER_DIM = floatPreferencesKey("wallpaperDim")
+        val FONT = stringPreferencesKey("font")
+        val TEXT_SIZE = stringPreferencesKey("textSize")
+        val TIME_FORMAT = stringPreferencesKey("timeFormat")
+        val CLOCK_AM_PM = booleanPreferencesKey("clockAmPm")
+        val CLOCK_WEIGHT = stringPreferencesKey("clockWeight")
+        val MONOCHROME_APPS = stringSetPreferencesKey("monochromeApps")
+        val MONOCHROME_FOR_APPS = booleanPreferencesKey("monochromeForApps")
+        val MONOCHROME_FOR_FOCUS = booleanPreferencesKey("monochromeForFocus")
+        val MONOCHROME_RESTORE = stringPreferencesKey("monochromeRestore")
         val APP_LIMITS = stringPreferencesKey("appLimits")
         val APP_VISITS = stringPreferencesKey("appVisits")
         val DAILY_QUALITY = booleanPreferencesKey("dailyQuality")
         val UNLOCKS_ON_HOME = booleanPreferencesKey("unlocksOnHome")
         val ASK_WHY_ON = booleanPreferencesKey("askWhyOn")
         val KEYNOTE_PUT_OFF_ON = stringPreferencesKey("keynotePutOffOn")
+        val OWN_QUALITIES = stringPreferencesKey("ownQualities")
         val FOCUS_MODE_SINCE = longPreferencesKey("focusModeSince")
         val SHORT_VIDEO_RULES_OFF = stringSetPreferencesKey("shortVideoRulesOff")
         val READ_GOAL_MINUTES = intPreferencesKey("readGoalMinutes")
@@ -563,6 +663,7 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val visitsSerializer: KSerializer<Map<String, AppVisit>> = MapSerializer(String.serializer(), AppVisit.serializer())
         // Typed explicitly, as for Room's converters.
         val foldersSerializer: KSerializer<List<AppFolder>> = ListSerializer(AppFolder.serializer())
+        val ownQualitiesSerializer: KSerializer<List<OwnQuality>> = ListSerializer(OwnQuality.serializer())
         val NOTIFICATION_FILTER_ON = booleanPreferencesKey("notificationFilterOn")
         val NOTIFICATION_ALLOWED_PACKAGES = stringSetPreferencesKey("notificationAllowedPackages")
         val NOTIFICATION_COUNT_SHOWN = booleanPreferencesKey("notificationCountShown")

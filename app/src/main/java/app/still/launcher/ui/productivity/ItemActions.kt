@@ -52,8 +52,9 @@ fun TaskActionsSheet(
     if (!confirmSkip && !(confirmDelete && locks.isNotEmpty())) {
         ActionsSheet(title = entry.task.title, onDismiss = onDismiss) {
             ActionRow(stringResource(R.string.item_edit), onEdit)
-            // Only recurring occurrences can be skipped; a one-time task is either done or still due.
-            if (entry.occurrence != null && entry.task.schedule?.isRecurring == true && !entry.isDone) {
+            // Recurring occurrences and plan days can be skipped; any other one-time task is either done or still due.
+            val skippable = entry.task.schedule?.isRecurring == true || entry.task.planDay != null
+            if (entry.occurrence != null && skippable && !entry.isDone) {
                 if (entry.isSkipped) ActionRow(stringResource(R.string.item_unskip)) { onSetSkipped(false) }
                 else ActionRow(stringResource(R.string.item_skip_today)) { if (locks.isEmpty()) onSetSkipped(true) else confirmSkip = true }
             }
@@ -61,7 +62,13 @@ fun TaskActionsSheet(
         }
     }
     if (confirmSkip) {
-        SkipItemConfirm(name = entry.task.title, locks = locks, onDismiss = onDismiss, onConfirm = { onSetSkipped(true) })
+        val day = entry.task.planDay
+        SkipItemConfirm(
+            name = if (day != null) stringResource(R.string.plan_day, day) else entry.task.title,
+            locks = locks,
+            onDismiss = onDismiss,
+            onConfirm = { onSetSkipped(true) },
+        )
     }
     if (confirmDelete) {
         DeleteItemConfirm(

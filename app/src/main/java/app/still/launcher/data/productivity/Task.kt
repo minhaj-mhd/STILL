@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 import app.still.launcher.schedule.MissedPolicy
 import app.still.launcher.schedule.Schedule
 import java.time.Instant
+import java.time.LocalDate
 
 /** How much a task or habit matters. Task gates can block apps by priority (see docs/task-gated-blocking.md). */
 enum class Priority { NONE, LOW, MEDIUM, HIGH }
@@ -36,4 +37,9 @@ data class Task(
     val planId: Long? = null,
     /** Which day of its plan, from 1. [schedule] holds the date it was planned for; where it's due now comes from the plan. */
     val planDay: Int? = null,
+    /**
+     * The day a plan task was skipped. In a plan that moves along it waits until the next day; in
+     * one that keeps its dates it's let go, neither done nor overdue.
+     */
+    val skippedOn: LocalDate? = null,
 )

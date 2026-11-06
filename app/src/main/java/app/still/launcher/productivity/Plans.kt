@@ -48,6 +48,9 @@ class PlanCalendar(val start: LocalDate, weekdays: Int, private val pauses: List
             count++
         }
     }
+
+    /** The first open date on or after [date]; null when a pause that hasn't ended comes first. */
+    fun openFrom(date: LocalDate): LocalDate? = date(countBefore(date) + 1)
 }
 
 /** One day of a plan as it stands. */
@@ -59,6 +62,8 @@ data class PlanDay(
     val due: LocalDate?,
     /** When its last task was done, once all of them are. */
     val finishedOn: LocalDate?,
+    /** Skipped in a plan that keeps its dates: let go, neither done nor overdue. */
+    val excused: Boolean = false,
 ) {
     val isFinished: Boolean get() = finishedOn != null
 
@@ -86,8 +91,8 @@ data class PlanProgress(
     /** The highest day number; days without tasks in between are rest days. */
     val length: Int get() = days.lastOrNull()?.number ?: 0
 
-    /** The first day not finished yet. */
-    val current: PlanDay? get() = days.firstOrNull { !it.isFinished }
+    /** The first day not finished yet, nor let go. */
+    val current: PlanDay? get() = days.firstOrNull { !it.isFinished && !it.excused }
     val daysDone: Int get() = days.count { it.isFinished }
     val daysOnTime: Int get() = days.count { it.isFinished && !it.isLate }
     val tasksDone: Int get() = days.sumOf { day -> day.tasks.count { it.completedAt != null } }
@@ -112,6 +117,9 @@ data class PlanProgress(
  * moves the later days by as much; and finishing early catches up days the plan had slipped by,
  * though never earlier than first planned. A day only counts as finished once all its tasks are.
  * When the plan keeps its dates, every day stays on its own date and goes overdue if missed.
+ *
+ * A day skipped today waits until tomorrow when the plan moves along, taking the later days with
+ * it; when the plan keeps its dates, a skipped day is let go and never goes overdue.
  */
 fun planProgress(plan: Plan, tasks: List<Task>, today: LocalDate, zone: ZoneId = ZoneId.systemDefault()): PlanProgress {
     val own = tasks.filter { it.planId == plan.id && it.isPlanned }
@@ -125,15 +133,19 @@ fun planProgress(plan: Plan, tasks: List<Task>, today: LocalDate, zone: ZoneId =
             ?.maxOf { it.completedAt!!.atZone(zone).toLocalDate() }
         when {
             !plan.movesAlong -> {
-                if (finishedOn == null && slot != null && slot < today) overdue++
-                PlanDay(number, dayTasks, slot.takeUnless { finishedOn == null && plan.isPaused }, finishedOn)
+                val excused = finishedOn == null && dayTasks.all { it.completedAt != null || it.skippedOn != null }
+                if (finishedOn == null && !excused && slot != null && slot < today) overdue++
+                PlanDay(number, dayTasks, slot.takeUnless { finishedOn == null && plan.isPaused }, finishedOn, excused)
             }
             finishedOn != null -> {
                 if (settled) shift = maxOf(0, calendar.countBefore(finishedOn.plusDays(1)) - number)
                 PlanDay(number, dayTasks, slot, finishedOn)
             }
             else -> {
-                val due = slot?.let { maxOf(it, today) }?.takeUnless { plan.isPaused }
+                val skippedToday = dayTasks.any { it.completedAt == null && it.skippedOn == today }
+                // Skipped today, it waits for the plan's next open date, so a weekday plan skipped on Friday comes back on Monday.
+                val earliest = if (skippedToday) calendar.openFrom(today.plusDays(1)) ?: today.plusDays(1) else today
+                val due = slot?.let { maxOf(it, earliest) }?.takeUnless { plan.isPaused }
                 if (settled && due != null) shift = maxOf(shift, calendar.countBefore(due.plusDays(1)) - number)
                 settled = false
                 PlanDay(number, dayTasks, due, finishedOn = null)
@@ -162,15 +174,21 @@ fun List<Task>.withPlanDates(plans: List<Plan>, today: LocalDate, zone: ZoneId =
     if (planIds.isEmpty()) return this
     val byId = plans.associateBy { it.id }
     val due = HashMap<Long, LocalDate?>()
+    val movesAlong = HashSet<Long>()
     planIds.forEach { id ->
-        planProgress(byId[id] ?: Plan(id = id, name = ""), this, today, zone).days.forEach { day ->
+        val plan = byId[id] ?: Plan(id = id, name = "")
+        if (plan.movesAlong) movesAlong += id
+        planProgress(plan, this, today, zone).days.forEach { day ->
             day.tasks.filter { it.completedAt == null }.forEach { due[it.id] = day.due }
         }
     }
     return mapNotNull { task ->
         if (task.id !in due) return@mapNotNull task
         val date = due[task.id] ?: return@mapNotNull null
-        if (date == task.schedule!!.start) task else task.copy(schedule = task.schedule.copy(start = date))
+        // In a plan that moves along, a skip only holds for the day it was made.
+        val skippedOn = task.skippedOn?.takeUnless { task.planId in movesAlong && it != today }
+        if (date == task.schedule!!.start && skippedOn == task.skippedOn) task
+        else task.copy(schedule = task.schedule.copy(start = date), skippedOn = skippedOn)
     }
 }
 

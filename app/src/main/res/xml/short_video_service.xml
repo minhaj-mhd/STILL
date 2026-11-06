@@ -2,7 +2,7 @@
 <!--
     Short videos: a service of its own so Precision mode never reads the screen. Android sends it
     events from these apps only (the service narrows this further to the ones switched on), and it
-    looks at the screen only while one of them is in front: by view id in YouTube and Instagram,
+    looks at the screen only while one of them is in front: by view id in YouTube, Instagram and Snapchat,
     and at the address bar in the browsers. Keep packageNames in step with SHORT_VIDEO_RULES and
     BROWSERS (a test checks). Content changes are merged (notificationTimeout 200): only the latest
     look at the screen matters.
@@ -16,5 +16,5 @@
     android:description="@string/short_video_service_description"
     android:isAccessibilityTool="false"
     android:notificationTimeout="200"
-    android:packageNames="com.google.android.youtube,app.revanced.android.youtube,app.rvx.android.youtube,com.instagram.android,com.android.chrome,org.mozilla.firefox"
+    android:packageNames="com.google.android.youtube,app.revanced.android.youtube,app.rvx.android.youtube,com.instagram.android,com.snapchat.android,com.android.chrome,org.mozilla.firefox"
     tools:targetApi="31" />

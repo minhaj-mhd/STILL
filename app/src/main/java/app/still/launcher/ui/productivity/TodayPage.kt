@@ -190,14 +190,24 @@ fun TodayPage(
                 openTask(entry)
             },
             onSetSkipped = { skipped ->
-                viewModel.setSkipped(entry, skipped)
+                if (entry.task.planDay != null) viewModel.setPlanDaySkipped(entry, skipped) else viewModel.setSkipped(entry, skipped)
                 taskMenu = null
             },
             onDelete = {
                 viewModel.deleteTask(entry.task)
                 taskMenu = null
             },
-            locks = entry.appsLocked(),
+            // Skipping a plan day skips all of it, so it opens whatever any of its tasks keeps locked.
+            locks = if (entry.task.planDay == null) {
+                entry.appsLocked()
+            } else {
+                agenda?.let { (it.overdue + it.today).filter { other -> other.task.planId == entry.task.planId && other.task.planDay == entry.task.planDay } }
+                    .orEmpty()
+                    .flatMap { it.appsLocked() }
+                    .plus(entry.appsLocked())
+                    .distinct()
+                    .sorted()
+            },
         )
     }
 

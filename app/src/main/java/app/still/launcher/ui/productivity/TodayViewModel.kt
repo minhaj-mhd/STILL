@@ -153,6 +153,13 @@ class TodayViewModel(
         viewModelScope.launch { repository.setSkipped(ItemType.TASK, entry.task.id, occurrence, skipped) }
     }
 
+    /** Skips the whole plan day [entry] belongs to, or takes the skip back. */
+    fun setPlanDaySkipped(entry: TaskEntry, skipped: Boolean) {
+        val planId = entry.task.planId ?: return
+        val day = entry.task.planDay ?: return
+        viewModelScope.launch { repository.setPlanDaySkipped(planId, day, skipped, LocalDate.now()) }
+    }
+
     fun setSkipped(entry: HabitEntry, skipped: Boolean) {
         viewModelScope.launch { repository.setSkipped(ItemType.HABIT, entry.habit.id, entry.occurrence, skipped) }
     }

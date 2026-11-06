@@ -128,6 +128,11 @@ private fun taskEntries(task: Task, date: LocalDate, records: List<OccurrenceRec
     // One-time: the completion lives on the task.
     if (!schedule.isRecurring) {
         val occurrence = Occurrence(schedule.start, schedule.times.minOrNull())
+        // A skipped plan task shows as skipped on that day, then goes, like a skipped occurrence.
+        val skippedOn = task.skippedOn
+        if (task.completedAt == null && skippedOn != null) {
+            return if (skippedOn == date) listOf(TaskEntry(task, occurrence, isDone = false, isSkipped = true)) else emptyList()
+        }
         return when {
             task.completedAt != null ->
                 if (completedToday) listOf(TaskEntry(task, occurrence, isDone = true)) else emptyList()

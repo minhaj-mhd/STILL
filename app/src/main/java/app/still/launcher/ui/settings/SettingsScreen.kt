@@ -55,11 +55,13 @@ import app.still.launcher.ui.gates.GatesPage
 import app.still.launcher.ui.gates.GatesViewModel
 import app.still.launcher.ui.notifications.NotificationFilterPage
 import app.still.launcher.ui.notifications.NotificationFilterViewModel
+import app.still.launcher.ui.monochrome.MonochromePage
+import app.still.launcher.ui.monochrome.MonochromeViewModel
 import app.still.launcher.ui.shortvideo.ShortVideoPage
 import app.still.launcher.ui.shortvideo.ShortVideoViewModel
 
 /** Settings and the pages it leads to. */
-enum class SettingsPage { MAIN, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, APP_LIMITS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION, SHORT_VIDEOS }
+enum class SettingsPage { MAIN, CUSTOMISE, HIDDEN_APPS, BLOCKED_APPS, APP_LIMITS, SCHEDULES, GATES, NOTIFICATION_FILTER, PRECISION, SHORT_VIDEOS, MONOCHROME }
 
 /**
  * Settings, reached from Insights. Shows each permission STILL uses with its state and a way to
@@ -159,6 +161,7 @@ fun SettingsScreen(
             onBack = { onNavigate(SettingsPage.MAIN) },
             onOpenAppInfo = onOpenAppInfo,
         )
+        SettingsPage.MONOCHROME -> MonochromePage(apps = apps, onBack = { onNavigate(SettingsPage.MAIN) })
         SettingsPage.SHORT_VIDEOS -> ShortVideoPage(
             apps = apps,
             onBack = { onNavigate(SettingsPage.MAIN) },
@@ -279,6 +282,7 @@ private fun MainSettings(
     gatesViewModel: GatesViewModel = viewModel(factory = GatesViewModel.Factory),
     filterViewModel: NotificationFilterViewModel = viewModel(factory = NotificationFilterViewModel.Factory),
     shortVideoViewModel: ShortVideoViewModel = viewModel(factory = ShortVideoViewModel.Factory),
+    monochromeViewModel: MonochromeViewModel = viewModel(factory = MonochromeViewModel.Factory),
 ) {
     val context = LocalContext.current
     var notificationsOn by remember { mutableStateOf(canNotify()) }
@@ -362,6 +366,17 @@ private fun MainSettings(
                 title = stringResource(R.string.short_videos_title),
                 value = stringResource(if (shortVideosOn) R.string.settings_on else R.string.schedules_status_off),
             ) { onNavigate(SettingsPage.SHORT_VIDEOS) }
+            val monochrome = monochromeViewModel.settings.collectAsStateWithLifecycle().value
+            NavigationRow(
+                title = stringResource(R.string.monochrome_title),
+                value = stringResource(
+                    when {
+                        !monochromeViewModel.isAllowed() -> R.string.monochrome_set_up
+                        monochrome.forApps || monochrome.forFocus -> R.string.settings_on
+                        else -> R.string.schedules_status_off
+                    },
+                ),
+            ) { onNavigate(SettingsPage.MONOCHROME) }
             NavigationRow(
                 title = stringResource(R.string.settings_app_limits),
                 value = pluralStringResource(R.plurals.settings_app_count, appLimitCount, appLimitCount),

@@ -20,6 +20,7 @@ import app.still.launcher.keynote.Completion
 import app.still.launcher.keynote.EVENING_HOUR
 import app.still.launcher.keynote.MORNING_FROM_HOUR
 import app.still.launcher.keynote.Moment
+import app.still.launcher.keynote.OwnQuality
 import app.still.launcher.keynote.UnlockMonitor
 import app.still.launcher.keynote.UnlockObservation
 import app.still.launcher.keynote.practiceMoments
@@ -108,6 +109,12 @@ class KeynoteViewModel(
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Eagerly, KeynoteState())
 
+    /** Qualities you added yourself, offered next to the suggestions on the morning card and in Customise. */
+    val ownQualities: StateFlow<List<OwnQuality>> = preferences.settings
+        .map { it.ownQualities }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     /** The UI reports the time every minute; unlocks are counted again then. */
     fun setNow(time: LocalDateTime) {
         val day = now.value.toLocalDate()
@@ -119,8 +126,11 @@ class KeynoteViewModel(
         }
     }
 
-    /** Sets today's [quality] and [action], practised with [link]. A new task is due today. */
-    fun startDay(quality: String, action: String, link: KeynoteLink) {
+    /**
+     * Sets today's [quality] and [action], practised with [link]. A new task is due today. A quality
+     * of your own, not one of the [suggested], is kept with this action for the days after.
+     */
+    fun startDay(quality: String, action: String, link: KeynoteLink, suggested: Collection<String>) {
         val day = now.value.toLocalDate()
         viewModelScope.launch {
             val item: Pair<ItemType, Long>? = when (link) {
@@ -129,7 +139,18 @@ class KeynoteViewModel(
                 KeynoteLink.None -> null
             }
             practice.saveKeynote(Keynote(day, quality.trim(), action.trim(), item?.first, item?.second))
+            preferences.keepOwnQuality(quality, action, suggested)
         }
+    }
+
+    /** Adds a quality of your own, with its action, to those on offer. */
+    fun addOwnQuality(quality: String, action: String, suggested: Collection<String>) {
+        viewModelScope.launch { preferences.keepOwnQuality(quality, action, suggested) }
+    }
+
+    /** Takes one of your own qualities off the list. Days already set with it keep it. */
+    fun removeOwnQuality(quality: String) {
+        viewModelScope.launch { preferences.removeOwnQuality(quality) }
     }
 
     /** "Not today": the morning card doesn't ask again until tomorrow. */

@@ -210,4 +210,64 @@ class PlansTest {
         assertEquals(listOf(LocalTime.of(7, 0)), tasks[0].first.schedule?.times)
         assertEquals(listOf("Notes"), tasks[0].second.map { it.title })
     }
+
+    @Test
+    fun `a plan day skipped today waits until tomorrow and the rest move along`() {
+        val tasks = listOf(planTask(1, 1, done = day(1)), planTask(2, 2).copy(skippedOn = day(2)), planTask(3, 3))
+        val dates = tasks.dates(today = day(2))
+        assertEquals(day(3), dates[2])
+        assertEquals(day(4), dates[3])
+        // On the day it was skipped it shows as skipped, not pending.
+        val entry = buildAgenda(day(2), tasks, emptyList(), emptyList(), zone, plans = listOf(plan)).today.single()
+        assertEquals(2L, entry.task.id)
+        assertTrue(entry.isSkipped)
+        assertFalse(entry.isPending)
+    }
+
+    @Test
+    fun `the day after, a skipped plan day is due again`() {
+        val tasks = listOf(planTask(1, 1, done = day(1)), planTask(2, 2).copy(skippedOn = day(2)), planTask(3, 3))
+        val moved = tasks.withPlanDates(listOf(plan), day(3), zone).associateBy { it.id }
+        assertEquals(day(3), moved.getValue(2).schedule?.start)
+        assertNull(moved.getValue(2).skippedOn)
+        assertEquals(day(4), moved.getValue(3).schedule?.start)
+        val entry = buildAgenda(day(3), tasks, emptyList(), emptyList(), zone, plans = listOf(plan)).today.single()
+        assertEquals(2L, entry.task.id)
+        assertTrue(entry.isPending)
+    }
+
+    @Test
+    fun `a weekday plan skipped on Friday comes back on Monday`() {
+        val weekdays = plan.copy(weekdays = Plan.WEEKDAYS)
+        val tasks = (1..4).map { planTask(it.toLong(), it, done = day(it)) } +
+            planTask(5, 5).copy(skippedOn = day(5)) + planTask(6, 6)
+        val dates = tasks.dates(today = day(5), plans = listOf(weekdays))
+        assertEquals(day(8), dates[5])
+        assertEquals(day(9), dates[6])
+    }
+
+    @Test
+    fun `a plan that keeps its dates lets a skipped day go`() {
+        val keeps = plan.copy(movesAlong = false)
+        val tasks = listOf(planTask(1, 1, done = day(1)), planTask(2, 2).copy(skippedOn = day(2)), planTask(3, 3))
+        val progress = planProgress(keeps, tasks, day(4), zone)
+        assertTrue(progress.days[1].excused)
+        assertEquals(1, progress.behind)
+        assertEquals(3, progress.current?.number)
+        assertEquals(day(2), tasks.dates(today = day(4), plans = listOf(keeps))[2])
+        // Shown as skipped on its day, then gone: never overdue.
+        assertTrue(buildAgenda(day(2), tasks, emptyList(), emptyList(), zone, plans = listOf(keeps)).today.single().isSkipped)
+        val later = buildAgenda(day(4), tasks, emptyList(), emptyList(), zone, plans = listOf(keeps))
+        assertEquals(listOf(3L), later.overdue.map { it.task.id })
+        assertTrue(later.today.isEmpty())
+    }
+
+    @Test
+    fun `a day finished after a skip counts as done`() {
+        val keeps = plan.copy(movesAlong = false)
+        val tasks = listOf(planTask(1, 1, done = day(1)), planTask(2, 2, done = day(3)).copy(skippedOn = day(2)))
+        val progress = planProgress(keeps, tasks, day(4), zone)
+        assertTrue(progress.days[1].isFinished)
+        assertFalse(progress.days[1].excused)
+    }
 }

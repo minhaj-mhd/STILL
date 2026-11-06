@@ -96,13 +96,30 @@ class ShortVideoRulesTest {
 
     @Test
     fun `only the apps whose switches are on are watched, never no app at all`() {
-        assertEquals(INSTAGRAM_REELS.packages + BROWSERS.map { it.packageName }, watchedPackages(setOf(YOUTUBE_SHORTS.id), OWN))
-        assertEquals(YOUTUBE_SHORTS.packages + INSTAGRAM_REELS.packages, watchedPackages(setOf(BROWSERS_ID), OWN))
+        assertEquals(INSTAGRAM_REELS.packages + SNAPCHAT_SPOTLIGHT.packages + BROWSERS.map { it.packageName }, watchedPackages(setOf(YOUTUBE_SHORTS.id), OWN))
+        assertEquals(YOUTUBE_SHORTS.packages + INSTAGRAM_REELS.packages + SNAPCHAT_SPOTLIGHT.packages, watchedPackages(setOf(BROWSERS_ID), OWN))
         // Browsers alone have nothing to look for.
-        assertEquals(setOf(OWN), watchedPackages(setOf(YOUTUBE_SHORTS.id, INSTAGRAM_REELS.id), OWN))
+        assertEquals(setOf(OWN), watchedPackages(setOf(YOUTUBE_SHORTS.id, INSTAGRAM_REELS.id, SNAPCHAT_SPOTLIGHT.id), OWN))
     }
 
     private companion object {
         const val OWN = "app.still.launcher"
+    }
+
+    @Test
+    fun `Snapchat Spotlight on the web is a short video, the rest of Snapchat isn't`() {
+        assertEquals(SNAPCHAT_SPOTLIGHT, shortVideoRuleForAddress("https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYZm"))
+        assertEquals(SNAPCHAT_SPOTLIGHT, shortVideoRuleForAddress("snapchat.com/spotlight"))
+        assertNull(shortVideoRuleForAddress("snapchat.com"))
+        assertNull(shortVideoRuleForAddress("https://www.snapchat.com/add/someone"))
+    }
+
+    @Test
+    fun `in Snapchat, Spotlight shows while its tab is the selected one`() {
+        assertTrue(onShortVideoTab(SNAPCHAT_SPOTLIGHT, listOf("com.snapchat.android:id/ngs_spotlight_icon_container")))
+        assertFalse(onShortVideoTab(SNAPCHAT_SPOTLIGHT, listOf("com.snapchat.android:id/ngs_chat_icon_container")))
+        assertFalse(onShortVideoTab(SNAPCHAT_SPOTLIGHT, emptyList()))
+        // Apps whose player has ids of its own have no tab rule.
+        assertFalse(onShortVideoTab(YOUTUBE_SHORTS, listOf("com.google.android.youtube:id/ngs_spotlight_icon_container")))
     }
 }

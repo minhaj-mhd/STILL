@@ -9,13 +9,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import android.text.format.DateFormat
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import app.still.launcher.MainActivity
 import app.still.launcher.R
+import app.still.launcher.ui.components.TimeFormats
+import java.time.Instant
 import app.still.launcher.StillApplication
 import app.still.launcher.data.LauncherPreferences
 import app.still.launcher.data.ProductivityRepository
@@ -29,7 +30,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.Date
 
 /**
  * The focus timer for duration habits. One runs at a time and keeps running with STILL in the
@@ -118,7 +118,7 @@ class FocusTimer(
         val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
         if (exact) alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, session.endMillis, endIntent())
         else alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, session.endMillis, endIntent())
-        val until = DateFormat.getTimeFormat(appContext).format(Date(session.endMillis))
+        val until = TimeFormats.format(appContext, Instant.ofEpochMilli(session.endMillis))
         val notification = NotificationCompat.Builder(appContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(appContext.getString(R.string.focus_notification_title, session.title))

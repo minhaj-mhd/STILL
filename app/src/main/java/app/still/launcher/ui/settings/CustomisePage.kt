@@ -38,6 +38,13 @@ import app.still.launcher.data.FolderOpening
 import app.still.launcher.data.FolderStyle
 import app.still.launcher.data.LauncherSettings
 import app.still.launcher.data.WallpaperChoice
+import app.still.launcher.data.ClockWeight
+import app.still.launcher.data.FontChoice
+import app.still.launcher.data.TextSize
+import app.still.launcher.data.TimeFormat
+import app.still.launcher.ui.components.is24HourTime
+import app.still.launcher.ui.theme.Appearance
+import app.still.launcher.ui.theme.fontFamilyOf
 import app.still.launcher.ui.HomeButton
 import app.still.launcher.ui.LauncherUiState
 import app.still.launcher.ui.LauncherViewModel
@@ -45,6 +52,12 @@ import app.still.launcher.ui.components.Chip
 import app.still.launcher.ui.components.ChipRow
 import app.still.launcher.ui.components.FieldLabel
 import app.still.launcher.ui.editor.EditorScaffold
+import app.still.launcher.ui.editor.SwitchRow
+import app.still.launcher.ui.keynote.KeynoteCard
+import app.still.launcher.ui.keynote.KeynoteViewModel
+import app.still.launcher.ui.keynote.linkOptionsOf
+import app.still.launcher.ui.keynote.suggestedQualities
+import app.still.launcher.ui.productivity.TodayViewModel
 import app.still.launcher.ui.theme.accentSwatch
 import app.still.launcher.ui.theme.baseColor
 import app.still.launcher.ui.theme.stillPalette
@@ -103,6 +116,10 @@ fun CustomisePage(onBack: () -> Unit, viewModel: LauncherViewModel = viewModel(f
                     }
             }
         }
+
+        TextAndTime(appearance, viewModel)
+
+        DailyQuality(shown = state.dailyQuality, onShownChange = viewModel::setDailyQuality)
 
         Column {
             FieldLabel(stringResource(R.string.customise_apps_shown_as))
@@ -203,6 +220,87 @@ private fun Swatch(color: Color, label: String, selected: Boolean, phone: Boolea
     }
 }
 
+/** Font, text size, 12- or 24-hour time, and how the home clock looks. */
+@Composable
+private fun TextAndTime(appearance: Appearance, viewModel: LauncherViewModel) {
+    Column {
+        FieldLabel(stringResource(R.string.customise_font))
+        ChipRow {
+            FontChoice.entries.forEach { font ->
+                Chip(
+                    text = font.googleName ?: stringResource(R.string.font_system),
+                    selected = appearance.font == font,
+                    fontFamily = fontFamilyOf(font),
+                ) { viewModel.setFont(font) }
+            }
+        }
+        Hint(stringResource(R.string.customise_font_hint))
+    }
+
+    Column {
+        FieldLabel(stringResource(R.string.customise_text_size))
+        ChipRow {
+            TextSize.entries.forEach { size ->
+                Chip(stringResource(size.label()), appearance.textSize == size) { viewModel.setTextSize(size) }
+            }
+        }
+        Hint(stringResource(R.string.customise_text_size_hint))
+    }
+
+    Column {
+        FieldLabel(stringResource(R.string.customise_time))
+        ChipRow {
+            TimeFormat.entries.forEach { format ->
+                Chip(stringResource(format.label()), appearance.timeFormat == format) { viewModel.setTimeFormat(format) }
+            }
+        }
+    }
+
+    // Am or pm only means something in 12-hour time.
+    if (!is24HourTime()) {
+        Column {
+            FieldLabel(stringResource(R.string.customise_clock))
+            ChipRow {
+                Chip(stringResource(R.string.clock_hours_only), !appearance.clockAmPm) { viewModel.setClockAmPm(false) }
+                Chip(stringResource(R.string.clock_am_pm), appearance.clockAmPm) { viewModel.setClockAmPm(true) }
+            }
+        }
+    }
+
+    Column {
+        FieldLabel(stringResource(R.string.customise_clock_weight))
+        ChipRow {
+            ClockWeight.entries.forEach { weight ->
+                Chip(stringResource(weight.label()), appearance.clockWeight == weight) { viewModel.setClockWeight(weight) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Hint(text: String) {
+    Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+private fun TextSize.label(): Int = when (this) {
+    TextSize.SMALLER -> R.string.text_size_smaller
+    TextSize.DEFAULT -> R.string.text_size_default
+    TextSize.LARGER -> R.string.text_size_larger
+    TextSize.LARGEST -> R.string.text_size_largest
+}
+
+private fun TimeFormat.label(): Int = when (this) {
+    TimeFormat.PHONE -> R.string.time_phone
+    TimeFormat.H24 -> R.string.time_24
+    TimeFormat.H12 -> R.string.time_12
+}
+
+private fun ClockWeight.label(): Int = when (this) {
+    ClockWeight.THIN -> R.string.clock_thin
+    ClockWeight.LIGHT -> R.string.clock_light
+    ClockWeight.REGULAR -> R.string.clock_regular
+}
+
 private fun WallpaperChoice.label(): Int = when (this) {
     WallpaperChoice.BLACK -> R.string.wallpaper_black
     WallpaperChoice.NIGHT -> R.string.wallpaper_night
@@ -241,4 +339,46 @@ private fun FolderOpening.label(): Int = when (this) {
     FolderOpening.CASCADE -> R.string.opening_cascade
     FolderOpening.SHELF -> R.string.opening_shelf
     FolderOpening.ORBIT -> R.string.opening_orbit
+}
+
+/**
+ * The daily quality, as on the morning card: shown on home or not, and today's chosen or changed
+ * here any time, even after "Not today". Your own qualities can be taken off the list here.
+ */
+@Composable
+private fun DailyQuality(
+    shown: Boolean,
+    onShownChange: (Boolean) -> Unit,
+    keynoteViewModel: KeynoteViewModel = viewModel(factory = KeynoteViewModel.Factory),
+    todayViewModel: TodayViewModel = viewModel(factory = TodayViewModel.Factory),
+) {
+    val keynote by keynoteViewModel.state.collectAsStateWithLifecycle()
+    val own by keynoteViewModel.ownQualities.collectAsStateWithLifecycle()
+    val agenda by todayViewModel.agenda.collectAsStateWithLifecycle()
+    val linkOptions = remember(agenda) { linkOptionsOf(agenda) }
+    val suggested = suggestedQualities()
+    val today = keynote.keynote
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FieldLabel(stringResource(R.string.customise_quality))
+        SwitchRow(title = stringResource(R.string.customise_quality_show), detail = null, checked = shown, onCheckedChange = onShownChange)
+        if (shown) {
+            Text(
+                text = today?.let { stringResource(R.string.customise_quality_today, it.quality) } ?: stringResource(R.string.customise_quality_not_yet),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            KeynoteCard(
+                initial = today ?: keynote.previous,
+                linkOptions = linkOptions,
+                changing = today != null,
+                own = own,
+                onStart = { quality, action, link -> keynoteViewModel.startDay(quality, action, link, suggested) },
+                onAddOwn = { quality, action -> keynoteViewModel.addOwnQuality(quality, action, suggested) },
+                onPutOff = null,
+                onRemoveOwn = keynoteViewModel::removeOwnQuality,
+                startLabel = if (today == null) stringResource(R.string.customise_quality_set) else null,
+            )
+            Hint(stringResource(R.string.customise_quality_hint))
+        }
+    }
 }

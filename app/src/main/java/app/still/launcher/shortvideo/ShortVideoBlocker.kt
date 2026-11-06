@@ -74,5 +74,6 @@ val ShortVideoRule.nameRes: Int
     get() = when (this) {
         YOUTUBE_SHORTS -> R.string.short_videos_youtube
         INSTAGRAM_REELS -> R.string.short_videos_instagram
+        SNAPCHAT_SPOTLIGHT -> R.string.short_videos_snapchat
         else -> error("No name for $id")
     }

@@ -16,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.still.launcher.ui.read.daily.DailyReadsScreens
 import app.still.launcher.ui.read.daily.DailyReadsViewModel
 import app.still.launcher.ui.theme.Appearance
+import app.still.launcher.ui.theme.appearance
 import app.still.launcher.ui.theme.StillTheme
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -38,7 +39,7 @@ class DailyReadsActivity : ComponentActivity() {
         val startSeries = intent.getLongExtra(EXTRA_SERIES_ID, -1L).takeIf { it > 0 }
         setContent {
             val appearanceFlow = remember {
-                preferences.settings.map { Appearance(it.accent, it.wallpaper, it.wallpaperDim) }.distinctUntilChanged()
+                preferences.settings.map { it.appearance() }.distinctUntilChanged()
             }
             val appearance by appearanceFlow.collectAsStateWithLifecycle(Appearance())
             LaunchedEffect(appearance.isLight) {

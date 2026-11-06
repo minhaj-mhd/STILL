@@ -86,6 +86,13 @@ class ProductivityRepository(private val dao: ProductivityDao) {
     /** Saves a plan's own settings, e.g. a pause. */
     suspend fun updatePlan(plan: Plan) = dao.updatePlan(plan)
 
+    /** Skips day [day] of plan [planId] on [today], or takes the skip back: each of its tasks not done yet. */
+    suspend fun setPlanDaySkipped(planId: Long, day: Int, skipped: Boolean, today: LocalDate) {
+        dao.getPlanTasks(planId)
+            .filter { it.planDay == day && it.parentId == null && it.completedAt == null }
+            .forEach { dao.updateTask(it.copy(skippedOn = if (skipped) today else null)) }
+    }
+
     /** Deletes a plan with all its tasks and their history. */
     suspend fun deletePlan(planId: Long) = dao.deletePlanWithTasks(planId)
 
