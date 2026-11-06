@@ -13,6 +13,9 @@ import app.still.launcher.data.blocking.BlockingScheduleDao
 import app.still.launcher.data.gates.GateEvent
 import app.still.launcher.data.history.FocusModePeriod
 import app.still.launcher.data.history.HistoryDao
+import app.still.launcher.data.read.Book
+import app.still.launcher.data.read.ReadDao
+import app.still.launcher.data.read.ReadingSession
 import app.still.launcher.data.history.InterventionRecord
 import app.still.launcher.data.history.UsageAppRecord
 import app.still.launcher.data.history.UsageDayRecord
@@ -40,7 +43,8 @@ import app.still.launcher.data.productivity.Task
  * Version 2 added [DismissedReminder]; 3 added [Note]; 4 added [AppBlock]; 5 added [BlockingSchedule];
  * 6 added [TaskGate] and [GateEvent]; 7 added [HeldNotification]; 8 added [Choice] and [Keynote];
  * 9 added [Plan] and [Task.planId] and [Task.planDay]; 11 added [UsageDayRecord], [UsageAppRecord],
- * [InterventionRecord] and [FocusModePeriod]; 12 added the daily limit to [UsageDayRecord].
+ * [InterventionRecord] and [FocusModePeriod]; 12 added the daily limit to [UsageDayRecord];
+ * 13 added [Book] and [ReadingSession].
  */
 @Database(
     entities = [
@@ -48,8 +52,9 @@ import app.still.launcher.data.productivity.Task
         AppBlock::class, BlockingSchedule::class, TaskGate::class, GateEvent::class, HeldNotification::class,
         Choice::class, Keynote::class, Plan::class,
         UsageDayRecord::class, UsageAppRecord::class, InterventionRecord::class, FocusModePeriod::class,
+        Book::class, ReadingSession::class,
     ],
-    version = 12,
+    version = 13,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
@@ -62,6 +67,7 @@ import app.still.launcher.data.productivity.Task
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11),
         AutoMigration(from = 11, to = 12),
+        AutoMigration(from = 12, to = 13),
     ],
 )
 @TypeConverters(Converters::class)
@@ -82,6 +88,8 @@ abstract class StillDatabase : RoomDatabase() {
     abstract fun practiceDao(): PracticeDao
 
     abstract fun historyDao(): HistoryDao
+
+    abstract fun readDao(): ReadDao
 
     companion object {
         fun create(context: Context): StillDatabase =

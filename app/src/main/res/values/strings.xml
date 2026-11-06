@@ -1061,4 +1061,62 @@
         <item quantity="other">%1$d more than %2$s</item>
     </plurals>
     <string name="insights_unlocks_same">the same as %1$s</string>
+
+    <!-- STILL Read -->
+    <string name="read_title">Read</string>
+    <string name="read_today">Read today</string>
+    <string name="read_today_goal">%1$d of %2$d min</string>
+    <string name="read_today_minutes">%1$d min</string>
+    <plurals name="read_streak">
+        <item quantity="one">%d-day streak</item>
+        <item quantity="other">%d-day streak</item>
+    </plurals>
+    <string name="read_counts_for">counts for “%1$s”</string>
+    <string name="read_set_goal">Set a daily goal</string>
+    <string name="read_reading">Reading</string>
+    <string name="read_to_read">To read</string>
+    <string name="read_finished">Finished</string>
+    <plurals name="read_finished_count">
+        <item quantity="one">%d book</item>
+        <item quantity="other">%d books</item>
+    </plurals>
+    <string name="read_add">+ Add a book or PDF</string>
+    <string name="read_share_hint">or share a file to STILL</string>
+    <string name="read_empty">Add a book or PDF to read here. STILL keeps its own copy, so it works offline.</string>
+    <string name="read_percent">%1$d%%</string>
+    <string name="read_page_of">Page %1$d of %2$d</string>
+    <string name="read_time_read">%1$s read</string>
+    <string name="read_mark_finished">Mark as finished</string>
+    <string name="read_move_reading">Move to Reading</string>
+    <string name="read_move_to_read">Move to To read</string>
+    <string name="read_remove">Remove from STILL</string>
+    <string name="read_remove_title">Remove “%1$s”?</string>
+    <string name="read_remove_detail">STILL\'s copy and its reading time are removed. The original file stays where it was.</string>
+    <string name="read_remove_confirm">Remove</string>
+    <string name="read_added">Added “%1$s” to To read</string>
+    <string name="read_not_a_book">Only PDF and EPUB files can be added.</string>
+    <string name="read_unreadable">That file couldn\'t be opened as a book.</string>
+    <string name="read_cannot_open">This book couldn\'t be opened.</string>
+    <string name="read_goal_title">Reading goal</string>
+    <string name="read_goal_daily">Each day</string>
+    <string name="read_goal_off">Off</string>
+    <string name="read_goal_habit">Fills a habit</string>
+    <string name="read_goal_habit_none">None</string>
+    <string name="read_goal_habit_hint">Reading time logs itself on the habit, so a task gate waiting on it opens once you\'ve read enough.</string>
+    <string name="read_goal_no_habits">Make a duration habit, such as “Read 20 min”, and reading time can fill it.</string>
+    <string name="read_page_count">%1$d / %2$d</string>
+    <string name="read_page_description">Page %1$d</string>
+    <string name="read_sitting">%1$s this sitting</string>
+    <string name="read_night_on">Night: on</string>
+    <string name="read_night_off">Night: off</string>
+    <string name="read_text">Text</string>
+    <string name="read_text_smaller">Smaller text</string>
+    <string name="read_text_larger">Larger text</string>
+    <string name="read_font_serif">Serif</string>
+    <string name="read_font_sans">Sans</string>
+    <string name="read_font_dyslexic">Dyslexic</string>
+    <string name="read_theme_light">Light</string>
+    <string name="read_theme_sepia">Sepia</string>
+    <string name="read_theme_dark">Dark</string>
+    <string name="share_book_label">Add to STILL Read</string>
 </resources>

@@ -16,19 +16,21 @@ import androidx.compose.ui.unit.dp
 import app.still.launcher.R
 
 /** The left page's three views. */
-enum class LeftTab { TODAY, NOTES, PLANS }
+enum class LeftTab { TODAY, NOTES, PLANS, READ }
 
 /**
- * "Today  Notes  Plans" as the page heading; the current one is bright, the other dimmed. [compact] is
+ * "Today  Notes  Plans  Read" as the page heading; the current one is bright, the other dimmed. [compact] is
  * the small version under the Today page's date.
  */
 @Composable
 fun LeftPageTabs(selected: LeftTab, compact: Boolean = false, onSelect: (LeftTab) -> Unit) {
-    val style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineLarge
-    Row(horizontalArrangement = Arrangement.spacedBy(if (compact) 16.dp else 20.dp)) {
+    // Four headings fit across a phone at this size.
+    val style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineMedium
+    Row(horizontalArrangement = Arrangement.spacedBy(if (compact) 16.dp else 18.dp)) {
         Tab(stringResource(R.string.today_title), selected == LeftTab.TODAY, style) { onSelect(LeftTab.TODAY) }
         Tab(stringResource(R.string.notes_title), selected == LeftTab.NOTES, style) { onSelect(LeftTab.NOTES) }
         Tab(stringResource(R.string.plans_title), selected == LeftTab.PLANS, style) { onSelect(LeftTab.PLANS) }
+        Tab(stringResource(R.string.read_title), selected == LeftTab.READ, style) { onSelect(LeftTab.READ) }
     }
 }
 

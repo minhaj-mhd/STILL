@@ -2,6 +2,7 @@ package app.still.launcher.ui
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.provider.AlarmClock
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.still.launcher.R
+import app.still.launcher.ReaderActivity
 import app.still.launcher.data.AppScreenTime
 import app.still.launcher.data.practice.ChoiceSource
 import app.still.launcher.limit.AppClosed
@@ -96,6 +98,8 @@ import app.still.launcher.ui.settings.SettingsScreen
 import app.still.launcher.ui.productivity.LeftPageTabs
 import app.still.launcher.ui.productivity.LeftTab
 import app.still.launcher.ui.productivity.PlansPage
+import app.still.launcher.ui.read.ReadPage
+import app.still.launcher.ui.read.ReadViewModel
 import app.still.launcher.ui.productivity.TodayPage
 import app.still.launcher.ui.productivity.TodayViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -122,12 +126,14 @@ fun StillLauncher(
     todayRequests: Flow<Unit>,
     heldNotificationRequests: Flow<Unit>,
     listRequests: Flow<String>,
+    bookRequests: Flow<Uri>,
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     // Shared with the Today page, so home's due count always matches what the Today page lists.
     val todayViewModel: TodayViewModel = viewModel(factory = TodayViewModel.Factory)
+    val readViewModel: ReadViewModel = viewModel(factory = ReadViewModel.Factory)
     val agenda by todayViewModel.agenda.collectAsStateWithLifecycle()
     val activeReminders by todayViewModel.activeReminders.collectAsStateWithLifecycle()
     val focus by todayViewModel.focus.collectAsStateWithLifecycle()
@@ -226,7 +232,9 @@ fun StillLauncher(
         precisionSwitchedOn = viewModel.isPrecisionSwitchedOn()
         viewModel.onShown()
         val away = System.currentTimeMillis() - leftAtMillis
-        if (focus != null && leftAtMillis > 0 && away >= WELCOME_BACK_AFTER_MILLIS) welcomeBack = true
+        // Coming straight back from STILL Read isn't coming back from being away.
+        val wasReading = System.currentTimeMillis() - ReaderActivity.lastClosedAtMillis < FROM_READER_MILLIS
+        if (focus != null && leftAtMillis > 0 && away >= WELCOME_BACK_AFTER_MILLIS && !wasReading) welcomeBack = true
         onPauseOrDispose { leftAtMillis = System.currentTimeMillis() }
     }
     val precisionRunning by viewModel.precisionRunning.collectAsStateWithLifecycle()
@@ -457,6 +465,16 @@ fun StillLauncher(
         }
     }
 
+    // A PDF or EPUB shared to "Add to STILL Read": copied into the library, shown on the Read tab.
+    LaunchedEffect(bookRequests) {
+        bookRequests.collect { uri ->
+            closeAll()
+            leftTab = LeftTab.READ
+            pagerState.scrollToPage(Page.Productivity.ordinal)
+            readViewModel.import(uri)
+        }
+    }
+
     // A launcher has nowhere to go back to: Back only returns to the home page.
     BackHandler {
         if (pagerState.currentPage != Page.Home.ordinal) goHome(animate = true)
@@ -481,6 +499,7 @@ fun StillLauncher(
                         )
                         LeftTab.NOTES -> NotesPage(tabs = { LeftPageTabs(leftTab) { leftTab = it } }, onOpenEditor = { editor = it })
                         LeftTab.PLANS -> PlansPage(tabs = { LeftPageTabs(leftTab) { leftTab = it } }, onOpenEditor = { editor = it })
+                        LeftTab.READ -> ReadPage(tabs = { LeftPageTabs(leftTab) { leftTab = it } }, viewModel = readViewModel)
                     }
                 }
                 Page.Home -> HomePage(
@@ -1148,6 +1167,7 @@ fun StillLauncher(
 
 /** Away from STILL this long during a focus session, and home says welcome back. */
 private const val WELCOME_BACK_AFTER_MILLIS = 30_000L
+private const val FROM_READER_MILLIS = 5_000L
 
 /** How long the Precision mode service gets to connect before home says it's off. */
 private const val PRECISION_CONNECT_MILLIS = 3_000L

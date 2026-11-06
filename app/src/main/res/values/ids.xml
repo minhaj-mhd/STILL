@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Where STILL Read puts Readium's EPUB view. -->
+    <item name="reader_fragment" type="id" />
+</resources>

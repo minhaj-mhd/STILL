@@ -87,6 +87,12 @@ data class LauncherSettings(
     val focusModeSince: Long? = null,
     /** Short-video rules (by id) switched off; the rest block while the service is on. */
     val shortVideoRulesOff: Set<String> = emptySet(),
+    /** STILL Read: minutes to read a day (0 for no goal), and the duration habit reading fills. */
+    val readGoalMinutes: Int = 0,
+    val readHabitId: Long? = null,
+    /** STILL Read: how EPUBs look, and whether PDFs show light on dark. */
+    val readText: ReadText = ReadText(),
+    val readPdfNight: Boolean = false,
 ) {
     /** App limits, the app list's fading and the daily quality's summary all need each app's time today. */
     val needsAppUsage: Boolean get() = appListFade || appLimits.isNotEmpty() || dailyQuality
@@ -97,6 +103,20 @@ data class LauncherSettings(
         const val MAX_WALLPAPER_DIM = 0.8f
     }
 }
+
+/** How an EPUB's text looks in STILL Read. [scale] 1 is the book's own size. */
+data class ReadText(val scale: Float = DEFAULT_SCALE, val font: ReadFont = ReadFont.SERIF, val theme: ReadTheme = ReadTheme.DARK) {
+    companion object {
+        const val DEFAULT_SCALE = 1f
+        const val MIN_SCALE = 0.7f
+        const val MAX_SCALE = 2f
+        const val SCALE_STEP = 0.1f
+    }
+}
+
+enum class ReadFont { SERIF, SANS, DYSLEXIC }
+
+enum class ReadTheme { LIGHT, SEPIA, DARK }
 
 class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
 
@@ -139,6 +159,14 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
                 keynotePutOffOn = prefs[KEYNOTE_PUT_OFF_ON]?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
                 focusModeSince = prefs[FOCUS_MODE_SINCE],
                 shortVideoRulesOff = prefs[SHORT_VIDEO_RULES_OFF] ?: emptySet(),
+                readGoalMinutes = prefs[READ_GOAL_MINUTES] ?: 0,
+                readHabitId = prefs[READ_HABIT_ID],
+                readText = ReadText(
+                    scale = prefs[READ_TEXT_SCALE] ?: ReadText.DEFAULT_SCALE,
+                    font = enumOr(prefs[READ_FONT], ReadFont.SERIF),
+                    theme = enumOr(prefs[READ_THEME], ReadTheme.DARK),
+                ),
+                readPdfNight = prefs[READ_PDF_NIGHT] ?: false,
             )
         }
         // Other keys, such as visits to limited apps, change often; only pass on real changes.
@@ -260,6 +288,26 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
     }
 
     /** Starts focus mode at [millis], or ends it with null. */
+    suspend fun setReadGoal(minutes: Int) {
+        dataStore.edit { prefs -> prefs[READ_GOAL_MINUTES] = minutes.coerceAtLeast(0) }
+    }
+
+    suspend fun setReadHabit(habitId: Long?) {
+        dataStore.edit { prefs -> if (habitId == null) prefs.remove(READ_HABIT_ID) else prefs[READ_HABIT_ID] = habitId }
+    }
+
+    suspend fun setReadText(text: ReadText) {
+        dataStore.edit { prefs ->
+            prefs[READ_TEXT_SCALE] = text.scale
+            prefs[READ_FONT] = text.font.name
+            prefs[READ_THEME] = text.theme.name
+        }
+    }
+
+    suspend fun setReadPdfNight(on: Boolean) {
+        dataStore.edit { prefs -> prefs[READ_PDF_NIGHT] = on }
+    }
+
     suspend fun setFocusModeSince(millis: Long?) {
         dataStore.edit { prefs -> if (millis == null) prefs.remove(FOCUS_MODE_SINCE) else prefs[FOCUS_MODE_SINCE] = millis }
     }
@@ -460,6 +508,12 @@ class LauncherPreferences(private val dataStore: DataStore<Preferences>) {
         val KEYNOTE_PUT_OFF_ON = stringPreferencesKey("keynotePutOffOn")
         val FOCUS_MODE_SINCE = longPreferencesKey("focusModeSince")
         val SHORT_VIDEO_RULES_OFF = stringSetPreferencesKey("shortVideoRulesOff")
+        val READ_GOAL_MINUTES = intPreferencesKey("readGoalMinutes")
+        val READ_HABIT_ID = longPreferencesKey("readHabitId")
+        val READ_TEXT_SCALE = floatPreferencesKey("readTextScale")
+        val READ_FONT = stringPreferencesKey("readFont")
+        val READ_THEME = stringPreferencesKey("readTheme")
+        val READ_PDF_NIGHT = booleanPreferencesKey("readPdfNight")
         val appLimitsSerializer: KSerializer<Map<String, AppLimitEntry>> = MapSerializer(String.serializer(), AppLimitEntry.serializer())
         val visitsSerializer: KSerializer<Map<String, AppVisit>> = MapSerializer(String.serializer(), AppVisit.serializer())
         // Typed explicitly, as for Room's converters.

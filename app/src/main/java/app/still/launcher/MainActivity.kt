@@ -2,6 +2,7 @@ package app.still.launcher
 
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -31,6 +32,7 @@ class MainActivity : ComponentActivity() {
     private val todayRequests = Channel<Unit>(Channel.CONFLATED)
     private val heldNotificationRequests = Channel<Unit>(Channel.CONFLATED)
     private val listRequests = Channel<String>(Channel.CONFLATED)
+    private val bookRequests = Channel<Uri>(Channel.UNLIMITED)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
@@ -55,6 +57,7 @@ class MainActivity : ComponentActivity() {
                         todayRequests = todayRequests.receiveAsFlow(),
                         heldNotificationRequests = heldNotificationRequests.receiveAsFlow(),
                         listRequests = listRequests.receiveAsFlow(),
+                        bookRequests = bookRequests.receiveAsFlow(),
                     )
                 }
             }
@@ -73,12 +76,14 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Tapping a reminder notification opens STILL on the Today page; tapping the held-back count
-     * opens the held-back notifications; text shared to "Import as plan" opens in the plan editor.
+     * opens the held-back notifications; text shared to "Import as plan" opens in the plan editor;
+     * a book shared to "Add to STILL Read" is added to the library.
      */
     private fun handleOpenRequests(intent: Intent?) {
         if (intent?.getBooleanExtra(EXTRA_OPEN_TODAY, false) == true) todayRequests.trySend(Unit)
         if (intent?.getBooleanExtra(EXTRA_OPEN_HELD_NOTIFICATIONS, false) == true) heldNotificationRequests.trySend(Unit)
         intent?.getStringExtra(EXTRA_PASTED_LIST)?.let { listRequests.trySend(it) }
+        if (intent?.getBooleanExtra(EXTRA_IMPORT_BOOK, false) == true) intent.data?.let { bookRequests.trySend(it) }
     }
 
     companion object {
@@ -86,5 +91,6 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_GO_HOME = "app.still.launcher.GO_HOME"
         const val EXTRA_OPEN_HELD_NOTIFICATIONS = "app.still.launcher.OPEN_HELD_NOTIFICATIONS"
         const val EXTRA_PASTED_LIST = "app.still.launcher.PASTED_LIST"
+        const val EXTRA_IMPORT_BOOK = "app.still.launcher.IMPORT_BOOK"
     }
 }

@@ -77,6 +77,29 @@
             </intent-filter>
         </activity>
 
+        <!-- STILL Read's reader, opened from the Read tab only. -->
+        <activity
+            android:name=".ReaderActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:theme="@style/Theme.Still.Reader" />
+
+        <!-- "Add to STILL Read" in the Share menu: a PDF or EPUB is copied into STILL's library. -->
+        <activity
+            android:name=".ShareBookActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:label="@string/share_book_label"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="application/epub+zip" />
+            </intent-filter>
+        </activity>
+
         <!-- Reminder alarms and notification buttons; only STILL's own pending intents reach it. -->
         <receiver
             android:name=".reminders.ReminderReceiver"
